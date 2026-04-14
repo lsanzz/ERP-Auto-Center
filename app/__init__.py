@@ -88,8 +88,7 @@ def create_app(test_config: dict | None = None) -> Flask:
 
 with app.app_context():
     db.create_all()
-    # Nao executar seed automaticamente em producao
-    # ou quando o banco ja tiver sido importado manualmente.
-    # seed_database()
+    if os.getenv("RUN_DB_SEED", "false").lower() == "true":
+        seed_database()
 
     return app
