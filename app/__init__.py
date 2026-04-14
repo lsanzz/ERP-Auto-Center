@@ -19,7 +19,6 @@ def _normalize_database_url(raw_url: str | None, instance_path: Path) -> str:
     return raw_url
 
 
-
 def _run_schema_updates(app: Flask) -> None:
     inspector = inspect(db.engine)
     table_names = set(inspector.get_table_names())
@@ -86,9 +85,10 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.register_blueprint(web_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
 
-with app.app_context():
-    db.create_all()
-    if os.getenv("RUN_DB_SEED", "false").lower() == "true":
-        seed_database()
+    with app.app_context():
+        db.create_all()
+        _run_schema_updates(app)
+        if os.getenv("RUN_DB_SEED", "false").lower() == "true":
+            seed_database()
 
     return app
