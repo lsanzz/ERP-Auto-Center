@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>Painel inicial</h2><p class="muted">Indicadores operacionais da oficina.</p></div></div>
+{% if current_user().role == 'ADMINISTRADOR' %}
+<div class="grid grid-4">
+  <div class="stat"><span>O.S. abertas</span><strong>{{ data.os_abertas }}</strong></div>
+  <div class="stat"><span>O.S. em andamento</span><strong>{{ data.os_andamento }}</strong></div>
+  <div class="stat"><span>Faturamento do dia</span><strong>{{ format_currency(data.faturamento_dia) }}</strong></div>
+  <div class="stat"><span>Saldo bancário total</span><strong>{{ format_currency(data.bank_accounts_total) }}</strong></div>
+</div>
+{% else %}<div class="grid grid-2"><div class="stat"><span>O.S. abertas</span><strong>{{ data.os_abertas }}</strong></div><div class="stat"><span>O.S. em andamento</span><strong>{{ data.os_andamento }}</strong></div></div>{% endif %}
+<div class="grid grid-2">
+{% if current_user().role == 'ADMINISTRADOR' %}
+<div class="card">
+  <h3>Contas bancárias</h3>
+  <table class="table"><thead><tr><th>Conta</th><th>Banco</th><th>Saldo atual</th><th>Ações</th></tr></thead><tbody>
+    {% for account in data.bank_accounts %}
+    <tr>
+      <td>{{ account.nome }}</td><td>{{ account.banco or '-' }}</td><td>{{ format_currency(account.saldo_atual) }}</td>
+      <td>
+        <details>
+          <summary>Editar</summary>
+          <form method="post" action="{{ url_for('web.bank_accounts_edit', account_id=account.id) }}">
+            <input type="text" name="nome" value="{{ account.nome }}" required>
+            <input type="text" name="banco" value="{{ account.banco or '' }}" placeholder="Banco">
+            <input type="text" name="agencia" value="{{ account.agencia or '' }}" placeholder="Agência">
+            <input type="text" name="conta" value="{{ account.conta or '' }}" placeholder="Conta">
+            <input type="number" step="0.01" name="saldo_inicial" value="{{ account.saldo_inicial }}">
+            <input type="number" step="0.01" name="saldo_atual" value="{{ account.saldo_atual }}">
+            <button type="submit">Salvar</button>
+          </form>
+          <form method="post" action="{{ url_for('web.bank_accounts_delete', account_id=account.id) }}" onsubmit="return confirm('Remover esta conta bancária?');"><button type="submit" class="secondary">Remover</button></form>
+        </details>
+      </td>
+    </tr>
+    {% else %}<tr><td colspan="4">Nenhuma conta cadastrada.</td></tr>{% endfor %}
+  </tbody></table>
+  <form method="post" action="{{ url_for('web.bank_accounts_new') }}"><div class="form-grid-3"><label>Nome<input type="text" name="nome" required></label><label>Banco<input type="text" name="banco"></label><label>Agência<input type="text" name="agencia"></label><label>Conta<input type="text" name="conta"></label><label>Saldo inicial<input type="number" step="0.01" name="saldo_inicial" value="0.00"></label><label>Saldo atual<input type="number" step="0.01" name="saldo_atual" value="0.00"></label></div><button type="submit">Adicionar conta bancária</button></form>
+</div>
+{% else %}<div class="card"><h3>Visão operacional</h3><p class="muted">Seu perfil não exibe faturamento nem lançamentos financeiros.</p></div>{% endif %}
+<div class="card"><h3>Serviços mais vendidos</h3><table class="table"><thead><tr><th>Serviço</th><th>Quantidade</th></tr></thead><tbody>{% for item in data.services_rank %}<tr><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td></tr>{% else %}<tr><td colspan="2">Sem dados ainda.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+{% endblock %}

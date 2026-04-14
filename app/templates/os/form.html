@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="eyebrow">ordem de serviço</span>
+    <h2>{{ 'Editar O.S.' if order else 'Nova O.S.' }}</h2>
+    <p class="muted">Monte a ordem de serviço completa, com cliente, serviços, peças, responsável e pagamento.</p>
+  </div>
+</div>
+
+<div class="card section-card">
+  <form method="post" id="work-order-form">
+    <div class="form-grid-3">
+      <label>Nome do cliente
+        <input type="text" name="client_nome" id="client_nome" value="{{ order.client_nome if order and order.client_nome else (order.client.nome if order and order.client else '') }}" required list="clientes-cadastrados" placeholder="Digite o nome do cliente">
+      </label>
+      <label>Cliente cadastrado (opcional)
+        <select name="client_id" id="client_id">
+          <option value="">Selecionar existente</option>
+          {% for client in clients %}
+          <option value="{{ client.id }}" data-name="{{ client.nome }}" {% if order and order.client_id == client.id %}selected{% endif %}>{{ client.nome }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Funcionário responsável
+        <select name="employee_id">
+          <option value="">Selecione</option>
+          {% for employee in employees %}
+          <option value="{{ employee.id }}" {% if order and order.employee_id == employee.id %}selected{% endif %}>{{ employee.nome }} · {{ employee.funcao }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Status
+        <select name="status" id="status_select">
+          {% for status in statuses %}
+          <option value="{{ status }}" {% if order and order.status == status %}selected{% endif %}>{{ status|replace('_', ' ') }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Data entrada
+        <input type="date" name="data_entrada" value="{{ order.data_entrada.isoformat() if order and order.data_entrada else iso_today() }}">
+      </label>
+      <label>Placa
+        <input type="text" name="placa" value="{{ order.placa if order else '' }}" placeholder="ABC1D23">
+      </label>
+      <label>Veículo / observação curta
+        <input type="text" name="veiculo_descricao" value="{{ order.veiculo_descricao if order else '' }}" placeholder="Ex.: Onix branco, CG 160, Hilux diesel">
+      </label>
+      <div class="payment-preview-box">
+        <span class="status-label">Status atual</span>
+        <div id="status_preview" class="status-badge status-{{ (order.status if order else 'ABERTA')|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ (order.status if order else 'ABERTA')|replace('_', ' ') }}</div>
+      </div>
+      <label>Observações
+        <textarea name="observacoes">{{ order.observacoes if order else '' }}</textarea>
+      </label>
+    </div>
+
+    {% if current_user().role == 'ADMINISTRADOR' %}
+    <div class="card subcard" style="margin-top: 18px;">
+      <h3>Pagamento da O.S.</h3>
+      <div class="form-grid-3">
+        <label>Forma de pagamento
+          <select name="payment_method_id" id="payment_method_id">
+            <option value="">Selecione</option>
+            {% for method in payment_methods %}
+            <option value="{{ method.id }}" data-parcela="{{ '1' if method.permite_parcelamento else '0' }}" data-max="{{ method.parcelas_maximas }}" {% if order and order.payment_method_id == method.id %}selected{% endif %}>{{ method.nome }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label id="installment-box">Parcelas
+          <input type="number" id="installment_count" name="installment_count" min="1" max="24" value="{{ order.installment_count if order else 1 }}">
+          <small class="muted">No crédito, informe em quantas vezes será feito.</small>
+        </label>
+        <div class="payment-preview-box highlighted" id="installment-value-box">
+          <span class="status-label">Valor de cada parcela</span>
+          <strong id="installment-value-preview">R$ 0,00</strong>
+          <small class="muted" id="installment-hint">Selecione crédito e a quantidade de parcelas.</small>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-2" style="margin-top: 18px;">
+      <div class="table-card section-card">
+        <div class="page-header" style="margin-bottom: 12px;"><div><h3>Serviços feitos</h3></div><button type="button" class="secondary add-item-row" data-target="services-items-body" data-template="service-row-template">Adicionar serviço</button></div>
+        <table class="table item-editor-table" data-catalog='{{ service_price_map|tojson }}'>
+          <thead><tr><th>Nome do serviço</th><th>Qtd.</th><th>Preço un.</th><th>Preço final</th><th></th></tr></thead>
+          <tbody id="services-items-body">
+            {% for row in service_rows %}
+            <tr class="item-row" data-item-type="SERVICO">
+              <td><input list="services-catalog" class="catalog-name" type="text" name="servico_descricao[]" value="{{ row.descricao }}"></td>
+              <td><input class="item-qty" type="number" step="0.01" min="0.01" name="servico_quantidade[]" value="{{ row.quantidade }}"></td>
+              <td><input class="item-unit-price" type="number" step="0.01" min="0" name="servico_valor_unitario[]" value="{{ row.valor_unitario }}"></td>
+              <td><input class="item-total-price" type="number" step="0.01" min="0" name="servico_total[]" value="{{ row.total }}"></td>
+              <td><button type="button" class="secondary remove-item-row">Remover</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="table-card section-card">
+        <div class="page-header" style="margin-bottom: 12px;"><div><h3>Peças usadas</h3></div><button type="button" class="secondary add-item-row" data-target="parts-items-body" data-template="part-row-template">Adicionar peça</button></div>
+        <table class="table item-editor-table" data-catalog='{{ product_price_map|tojson }}'>
+          <thead><tr><th>Nome da peça</th><th>Qtd.</th><th>Preço un.</th><th>Preço final</th><th></th></tr></thead>
+          <tbody id="parts-items-body">
+            {% for row in product_rows %}
+            <tr class="item-row" data-item-type="PECA">
+              <td><input list="products-catalog" class="catalog-name" type="text" name="peca_descricao[]" value="{{ row.descricao }}"></td>
+              <td><input class="item-qty" type="number" step="0.01" min="0.01" name="peca_quantidade[]" value="{{ row.quantidade }}"></td>
+              <td><input class="item-unit-price" type="number" step="0.01" min="0" name="peca_valor_unitario[]" value="{{ row.valor_unitario }}"></td>
+              <td><input class="item-total-price" type="number" step="0.01" min="0" name="peca_total[]" value="{{ row.total }}"></td>
+              <td><button type="button" class="secondary remove-item-row">Remover</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid grid-3" style="margin-top: 18px;">
+      <div class="stat accent-red"><span>Total serviços</span><strong id="preview-services-total">R$ 0,00</strong></div>
+      <div class="stat accent-dark"><span>Total peças</span><strong id="preview-parts-total">R$ 0,00</strong></div>
+      <div class="stat accent-red"><span>Total da O.S.</span><strong id="preview-grand-total">R$ 0,00</strong></div>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Salvar O.S.</button>
+      <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Cancelar</a>
+      {% if order %}
+      <a class="button secondary" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">Abrir detalhes da O.S.</a>
+      <a class="button" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}">Emitir PDF</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+<datalist id="clientes-cadastrados">{% for client in clients %}<option value="{{ client.nome }}"></option>{% endfor %}</datalist>
+<datalist id="services-catalog">{% for service in services %}<option value="{{ service.nome }}">{{ format_currency(service.preco_base) }}</option>{% endfor %}</datalist>
+<datalist id="products-catalog">{% for product in products %}<option value="{{ product.nome }}">{{ format_currency(product.preco_venda) }}</option>{% endfor %}</datalist>
+<template id="service-row-template"><tr class="item-row" data-item-type="SERVICO"><td><input list="services-catalog" class="catalog-name" type="text" name="servico_descricao[]"></td><td><input class="item-qty" type="number" step="0.01" min="0.01" name="servico_quantidade[]" value="1.00"></td><td><input class="item-unit-price" type="number" step="0.01" min="0" name="servico_valor_unitario[]" value="0.00"></td><td><input class="item-total-price" type="number" step="0.01" min="0" name="servico_total[]" value="0.00"></td><td><button type="button" class="secondary remove-item-row">Remover</button></td></tr></template>
+<template id="part-row-template"><tr class="item-row" data-item-type="PECA"><td><input list="products-catalog" class="catalog-name" type="text" name="peca_descricao[]"></td><td><input class="item-qty" type="number" step="0.01" min="0.01" name="peca_quantidade[]" value="1.00"></td><td><input class="item-unit-price" type="number" step="0.01" min="0" name="peca_valor_unitario[]" value="0.00"></td><td><input class="item-total-price" type="number" step="0.01" min="0" name="peca_total[]" value="0.00"></td><td><button type="button" class="secondary remove-item-row">Remover</button></td></tr></template>
+<script>
+(() => {
+  const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  const paymentSelect = document.getElementById('payment_method_id');
+  const installmentBox = document.getElementById('installment-box');
+  const installmentInput = document.getElementById('installment_count');
+  const installmentValuePreview = document.getElementById('installment-value-preview');
+  const installmentHint = document.getElementById('installment-hint');
+  const clientSelect = document.getElementById('client_id');
+  const clientName = document.getElementById('client_nome');
+  const statusSelect = document.getElementById('status_select');
+  const statusPreview = document.getElementById('status_preview');
+  function parseNumber(value) { return Number.parseFloat(value || '0') || 0; }
+  function grandTotalValue() {
+    return parseNumber(document.getElementById('preview-grand-total').dataset.raw || '0');
+  }
+  function updateInstallmentPreview() {
+    if (!paymentSelect || !installmentInput || !installmentValuePreview) return;
+    const option = paymentSelect.options[paymentSelect.selectedIndex];
+    const allows = option && option.dataset.parcela === '1';
+    const total = grandTotalValue();
+    const installments = Math.max(parseInt(installmentInput.value || '1', 10), 1);
+    if (!allows) {
+      installmentValuePreview.textContent = currency.format(total || 0);
+      installmentHint.textContent = total ? 'Pagamento em parcela única.' : 'Selecione uma forma de pagamento.';
+      return;
+    }
+    const value = total / installments;
+    installmentValuePreview.textContent = `${installments}x de ${currency.format(value || 0)}`;
+    installmentHint.textContent = 'Valor calculado automaticamente para cartão de crédito.';
+  }
+  function updateTotals() {
+    let services = 0; let parts = 0;
+    document.querySelectorAll('#services-items-body .item-total-price').forEach((el) => { services += parseNumber(el.value); });
+    document.querySelectorAll('#parts-items-body .item-total-price').forEach((el) => { parts += parseNumber(el.value); });
+    document.getElementById('preview-services-total').textContent = currency.format(services);
+    document.getElementById('preview-parts-total').textContent = currency.format(parts);
+    const grandTotal = services + parts;
+    const grand = document.getElementById('preview-grand-total');
+    grand.textContent = currency.format(grandTotal);
+    grand.dataset.raw = grandTotal.toFixed(2);
+    updateInstallmentPreview();
+  }
+  function updateRowTotal(row) {
+    const qty = parseNumber(row.querySelector('.item-qty').value);
+    const unit = parseNumber(row.querySelector('.item-unit-price').value);
+    const totalInput = row.querySelector('.item-total-price');
+    if (!totalInput.dataset.manual || totalInput.dataset.manual === '0') totalInput.value = (qty * unit).toFixed(2);
+    updateTotals();
+  }
+  function autofillCatalogPrice(row, force = false) {
+    const table = row.closest('table');
+    const catalog = JSON.parse(table.dataset.catalog || '{}');
+    const nameInput = row.querySelector('.catalog-name');
+    const unitInput = row.querySelector('.item-unit-price');
+    const totalInput = row.querySelector('.item-total-price');
+    const key = (nameInput.value || '').trim().toLowerCase();
+    if (!key || !(key in catalog)) return;
+    if (!force && parseNumber(unitInput.value) > 0) return;
+    unitInput.value = Number(catalog[key]).toFixed(2);
+    totalInput.dataset.manual = '0';
+    updateRowTotal(row);
+  }
+  document.addEventListener('input', (event) => {
+    const row = event.target.closest('.item-row');
+    if (row && (event.target.classList.contains('item-qty') || event.target.classList.contains('item-unit-price'))) updateRowTotal(row);
+    if (event.target.classList.contains('item-total-price')) { event.target.dataset.manual = '1'; updateTotals(); }
+    if (event.target === installmentInput) updateInstallmentPreview();
+  });
+  document.addEventListener('change', (event) => {
+    const row = event.target.closest('.item-row');
+    if (row && event.target.classList.contains('catalog-name')) autofillCatalogPrice(row, true);
+    if (event.target === statusSelect && statusPreview) {
+      const status = event.target.value || 'ABERTA';
+      statusPreview.className = `status-badge status-${status.toLowerCase().replaceAll('_', '-')}`;
+      statusPreview.innerHTML = `<span class="status-dot"></span>${status.replaceAll('_', ' ')}`;
+    }
+  });
+  document.querySelectorAll('.add-item-row').forEach((button) => {
+    button.addEventListener('click', () => {
+      const template = document.getElementById(button.dataset.template);
+      const tbody = document.getElementById(button.dataset.target);
+      tbody.insertAdjacentHTML('beforeend', template.innerHTML);
+      const row = tbody.querySelector('tr:last-child');
+      if (row) updateRowTotal(row);
+    });
+  });
+  document.addEventListener('click', (event) => {
+    if (event.target.classList.contains('remove-item-row')) { event.target.closest('tr').remove(); updateTotals(); }
+  });
+  if (paymentSelect && installmentBox) {
+    const syncInstallments = () => {
+      const option = paymentSelect.options[paymentSelect.selectedIndex];
+      const allows = option && option.dataset.parcela === '1';
+      installmentBox.style.display = allows ? 'block' : 'none';
+      document.getElementById('installment-value-box').style.display = paymentSelect.value ? 'grid' : 'none';
+      if (!allows && installmentInput) installmentInput.value = 1;
+      if (allows && installmentInput && option.dataset.max) installmentInput.max = option.dataset.max;
+      updateInstallmentPreview();
+    };
+    paymentSelect.addEventListener('change', syncInstallments);
+    syncInstallments();
+  }
+  if (clientSelect) {
+    clientSelect.addEventListener('change', () => {
+      const option = clientSelect.options[clientSelect.selectedIndex];
+      if (option && option.dataset.name) clientName.value = option.dataset.name;
+    });
+  }
+  document.querySelectorAll('.item-row').forEach((row) => {
+    autofillCatalogPrice(row);
+    updateRowTotal(row);
+  });
+  updateTotals();
+})();
+</script>
+{% endblock %}

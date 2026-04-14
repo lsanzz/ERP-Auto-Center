@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="eyebrow">ordens de serviço</span>
+    <h2>Ordens de serviço</h2>
+    <p class="muted">Controle operacional com status visual, ações rápidas e lançamento de recebimentos direto do painel.</p>
+  </div>
+  <a class="button" href="{{ url_for('web.work_orders_new') }}">Nova O.S.</a>
+</div>
+<div class="table-card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Número</th>
+        <th>Nome do cliente</th>
+        <th>Funcionário</th>
+        <th>Veículo</th>
+        <th>Status</th>
+        <th>Pagamento</th>
+        <th>Total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for order in orders %}
+      {% set receivables = receivables_by_order.get(order.id, []) if receivables_by_order is defined else [] %}
+      {% set has_receivables = receivables|length > 0 %}
+      {% set all_received = has_receivables and (receivables|selectattr('status', 'equalto', 'RECEBIDO')|list|length == receivables|length) %}
+      <tr>
+        <td><a href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}"><strong>{{ order.numero }}</strong></a></td>
+        <td>{{ order.client_nome or (order.client.nome if order.client else '-') }}</td>
+        <td>{{ order.employee.nome if order.employee else '-' }}</td>
+        <td>{{ order.placa or '-' }}{% if order.veiculo_descricao %} · {{ order.veiculo_descricao }}{% endif %}</td>
+        <td>
+          <span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span>
+          {% if has_receivables %}
+            <div class="muted small" style="margin-top:6px;">Recebimento: {{ 'Recebido' if all_received else 'Pendente' }}</div>
+          {% endif %}
+        </td>
+        <td>
+          {% if order.payment_method %}
+            {{ order.payment_method.nome }}
+            {% if order.installment_count and order.installment_count > 1 %}
+              <br><span class="muted small">{{ order.installment_count }}x de {{ format_currency((order.total_geral / order.installment_count)) }}</span>
+            {% endif %}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>{{ format_currency(order.total_geral) }}</td>
+        <td>
+          <div class="os-actions-cell">
+            <a class="button secondary" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar</a>
+            {% if current_user() and current_user().role == 'ADMINISTRADOR' and order.status in ['FINALIZADA', 'ENTREGUE'] %}
+            <details class="action-menu">
+              <summary title="Ações da O.S.">⋯</summary>
+              <div class="action-menu-panel card">
+                <div class="action-menu-title">Ações financeiras</div>
+                {% if not has_receivables %}
+                <form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}" class="action-form">
+                  <p class="muted small">Lança esta O.S. em contas a receber.</p>
+                  <button class="success" type="submit">Lançar contas</button>
+                </form>
+                {% else %}
+                <form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" class="action-form">
+                  <p class="muted small">Atualize meio de pagamento e se o valor já foi recebido.</p>
+                  <label>Status do recebimento
+                    <select name="receivable_status">
+                      <option value="PENDENTE" {% if not all_received %}selected{% endif %}>Ainda não recebeu</option>
+                      <option value="RECEBIDO" {% if all_received %}selected{% endif %}>Já recebeu</option>
+                    </select>
+                  </label>
+                  <label>Meio de pagamento
+                    <select name="payment_method_id">
+                      <option value="">Selecione</option>
+                      {% for method in payment_methods %}
+                      <option value="{{ method.id }}" {% if order.payment_method_id == method.id %}selected{% endif %}>{{ method.nome }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <label>Conta bancária
+                    <select name="bank_account_id">
+                      <option value="">Selecione</option>
+                      {% for account in bank_accounts %}
+                      <option value="{{ account.id }}">{{ account.nome }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <label>Data do recebimento
+                    <input type="date" name="payment_receipt_at" value="{{ iso_today() }}">
+                  </label>
+                  <button class="success" type="submit">Salvar recebimento</button>
+                </form>
+                <a class="button secondary action-link" href="{{ url_for('web.finance_index') }}">Abrir financeiro</a>
+                {% endif %}
+              </div>
+            </details>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8">Nenhuma O.S. cadastrada.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

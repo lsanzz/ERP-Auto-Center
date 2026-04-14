@@ -1,0 +1,278 @@
+from __future__ import annotations
+
+from datetime import date, datetime
+import json
+from decimal import Decimal
+
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import check_password_hash, generate_password_hash
+
+
+db = SQLAlchemy()
+
+
+class TimestampMixin:
+    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+
+class SerializableMixin:
+    def to_dict(self) -> dict:
+        data: dict = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            if isinstance(value, (datetime, date)):
+                data[column.name] = value.isoformat()
+            elif isinstance(value, Decimal):
+                data[column.name] = float(value)
+            else:
+                data[column.name] = value
+        return data
+
+
+class User(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(30), nullable=False, default='MECANICO')
+    nome = db.Column(db.String(120), nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+    def set_password(self, raw_password: str) -> None:
+        self.password_hash = generate_password_hash(raw_password)
+
+    def check_password(self, raw_password: str) -> bool:
+        return check_password_hash(self.password_hash, raw_password)
+
+
+class Employee(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'employees'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(120), nullable=False)
+    funcao = db.Column(db.String(80), nullable=False)
+    telefone = db.Column(db.String(30))
+    email = db.Column(db.String(120))
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+    observacoes = db.Column(db.Text)
+
+    work_orders = db.relationship('WorkOrder', back_populates='employee')
+
+
+class Client(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'clients'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(160), nullable=False)
+    cpf_cnpj = db.Column(db.String(20))
+    telefone = db.Column(db.String(30))
+    email = db.Column(db.String(120))
+    endereco = db.Column(db.String(255))
+    observacoes = db.Column(db.Text)
+
+    budgets = db.relationship('Budget', back_populates='client', cascade='all')
+    work_orders = db.relationship('WorkOrder', back_populates='client', cascade='all')
+
+
+class Service(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'services'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(120), nullable=False)
+    descricao = db.Column(db.Text)
+    preco_base = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+
+class Product(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'products'
+
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(40), unique=True, nullable=False)
+    nome = db.Column(db.String(120), nullable=False)
+    categoria = db.Column(db.String(80))
+    marca = db.Column(db.String(80))
+    unidade = db.Column(db.String(20), default='UN', nullable=False)
+    custo = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    preco_venda = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+
+
+
+class BankAccount(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'bank_accounts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(120), nullable=False)
+    banco = db.Column(db.String(120))
+    agencia = db.Column(db.String(30))
+    conta = db.Column(db.String(40))
+    saldo_inicial = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    saldo_atual = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+
+class XmlInvoiceImport(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'xml_invoice_imports'
+
+    id = db.Column(db.Integer, primary_key=True)
+    chave_acesso = db.Column(db.String(60), unique=True, nullable=False)
+    numero = db.Column(db.String(30))
+    serie = db.Column(db.String(20))
+    natureza_operacao = db.Column(db.String(120))
+    emitente_nome = db.Column(db.String(160))
+    emitente_cnpj = db.Column(db.String(20))
+    destinatario_nome = db.Column(db.String(160))
+    destinatario_cnpj = db.Column(db.String(20))
+    total_nota = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    emissao_em = db.Column(db.Date)
+    informacoes_complementares = db.Column(db.Text)
+    items_json = db.Column(db.Text, nullable=False, default='[]')
+
+    def set_items(self, items: list[dict]) -> None:
+        self.items_json = json.dumps(items, ensure_ascii=False)
+
+    def get_items(self) -> list[dict]:
+        try:
+            return json.loads(self.items_json or '[]')
+        except json.JSONDecodeError:
+            return []
+
+
+class PaymentMethod(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'payment_methods'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(80), nullable=False, unique=True)
+    tipo = db.Column(db.String(30), nullable=False, default='OUTRO')
+    permite_parcelamento = db.Column(db.Boolean, default=False, nullable=False)
+    parcelas_maximas = db.Column(db.Integer, default=1, nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+    financial_entries = db.relationship('FinancialEntry', back_populates='payment_method')
+    work_orders = db.relationship('WorkOrder', back_populates='payment_method')
+
+
+class Budget(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'budgets'
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
+    numero = db.Column(db.String(20), unique=True, nullable=False)
+    status = db.Column(db.String(30), nullable=False, default='ABERTO')
+    placa = db.Column(db.String(10))
+    veiculo_descricao = db.Column(db.String(160))
+    subtotal = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    desconto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    observacoes = db.Column(db.Text)
+    validade = db.Column(db.Date)
+
+    client = db.relationship('Client', back_populates='budgets')
+    items = db.relationship('BudgetItem', back_populates='budget', cascade='all, delete-orphan', order_by='BudgetItem.id')
+    work_orders = db.relationship('WorkOrder', back_populates='budget')
+
+
+class BudgetItem(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'budget_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    budget_id = db.Column(db.Integer, db.ForeignKey('budgets.id'), nullable=False)
+    item_type = db.Column(db.String(20), nullable=False)
+    reference_id = db.Column(db.Integer)
+    descricao = db.Column(db.String(255), nullable=False)
+    quantidade = db.Column(db.Numeric(12, 2), nullable=False, default=1)
+    valor_unitario = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    desconto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+
+    budget = db.relationship('Budget', back_populates='items')
+
+
+class WorkOrder(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'work_orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'))
+    budget_id = db.Column(db.Integer, db.ForeignKey('budgets.id'))
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_methods.id'))
+    numero = db.Column(db.String(20), unique=True, nullable=False)
+    status = db.Column(db.String(30), nullable=False, default='ABERTA')
+    data_entrada = db.Column(db.Date, nullable=False, default=date.today)
+    data_saida = db.Column(db.Date)
+    placa = db.Column(db.String(10))
+    veiculo_descricao = db.Column(db.String(160))
+    observacoes = db.Column(db.Text)
+    installment_count = db.Column(db.Integer, nullable=False, default=1)
+    client_nome = db.Column(db.String(160))
+    emitir_nota = db.Column(db.Boolean, default=False, nullable=False)
+    total_pecas = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    total_servicos = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    total_geral = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+
+    client = db.relationship('Client', back_populates='work_orders')
+    employee = db.relationship('Employee', back_populates='work_orders')
+    budget = db.relationship('Budget', back_populates='work_orders')
+    payment_method = db.relationship('PaymentMethod', back_populates='work_orders')
+    items = db.relationship('WorkOrderItem', back_populates='work_order', cascade='all, delete-orphan', order_by='WorkOrderItem.id')
+    checklist = db.relationship('WorkOrderChecklist', back_populates='work_order', uselist=False, cascade='all, delete-orphan')
+
+
+class WorkOrderItem(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'work_order_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    work_order_id = db.Column(db.Integer, db.ForeignKey('work_orders.id'), nullable=False)
+    item_type = db.Column(db.String(20), nullable=False)
+    reference_id = db.Column(db.Integer)
+    descricao = db.Column(db.String(255), nullable=False)
+    quantidade = db.Column(db.Numeric(12, 2), nullable=False, default=1)
+    valor_unitario = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    desconto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+
+    work_order = db.relationship('WorkOrder', back_populates='items')
+
+
+class WorkOrderChecklist(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'work_order_checklists'
+
+    id = db.Column(db.Integer, primary_key=True)
+    work_order_id = db.Column(db.Integer, db.ForeignKey('work_orders.id'), unique=True, nullable=False)
+    lataria_ok = db.Column(db.Boolean, default=False, nullable=False)
+    pneus_ok = db.Column(db.Boolean, default=False, nullable=False)
+    estepe = db.Column(db.Boolean, default=False, nullable=False)
+    chave_roda_macaco = db.Column(db.Boolean, default=False, nullable=False)
+    documentos_ok = db.Column(db.Boolean, default=False, nullable=False)
+    som_multimidia = db.Column(db.Boolean, default=False, nullable=False)
+    combustivel = db.Column(db.String(20), default='1/2')
+    observacoes = db.Column(db.Text)
+
+    work_order = db.relationship('WorkOrder', back_populates='checklist')
+
+
+class FinancialEntry(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'financial_entries'
+
+    id = db.Column(db.Integer, primary_key=True)
+    entry_type = db.Column(db.String(20), nullable=False)
+    descricao = db.Column(db.String(255), nullable=False)
+    categoria = db.Column(db.String(80))
+    valor = db.Column(db.Numeric(12, 2), nullable=False)
+    vencimento = db.Column(db.Date, nullable=False)
+    payment_receipt_at = db.Column(db.Date)
+    status = db.Column(db.String(20), nullable=False, default='PENDENTE')
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_methods.id'))
+    installment_number = db.Column(db.Integer, nullable=False, default=1)
+    installment_total = db.Column(db.Integer, nullable=False, default=1)
+    reference_type = db.Column(db.String(30))
+    reference_id = db.Column(db.Integer)
+    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'))
+
+    bank_account = db.relationship('BankAccount')
+
+    payment_method = db.relationship('PaymentMethod', back_populates='financial_entries')

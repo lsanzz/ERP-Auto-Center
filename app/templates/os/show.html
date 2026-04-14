@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="eyebrow">ordem de serviço</span>
+    <h2>{{ order.numero }}</h2>
+    <p class="muted">Ficha completa da O.S. com itens, responsável, status e emissão em PDF.</p>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar O.S.</a>
+    <a class="button" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}">Emitir PDF</a>
+    <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Voltar</a>
+  </div>
+</div>
+
+<div class="hero-panel">
+  <div>
+    <div class="hero-kicker">cliente</div>
+    <h3>{{ order.client_nome or (order.client.nome if order.client else '-') }}</h3>
+    <p class="muted">{{ order.veiculo_descricao or 'Sem descrição do veículo' }}{% if order.placa %} · {{ order.placa }}{% endif %}</p>
+  </div>
+  <div class="hero-meta">
+    <div class="hero-stat">
+      <span>Status</span>
+      <strong><span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span></strong>
+    </div>
+    <div class="hero-stat"><span>Entrada</span><strong>{{ order.data_entrada|date_br }}</strong></div>
+    <div class="hero-stat"><span>Responsável</span><strong>{{ order.employee.nome if order.employee else '-' }}</strong></div>
+    <div class="hero-stat"><span>Total</span><strong>{{ format_currency(order.total_geral) }}</strong></div>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card section-card">
+    <h3>Dados gerais</h3>
+    <div class="kv"><strong>Cliente</strong><span>{{ order.client_nome or (order.client.nome if order.client else '-') }}</span></div>
+    <div class="kv"><strong>Funcionário</strong><span>{{ order.employee.nome if order.employee else '-' }}</span></div>
+    <div class="kv"><strong>Forma de pagamento</strong><span>{{ order.payment_method.nome if order.payment_method else '-' }}</span></div>
+    <div class="kv"><strong>Parcelas</strong><span>{{ order.installment_count or 1 }}x</span></div>
+    {% if installment_values %}
+    <div class="kv"><strong>Valor por parcela</strong><span>{{ format_currency(installment_values[0]) }}</span></div>
+    {% endif %}
+  </div>
+  <div class="card section-card">
+    <h3>Observações</h3>
+    <p>{{ order.observacoes or 'Sem observações.' }}</p>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="table-card section-card">
+    <h3>Serviços realizados</h3>
+    <table class="table"><thead><tr><th>Descrição</th><th>Qtd.</th><th>Valor un.</th><th>Total</th></tr></thead><tbody>{% for item in service_items %}<tr><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ format_currency(item.valor_unitario) }}</td><td>{{ format_currency(item.total) }}</td></tr>{% else %}<tr><td colspan="4">Nenhum serviço informado.</td></tr>{% endfor %}</tbody></table>
+  </div>
+  <div class="table-card section-card">
+    <h3>Peças usadas</h3>
+    <table class="table"><thead><tr><th>Descrição</th><th>Qtd.</th><th>Valor un.</th><th>Total</th></tr></thead><tbody>{% for item in part_items %}<tr><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ format_currency(item.valor_unitario) }}</td><td>{{ format_currency(item.total) }}</td></tr>{% else %}<tr><td colspan="4">Nenhuma peça informada.</td></tr>{% endfor %}</tbody></table>
+  </div>
+</div>
+
+<div class="grid grid-3" style="margin-top:18px;">
+  <div class="stat accent-red"><span>Total serviços</span><strong>{{ format_currency(order.total_servicos) }}</strong></div>
+  <div class="stat accent-dark"><span>Total peças</span><strong>{{ format_currency(order.total_pecas) }}</strong></div>
+  <div class="stat accent-red"><span>Total geral</span><strong>{{ format_currency(order.total_geral) }}</strong></div>
+</div>
+{% endblock %}

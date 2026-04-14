@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>{{ 'Editar cliente' if client else 'Novo cliente' }}</h2></div></div>
+<div class="card">
+  <form method="post">
+    <input type="hidden" name="autofill_document" value="1">
+    <div class="form-grid-2">
+      <label>Nome / Razão social<input id="nome" type="text" name="nome" value="{{ client.nome if client else '' }}" required></label>
+      <label>CPF/CNPJ
+        <div class="inline-form">
+          <input id="cpf_cnpj" type="text" name="cpf_cnpj" value="{{ client.cpf_cnpj if client else '' }}">
+          <button type="button" class="secondary" id="buscar-documento">Buscar dados</button>
+        </div>
+      </label>
+      <label>Telefone<input id="telefone" type="text" name="telefone" value="{{ client.telefone if client else '' }}"></label>
+      <label>E-mail<input id="email" type="email" name="email" value="{{ client.email if client else '' }}"></label>
+    </div>
+    <p class="muted" id="documento-status">Para CPF, consulta pela API configurada. Para CNPJ, consulta automática do CNPJ.</p>
+    <label>Endereço<input id="endereco" type="text" name="endereco" value="{{ client.endereco if client else '' }}"></label>
+    <label>Observações<textarea id="observacoes" name="observacoes">{{ client.observacoes if client else '' }}</textarea></label>
+    <div class="actions"><button type="submit">Salvar</button><a class="button secondary" href="{{ url_for('web.clients_index') }}">Cancelar</a></div>
+  </form>
+</div>
+<script>
+(() => {
+  const input = document.getElementById('cpf_cnpj');
+  const status = document.getElementById('documento-status');
+  const nome = document.getElementById('nome');
+  const telefone = document.getElementById('telefone');
+  const email = document.getElementById('email');
+  const endereco = document.getElementById('endereco');
+  const observacoes = document.getElementById('observacoes');
+  const button = document.getElementById('buscar-documento');
+  function digits(value) { return (value || '').replace(/\D/g, ''); }
+  async function consultarDocumento() {
+    const documento = digits(input.value);
+    if (![11,14].includes(documento.length)) {
+      status.textContent = 'Informe um CPF ou CNPJ válido para consulta automática.';
+      return;
+    }
+    status.textContent = documento.length === 11 ? 'Consultando CPF...' : 'Consultando CNPJ...';
+    try {
+      const response = await fetch(`/api/clientes/documento/${documento}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível consultar o documento.');
+      nome.value = data.nome || nome.value;
+      telefone.value = data.telefone || telefone.value;
+      email.value = data.email || email.value;
+      endereco.value = data.endereco || endereco.value;
+      if (!observacoes.value) {
+        observacoes.value = [data.nome_fantasia, data.situacao, data.atividade_principal, data.nome_mae].filter(Boolean).join(' | ');
+      }
+      status.textContent = 'Dados carregados com sucesso.';
+    } catch (error) {
+      status.textContent = error.message;
+    }
+  }
+  button.addEventListener('click', consultarDocumento);
+})();
+</script>
+{% endblock %}

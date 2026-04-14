@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>Financeiro</h2><p class="muted">Contas a receber, contas a pagar, parcelamentos e importação de NF-e XML.</p></div></div>
+<div class="grid grid-4"><div class="stat"><span>Recebidos hoje</span><strong>{{ format_currency(cash.recebidos) }}</strong></div><div class="stat"><span>Pagos hoje</span><strong>{{ format_currency(cash.pagos) }}</strong></div><div class="stat"><span>Saldo do caixa</span><strong>{{ format_currency(cash.saldo) }}</strong></div><div class="stat"><span>Pendente a pagar</span><strong>{{ format_currency(total_pagar) }}</strong></div></div>
+<div class="grid grid-2" style="margin-top:18px;">
+  <div class="card">
+    <h3>Novo lançamento</h3>
+    <form method="post" action="{{ url_for('web.finance_new') }}">
+      <div class="form-grid-3">
+        <label>Tipo<select name="entry_type" id="entry_type"><option value="RECEBER">Receber</option><option value="PAGAR">Pagar</option></select></label>
+        <label>Descrição<input type="text" name="descricao" required></label>
+        <label>Categoria<input type="text" name="categoria"></label>
+        <label id="valor_total_wrap">Valor total<input type="number" step="0.01" name="valor" id="valor_total" required></label>
+        <label>Vencimento inicial<input type="date" name="vencimento" value="{{ iso_today() }}" required></label>
+        <label>Forma de pagamento<select name="payment_method_id"><option value="">Selecione</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.nome }}</option>{% endfor %}</select></label>
+        <label>Conta bancária<select name="bank_account_id"><option value="">Selecione</option>{% for account in bank_accounts %}<option value="{{ account.id }}">{{ account.nome }}</option>{% endfor %}</select></label>
+        <label>Status<select name="status"><option value="PENDENTE">Pendente</option><option value="RECEBIDO">Recebido</option><option value="PAGO">Pago</option></select></label>
+        <label>Pagamento<select name="payment_mode" id="payment_mode"><option value="UNICO">Único</option><option value="PARCELADO">Parcelado</option></select></label>
+        <label id="installment_wrap">Parcelas<input type="number" min="1" max="36" name="installment_count" id="installment_count" value="1"></label>
+        <label id="installment_value_wrap">Valor da parcela<input type="number" step="0.01" min="0" name="installment_value" id="installment_value" value="0.00"></label>
+        <label>Referência tipo<input type="text" name="reference_type" placeholder="OS, XML_NFE, MANUAL"></label>
+        <label>Referência ID<input type="number" name="reference_id"></label>
+      </div>
+      <div class="payment-preview-box highlighted" id="parcel_summary_box">
+        <span class="muted small">Resumo do parcelamento</span>
+        <strong id="parcel_summary_main">Pagamento único</strong>
+        <span id="parcel_summary_detail">1x de R$ 0,00</span>
+      </div>
+      <button type="submit">Criar lançamento</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Importar NF-e XML</h3>
+    <form method="post" action="{{ url_for('web.finance_import_xml') }}" enctype="multipart/form-data"><div class="form-grid-2"><label>Arquivo XML<input type="file" name="xml_file" accept=".xml" required></label></div><button type="submit">Importar XML e gerar conta</button></form>
+    <h4 style="margin-top:16px;">Últimos XMLs importados</h4>
+    <table class="table"><thead><tr><th>NF-e</th><th>Emitente</th><th>Total</th></tr></thead><tbody>{% for xml in xml_imports %}<tr><td>{{ xml.numero }}/{{ xml.serie }}</td><td>{{ xml.emitente_nome }}</td><td>{{ format_currency(xml.total_nota) }}</td></tr>{% else %}<tr><td colspan="3">Nenhum XML importado.</td></tr>{% endfor %}</tbody></table>
+  </div>
+</div>
+<div class="table-card" style="margin-top:18px;">
+  <h3>Lançamentos</h3>
+  <div class="finance-groups">
+    {% for group in entry_groups %}
+      {% if group.is_grouped %}
+        <details class="finance-group status-financeiro-{{ group.status_slug }}">
+          <summary>
+            <div class="finance-group-summary">
+              <div class="finance-group-arrow">▸</div>
+              <div>
+                <div class="finance-group-title">{{ group.descricao }}</div>
+                <div class="finance-group-meta">{{ group.entry_type }} · {{ group.entry_count }} parcelas · vencimento inicial {{ group.first_due_date|date_br }}</div>
+              </div>
+            </div>
+            <div class="finance-group-side">
+              <span class="finance-status-pill">{{ group.status_label }}</span>
+              <strong>{{ group.summary_value }}</strong>
+            </div>
+          </summary>
+          <div class="finance-group-body">
+            <table class="table">
+              <thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Status</th><th>Forma</th><th>Conta</th><th>Referência</th><th>Ação</th></tr></thead>
+              <tbody>
+                {% for entry in group.entries %}
+                <tr>
+                  <td>{{ entry.installment_number }}/{{ entry.installment_total }}</td>
+                  <td>{{ entry.vencimento|date_br }}</td>
+                  <td>{{ format_currency(entry.valor) }}</td>
+                  <td><span class="finance-status-pill finance-status-{{ entry.status|lower }}">{{ entry.status }}</span></td>
+                  <td>{{ entry.payment_method.nome if entry.payment_method else '-' }}</td>
+                  <td>{{ entry.bank_account.nome if entry.bank_account else '-' }}</td>
+                  <td>{{ entry.reference_type or '-' }}{% if entry.reference_id %} #{{ entry.reference_id }}{% endif %}</td>
+                  <td>{% if entry.status == 'PENDENTE' %}<form class="inline-form" method="post" action="{{ url_for('web.finance_settle', entry_id=entry.id) }}"><input type="date" name="payment_receipt_at" value="{{ iso_today() }}"><select name="payment_method_id"><option value="">Forma</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.nome }}</option>{% endfor %}</select><select name="bank_account_id"><option value="">Conta</option>{% for account in bank_accounts %}<option value="{{ account.id }}">{{ account.nome }}</option>{% endfor %}</select><button class="success" type="submit">Baixar</button></form>{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      {% else %}
+        {% set entry = group.entries[0] %}
+        <div class="finance-single status-financeiro-{{ group.status_slug }}">
+          <table class="table">
+            <tbody>
+              <tr>
+                <td>{{ entry.entry_type }}</td>
+                <td>{{ entry.descricao }}</td>
+                <td>{{ entry.vencimento|date_br }}</td>
+                <td>{{ format_currency(entry.valor) }}</td>
+                <td><span class="finance-status-pill finance-status-{{ entry.status|lower }}">{{ entry.status }}</span></td>
+                <td>{{ entry.payment_method.nome if entry.payment_method else '-' }}</td>
+                <td>{{ entry.bank_account.nome if entry.bank_account else '-' }}</td>
+                <td>{{ entry.reference_type or '-' }}{% if entry.reference_id %} #{{ entry.reference_id }}{% endif %}</td>
+                <td>{% if entry.status == 'PENDENTE' %}<form class="inline-form" method="post" action="{{ url_for('web.finance_settle', entry_id=entry.id) }}"><input type="date" name="payment_receipt_at" value="{{ iso_today() }}"><select name="payment_method_id"><option value="">Forma</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.nome }}</option>{% endfor %}</select><select name="bank_account_id"><option value="">Conta</option>{% for account in bank_accounts %}<option value="{{ account.id }}">{{ account.nome }}</option>{% endfor %}</select><button class="success" type="submit">Baixar</button></form>{% else %}-{% endif %}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    {% else %}
+      <p class="muted">Nenhum lançamento financeiro.</p>
+    {% endfor %}
+  </div>
+</div>
+<script>
+(() => {
+  const typeSelect = document.getElementById('entry_type');
+  const modeSelect = document.getElementById('payment_mode');
+  const countWrap = document.getElementById('installment_wrap');
+  const valueWrap = document.getElementById('installment_value_wrap');
+  const totalWrap = document.getElementById('valor_total_wrap');
+  const countInput = document.getElementById('installment_count');
+  const valueInput = document.getElementById('installment_value');
+  const totalInput = document.getElementById('valor_total');
+  const summaryMain = document.getElementById('parcel_summary_main');
+  const summaryDetail = document.getElementById('parcel_summary_detail');
+  function brl(v) { return new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(Number(v || 0)); }
+  function sync() {
+    const show = modeSelect.value === 'PARCELADO';
+    countWrap.style.display = show ? 'block' : 'none';
+    valueWrap.style.display = show ? 'block' : 'none';
+    totalWrap.style.display = show ? 'none' : 'block';
+    if (!show) {
+      countInput.value = 1;
+      valueInput.value = '0.00';
+      summaryMain.textContent = 'Pagamento único';
+      summaryDetail.textContent = 'Valor total ' + brl(totalInput.value);
+    } else {
+      const count = Math.max(parseInt(countInput.value || '1', 10), 1);
+      summaryMain.textContent = 'Pagamento parcelado';
+      summaryDetail.textContent = count + 'x de ' + brl(valueInput.value) + ' · total ' + brl((Number(valueInput.value || 0) * count).toFixed(2));
+    }
+  }
+  modeSelect.addEventListener('change', sync);
+  typeSelect.addEventListener('change', sync);
+  countInput.addEventListener('input', sync);
+  valueInput.addEventListener('input', sync);
+  totalInput.addEventListener('input', sync);
+  sync();
+})();
+</script>
+{% endblock %}

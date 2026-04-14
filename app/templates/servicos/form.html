@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>{{ 'Editar serviço' if service else 'Novo serviço' }}</h2>
+    <p class="muted">Cadastro simplificado de serviços da oficina, sem tempo estimado.</p>
+  </div>
+</div>
+<div class="card">
+  <form method="post">
+    <div class="form-grid-2">
+      <label>Nome
+        <input type="text" name="nome" value="{{ service.nome if service else '' }}" required>
+      </label>
+      <label>Preço base
+        <input type="number" step="0.01" name="preco_base" value="{{ service.preco_base if service else 0 }}" required>
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" name="ativo" {% if not service or service.ativo %}checked{% endif %}>
+        Ativo
+      </label>
+    </div>
+    <label>Descrição
+      <textarea name="descricao">{{ service.descricao if service else '' }}</textarea>
+    </label>
+    <div class="actions">
+      <button type="submit">Salvar</button>
+      <a class="button secondary" href="{{ url_for('web.services_index') }}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

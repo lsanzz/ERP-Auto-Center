@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div><h2>Peças</h2><p class="muted">Catálogo de peças usado em orçamento e O.S..</p></div>
+  {% if current_user().role == 'ADMINISTRADOR' %}<a class="button" href="{{ url_for('web.products_new') }}">Nova peça</a>{% endif %}
+</div>
+<div class="table-card">
+  <table class="table">
+    <thead><tr><th>Código</th><th>Nome</th><th>Categoria</th><th>Venda</th><th>Ativa</th><th></th></tr></thead>
+    <tbody>
+      {% for product in products %}
+      <tr>
+        <td>{{ product.codigo }}</td>
+        <td>{{ product.nome }}</td>
+        <td>{{ product.categoria or '-' }}</td>
+        <td>{{ format_currency(product.preco_venda) }}</td>
+        <td>{{ 'Sim' if product.ativo else 'Não' }}</td>
+        <td>{% if current_user().role == 'ADMINISTRADOR' %}<a class="button secondary" href="{{ url_for('web.products_edit', product_id=product.id) }}">Editar</a>{% else %}-{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">Nenhuma peça cadastrada.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
