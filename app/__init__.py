@@ -58,6 +58,8 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     if test_config:
         app.config.update(test_config)
+        
+        print("DATABASE_URL REAL:", database_url)
 
     db.init_app(app)
 
