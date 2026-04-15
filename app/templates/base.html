@@ -30,6 +30,7 @@
       {% if current_user() and current_user().role == 'ADMINISTRADOR' %}
       <a href="{{ url_for('web.finance_index') }}">Financeiro</a>
       <a href="{{ url_for('web.payment_methods_index') }}">Formas de pagamento</a>
+      <a href="{{ url_for('web.fiscal_index') }}">Fiscal / XML</a>
       <a href="{{ url_for('web.employees_index') }}">Funcionários</a>
       {% endif %}
     </nav>

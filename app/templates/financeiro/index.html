@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header"><div><h2>Financeiro</h2><p class="muted">Contas a receber, contas a pagar, parcelamentos e importação de NF-e XML.</p></div></div>
+<div class="page-header"><div><h2>Financeiro</h2><p class="muted">Contas a receber, contas a pagar, parcelamentos, pré-visualização de NF-e XML e importação de dados de outro sistema.</p></div></div>
 <div class="grid grid-4"><div class="stat"><span>Recebidos hoje</span><strong>{{ format_currency(cash.recebidos) }}</strong></div><div class="stat"><span>Pagos hoje</span><strong>{{ format_currency(cash.pagos) }}</strong></div><div class="stat"><span>Saldo do caixa</span><strong>{{ format_currency(cash.saldo) }}</strong></div><div class="stat"><span>Pendente a pagar</span><strong>{{ format_currency(total_pagar) }}</strong></div></div>
 <div class="grid grid-2" style="margin-top:18px;">
   <div class="card">
@@ -31,9 +31,12 @@
   </div>
   <div class="card">
     <h3>Importar NF-e XML</h3>
-    <form method="post" action="{{ url_for('web.finance_import_xml') }}" enctype="multipart/form-data"><div class="form-grid-2"><label>Arquivo XML<input type="file" name="xml_file" accept=".xml" required></label></div><button type="submit">Importar XML e gerar conta</button></form>
+    <form method="post" action="{{ url_for('web.finance_import_xml_preview') }}" enctype="multipart/form-data"><div class="form-grid-2"><label>Arquivo XML<input type="file" name="xml_file" accept=".xml" required></label></div><button type="submit">Pré-visualizar XML</button></form>
+    <div style="margin-top:18px;"></div>
+    <h3>Importar de outro sistema</h3>
+    <form method="post" action="{{ url_for('web.finance_import_other_system_preview') }}" enctype="multipart/form-data"><div class="form-grid-2"><label>Arquivo JSON<input type="file" name="system_file" accept=".json" required></label></div><p class="muted">Estrutura esperada: work_orders, financial_entries e bank_accounts.</p><button type="submit">Pré-visualizar importação</button></form>
     <h4 style="margin-top:16px;">Últimos XMLs importados</h4>
-    <table class="table"><thead><tr><th>NF-e</th><th>Emitente</th><th>Total</th></tr></thead><tbody>{% for xml in xml_imports %}<tr><td>{{ xml.numero }}/{{ xml.serie }}</td><td>{{ xml.emitente_nome }}</td><td>{{ format_currency(xml.total_nota) }}</td></tr>{% else %}<tr><td colspan="3">Nenhum XML importado.</td></tr>{% endfor %}</tbody></table>
+    <table class="table"><thead><tr><th>NF-e</th><th>Emitente</th><th>Total</th><th>Ações</th></tr></thead><tbody>{% for xml in xml_imports %}<tr><td>{{ xml.numero }}/{{ xml.serie }}</td><td>{{ xml.emitente_nome }}</td><td>{{ format_currency(xml.total_nota) }}</td><td><a class="button small secondary" href="{{ url_for('web.finance_xml_preview', xml_id=xml.id) }}">Ver dados</a> <a class="button small" href="{{ url_for('web.finance_xml_export', xml_id=xml.id) }}">Exportar XML</a></td></tr>{% else %}<tr><td colspan="4">Nenhum XML importado.</td></tr>{% endfor %}</tbody></table>
   </div>
 </div>
 <div class="table-card" style="margin-top:18px;">

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>Prévia da emissão fiscal</h2><p class="muted">Revise os dados que serão enviados para a API de notas e exportados em XML.</p></div><div class="actions"><a class="button secondary" href="{{ url_for('web.fiscal_index') }}">Voltar</a></div></div>
+<div class="grid grid-2">
+  <div class="card section-card">
+    <h3>Dados da O.S.</h3>
+    <div class="kv"><strong>O.S.</strong><span>{{ order.numero }}</span></div>
+    <div class="kv"><strong>Cliente</strong><span>{{ payload.customer.nome }}</span></div>
+    <div class="kv"><strong>Documento</strong><span>{{ payload.customer.documento or '-' }}</span></div>
+    <div class="kv"><strong>Veículo</strong><span>{{ payload.work_order.veiculo_descricao or '-' }}</span></div>
+    <div class="kv"><strong>Total serviços</strong><span>{{ format_currency(payload.totals.servicos) }}</span></div>
+    <div class="kv"><strong>Total peças</strong><span>{{ format_currency(payload.totals.pecas) }}</span></div>
+    <div class="kv"><strong>Total geral</strong><span>{{ format_currency(payload.totals.geral) }}</span></div>
+  </div>
+  <div class="card section-card">
+    <h3>Destino da emissão</h3>
+    <div class="kv"><strong>Provedor</strong><span>{{ config.provider_name if config else 'Não configurado' }}</span></div>
+    <div class="kv"><strong>Ambiente</strong><span>{{ config.environment if config else '-' }}</span></div>
+    <div class="kv"><strong>URL API</strong><span>{{ config.api_base_url if config else '-' }}</span></div>
+    <div class="actions" style="margin-top:16px;">
+      <form method="post" action="{{ url_for('web.work_order_invoice_prepare', work_order_id=order.id) }}"><button type="submit">Gerar XML / prévia</button></form>
+      <form method="post" action="{{ url_for('web.work_order_invoice_issue', work_order_id=order.id) }}"><button class="success" type="submit">Emitir pela API</button></form>
+    </div>
+    {% if document and document.status %}<p class="muted" style="margin-top:12px;">Último status: <strong>{{ document.status }}</strong>{% if document.error_message %} · {{ document.error_message }}{% endif %}</p>{% endif %}
+    {% if document and document.xml_content %}<a class="button secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">Baixar XML atual</a>{% endif %}
+  </div>
+</div>
+<div class="grid grid-2" style="margin-top:18px;">
+  <div class="table-card section-card">
+    <h3>Serviços que irão na nota</h3>
+    <table class="table"><thead><tr><th>Descrição</th><th>Qtd.</th><th>Total</th></tr></thead><tbody>{% for item in payload.items.services %}<tr><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ format_currency(item.total) }}</td></tr>{% else %}<tr><td colspan="3">Nenhum serviço na nota.</td></tr>{% endfor %}</tbody></table>
+  </div>
+  <div class="table-card section-card">
+    <h3>Peças que irão na nota</h3>
+    <table class="table"><thead><tr><th>Descrição</th><th>Qtd.</th><th>Total</th></tr></thead><tbody>{% for item in payload.items.parts %}<tr><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ format_currency(item.total) }}</td></tr>{% else %}<tr><td colspan="3">Nenhuma peça na nota.</td></tr>{% endfor %}</tbody></table>
+  </div>
+</div>
+<div class="card section-card" style="margin-top:18px;"><h3>Payload que será enviado</h3><pre class="code-block">{{ payload | tojson(indent=2) }}</pre></div>
+{% endblock %}

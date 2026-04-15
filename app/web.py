@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+import base64
+import io
+import json
 import re
 from flask import Blueprint, flash, redirect, render_template, request, send_file, url_for
 
 from .auth import admin_required, current_user, login_required, login_user, logout_user
 from .cnpj import is_cnpj, is_cpf, lookup_cnpj, lookup_cpf
-from .models import BankAccount, Budget, Client, Employee, FinancialEntry, PaymentMethod, Product, Service, User, WorkOrder, XmlInvoiceImport, db
+from .models import BankAccount, Budget, Client, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, Product, Service, User, WorkOrder, XmlInvoiceImport, db
 from .services import (
     BUDGET_STATUSES,
     WORK_ORDER_STATUSES,
@@ -31,6 +34,16 @@ from .services import (
 from .pdfs import generate_work_order_pdf
 from .utils import parse_date, parse_decimal, format_currency
 from .xml_import import parse_nfe_xml
+from .fiscal import (
+    build_work_order_invoice_payload,
+    create_or_update_fiscal_document,
+    decode_payload,
+    get_fiscal_config,
+    import_external_payload,
+    issue_with_external_api,
+    preview_external_import,
+    save_fiscal_config_from_form,
+)
 
 
 web_bp = Blueprint('web', __name__)
@@ -684,16 +697,39 @@ def finance_settle(entry_id: int):
 
 
 
-@web_bp.post('/financeiro/importar-xml')
+@web_bp.post('/financeiro/importar-xml/preview')
 @login_required
 @admin_required
-def finance_import_xml():
+def finance_import_xml_preview():
     upload = request.files.get('xml_file')
     if not upload or not upload.filename:
         flash('Selecione um arquivo XML.', 'error')
         return redirect(url_for('web.finance_index'))
     try:
-        parsed = parse_nfe_xml(upload.read())
+        raw_xml = upload.read()
+        parsed = parse_nfe_xml(raw_xml)
+        return render_template(
+            'financeiro/xml_preview.html',
+            parsed=parsed,
+            raw_xml_b64=base64.b64encode(raw_xml).decode('ascii'),
+            existing=XmlInvoiceImport.query.filter_by(chave_acesso=parsed['chave_acesso']).first(),
+        )
+    except Exception as exc:
+        flash(f'Falha ao ler XML: {exc}', 'error')
+        return redirect(url_for('web.finance_index'))
+
+
+@web_bp.post('/financeiro/importar-xml/confirmar')
+@login_required
+@admin_required
+def finance_import_xml_confirm():
+    raw_xml_b64 = request.form.get('raw_xml_b64') or ''
+    if not raw_xml_b64:
+        flash('Prévia do XML expirada. Envie o arquivo novamente.', 'error')
+        return redirect(url_for('web.finance_index'))
+    try:
+        raw_xml = base64.b64decode(raw_xml_b64.encode('ascii'))
+        parsed = parse_nfe_xml(raw_xml)
         existing = XmlInvoiceImport.query.filter_by(chave_acesso=parsed['chave_acesso']).first()
         if existing:
             flash('Este XML já foi importado.', 'warning')
@@ -717,6 +753,7 @@ def finance_import_xml():
             total_nota=parse_decimal(parsed.get('total_nota')),
             emissao_em=parse_date(parsed.get('issued_at')),
             informacoes_complementares=parsed.get('informacoes_complementares'),
+            raw_xml=raw_xml.decode('utf-8', errors='ignore'),
         )
         xml_import.set_items(parsed.get('itens') or [])
         db.session.add(xml_import)
@@ -739,6 +776,155 @@ def finance_import_xml():
         db.session.rollback()
         flash(f'Falha ao importar XML: {exc}', 'error')
     return redirect(url_for('web.finance_index'))
+
+
+@web_bp.get('/financeiro/xml/<int:xml_id>/preview')
+@login_required
+@admin_required
+def finance_xml_preview(xml_id: int):
+    xml_import = db.session.get(XmlInvoiceImport, xml_id)
+    if not xml_import:
+        return redirect(url_for('web.finance_index'))
+    parsed = xml_import.to_dict()
+    parsed['itens'] = xml_import.get_items()
+    return render_template('financeiro/xml_preview_saved.html', xml_import=xml_import, parsed=parsed)
+
+
+@web_bp.get('/financeiro/xml/<int:xml_id>/exportar')
+@login_required
+@admin_required
+def finance_xml_export(xml_id: int):
+    xml_import = db.session.get(XmlInvoiceImport, xml_id)
+    if not xml_import or not xml_import.raw_xml:
+        flash('XML não encontrado para exportação.', 'error')
+        return redirect(url_for('web.finance_index'))
+    return send_file(
+        io.BytesIO(xml_import.raw_xml.encode('utf-8')),
+        mimetype='application/xml',
+        as_attachment=True,
+        download_name=f'nfe_{xml_import.numero or xml_import.id}.xml',
+    )
+
+
+@web_bp.post('/financeiro/importar-sistema/preview')
+@login_required
+@admin_required
+def finance_import_other_system_preview():
+    upload = request.files.get('system_file')
+    if not upload or not upload.filename:
+        flash('Selecione um arquivo JSON de outro sistema.', 'error')
+        return redirect(url_for('web.finance_index'))
+    try:
+        payload = json.loads(upload.read().decode('utf-8'))
+        preview = preview_external_import(payload)
+        return render_template('financeiro/import_other_preview.html', preview=preview, payload_b64=base64.b64encode(json.dumps(payload, ensure_ascii=False).encode('utf-8')).decode('ascii'))
+    except Exception as exc:
+        flash(f'Falha ao preparar importação: {exc}', 'error')
+        return redirect(url_for('web.finance_index'))
+
+
+@web_bp.post('/financeiro/importar-sistema/confirmar')
+@login_required
+@admin_required
+def finance_import_other_system_confirm():
+    payload_b64 = request.form.get('payload_b64') or ''
+    if not payload_b64:
+        flash('Prévia de importação expirada. Envie o arquivo novamente.', 'error')
+        return redirect(url_for('web.finance_index'))
+    try:
+        payload = json.loads(base64.b64decode(payload_b64.encode('ascii')).decode('utf-8'))
+        created = import_external_payload(payload)
+        db.session.commit()
+        flash(f"Importação concluída: {created['work_orders']} O.S., {created['financial_entries']} lançamentos financeiros e {created['bank_accounts']} contas bancárias.", 'success')
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Falha ao importar dados de outro sistema: {exc}', 'error')
+    return redirect(url_for('web.finance_index'))
+
+
+@web_bp.get('/fiscal')
+@login_required
+@admin_required
+def fiscal_index():
+    config = get_fiscal_config()
+    documents = FiscalDocument.query.order_by(FiscalDocument.id.desc()).limit(20).all()
+    work_orders = WorkOrder.query.order_by(WorkOrder.id.desc()).limit(20).all()
+    return render_template('fiscal/index.html', config=config, documents=documents, work_orders=work_orders)
+
+
+@web_bp.post('/fiscal/configuracoes')
+@login_required
+@admin_required
+def fiscal_save_config():
+    save_fiscal_config_from_form(request.form)
+    db.session.commit()
+    flash('Configurações fiscais salvas.', 'success')
+    return redirect(url_for('web.fiscal_index'))
+
+
+@web_bp.get('/os/<int:work_order_id>/nota/preview')
+@login_required
+@admin_required
+def work_order_invoice_preview(work_order_id: int):
+    order = db.session.get(WorkOrder, work_order_id)
+    if not order:
+        return redirect(url_for('web.work_orders_index'))
+    config = get_fiscal_config()
+    payload = build_work_order_invoice_payload(order, config)
+    document = FiscalDocument.query.filter_by(work_order_id=order.id).order_by(FiscalDocument.id.desc()).first()
+    return render_template('fiscal/issue_preview.html', order=order, payload=payload, config=config, document=document)
+
+
+@web_bp.post('/os/<int:work_order_id>/nota/preparar')
+@login_required
+@admin_required
+def work_order_invoice_prepare(work_order_id: int):
+    order = db.session.get(WorkOrder, work_order_id)
+    if not order:
+        return redirect(url_for('web.work_orders_index'))
+    config = get_fiscal_config()
+    document = create_or_update_fiscal_document(order, config)
+    db.session.commit()
+    flash('Prévia fiscal gerada. Revise os dados antes de emitir.', 'success')
+    return redirect(url_for('web.work_order_invoice_preview', work_order_id=order.id))
+
+
+@web_bp.post('/os/<int:work_order_id>/nota/emitir')
+@login_required
+@admin_required
+def work_order_invoice_issue(work_order_id: int):
+    order = db.session.get(WorkOrder, work_order_id)
+    if not order:
+        return redirect(url_for('web.work_orders_index'))
+    config = get_fiscal_config()
+    if not config:
+        flash('Configure a integração fiscal antes de emitir.', 'error')
+        return redirect(url_for('web.work_order_invoice_preview', work_order_id=work_order_id))
+    try:
+        document = create_or_update_fiscal_document(order, config)
+        issue_with_external_api(document, config)
+        db.session.commit()
+        flash('Documento fiscal enviado para a API configurada.', 'success')
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Falha ao emitir nota: {exc}', 'error')
+    return redirect(url_for('web.work_order_invoice_preview', work_order_id=work_order_id))
+
+
+@web_bp.get('/fiscal/documentos/<int:document_id>/xml')
+@login_required
+@admin_required
+def fiscal_document_export_xml(document_id: int):
+    document = db.session.get(FiscalDocument, document_id)
+    if not document or not document.xml_content:
+        flash('XML fiscal não disponível.', 'error')
+        return redirect(url_for('web.fiscal_index'))
+    return send_file(
+        io.BytesIO(document.xml_content.encode('utf-8')),
+        mimetype='application/xml',
+        as_attachment=True,
+        download_name=f'{document.numero or document.id}.xml',
+    )
 
 @web_bp.get('/formas-pagamento')
 @login_required

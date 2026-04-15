@@ -9,6 +9,7 @@
   <div class="actions">
     <a class="button secondary" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar O.S.</a>
     <a class="button" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}">Emitir PDF</a>
+    {% if current_user() and current_user().role == 'ADMINISTRADOR' %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id) }}">Prévia fiscal / XML</a>{% endif %}
     <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Voltar</a>
   </div>
 </div>

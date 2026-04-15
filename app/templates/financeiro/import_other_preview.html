@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>Pré-visualização da importação</h2><p class="muted">Confira os dados vindos de outro sistema antes de aplicar no ERP.</p></div></div>
+<div class="grid grid-3">
+  <div class="stat"><span>O.S.</span><strong>{{ preview.summary.work_orders }}</strong></div>
+  <div class="stat"><span>Lançamentos financeiros</span><strong>{{ preview.summary.financial_entries }}</strong></div>
+  <div class="stat"><span>Contas bancárias</span><strong>{{ preview.summary.bank_accounts }}</strong></div>
+</div>
+<div class="card section-card" style="margin-top:18px;">
+  <h3>O que será importado</h3>
+  <ul class="bullet-list">
+    <li>Ordens de serviço com cliente, veículo, itens e forma de pagamento</li>
+    <li>Contas a pagar/receber com vencimento, status e referências</li>
+    <li>Contas bancárias com saldos iniciais e atuais</li>
+  </ul>
+  <form method="post" action="{{ url_for('web.finance_import_other_system_confirm') }}">
+    <input type="hidden" name="payload_b64" value="{{ payload_b64 }}">
+    <button type="submit">Confirmar importação</button>
+    <a class="button secondary" href="{{ url_for('web.finance_index') }}">Cancelar</a>
+  </form>
+</div>
+<div class="grid grid-3" style="margin-top:18px;">
+  <div class="table-card section-card">
+    <h3>O.S.</h3>
+    <table class="table"><thead><tr><th>Número</th><th>Cliente</th><th>Status</th></tr></thead><tbody>{% for row in preview.work_orders[:10] %}<tr><td>{{ row.numero or row.number or '-' }}</td><td>{{ row.client_nome or row.cliente or row.customer_name or '-' }}</td><td>{{ row.status or '-' }}</td></tr>{% else %}<tr><td colspan="3">Nenhuma O.S.</td></tr>{% endfor %}</tbody></table>
+  </div>
+  <div class="table-card section-card">
+    <h3>Financeiro</h3>
+    <table class="table"><thead><tr><th>Tipo</th><th>Descrição</th><th>Valor</th></tr></thead><tbody>{% for row in preview.financial_entries[:10] %}<tr><td>{{ row.entry_type or row.tipo or '-' }}</td><td>{{ row.descricao or row.description or '-' }}</td><td>{{ format_currency(row.valor or row.amount or 0) }}</td></tr>{% else %}<tr><td colspan="3">Nenhum lançamento.</td></tr>{% endfor %}</tbody></table>
+  </div>
+  <div class="table-card section-card">
+    <h3>Contas bancárias</h3>
+    <table class="table"><thead><tr><th>Nome</th><th>Banco</th><th>Saldo atual</th></tr></thead><tbody>{% for row in preview.bank_accounts[:10] %}<tr><td>{{ row.nome or row.name or '-' }}</td><td>{{ row.banco or row.bank or '-' }}</td><td>{{ format_currency(row.saldo_atual or row.current_balance or 0) }}</td></tr>{% else %}<tr><td colspan="3">Nenhuma conta bancária.</td></tr>{% endfor %}</tbody></table>
+  </div>
+</div>
+{% endblock %}

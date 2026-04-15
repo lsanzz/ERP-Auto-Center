@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>Fiscal e APIs de nota</h2><p class="muted">Configure a integração com a API emissora e acompanhe as prévias/exportações de XML das notas.</p></div></div>
+<div class="grid grid-2">
+  <div class="card section-card">
+    <h3>Configuração da API</h3>
+    <form method="post" action="{{ url_for('web.fiscal_save_config') }}">
+      <div class="form-grid-2">
+        <label>Provedor<select name="provider_name"><option value="CUSTOM" {% if not config or config.provider_name == 'CUSTOM' %}selected{% endif %}>Custom</option><option value="FOCUSNFE" {% if config and config.provider_name == 'FOCUSNFE' %}selected{% endif %}>Focus NFe</option><option value="NFEIO" {% if config and config.provider_name == 'NFEIO' %}selected{% endif %}>NFE.io</option><option value="TECNOSPEED" {% if config and config.provider_name == 'TECNOSPEED' %}selected{% endif %}>TecnoSpeed</option></select></label>
+        <label>Ambiente<select name="environment"><option value="HOMOLOGACAO" {% if not config or config.environment == 'HOMOLOGACAO' %}selected{% endif %}>Homologação</option><option value="PRODUCAO" {% if config and config.environment == 'PRODUCAO' %}selected{% endif %}>Produção</option></select></label>
+        <label>URL da API<input type="url" name="api_base_url" value="{{ config.api_base_url if config else '' }}" placeholder="https://api.exemplo.com/notas"></label>
+        <label>Token/API Key<input type="text" name="api_token" value="{{ config.api_token if config else '' }}"></label>
+        <label>Razão social<input type="text" name="company_name" value="{{ config.company_name if config else '' }}"></label>
+        <label>CNPJ<input type="text" name="company_document" value="{{ config.company_document if config else '' }}"></label>
+        <label>Inscrição municipal<input type="text" name="municipal_registration" value="{{ config.municipal_registration if config else '' }}"></label>
+        <label>Inscrição estadual<input type="text" name="state_registration" value="{{ config.state_registration if config else '' }}"></label>
+        <label>Regime tributário<input type="text" name="tax_regime" value="{{ config.tax_regime if config else '' }}"></label>
+        <label>Código padrão de serviço<input type="text" name="default_service_code" value="{{ config.default_service_code if config else '' }}"></label>
+        <label>Natureza padrão<input type="text" name="default_nature" value="{{ config.default_nature if config else '' }}"></label>
+        <label>Webhook URL<input type="url" name="webhook_url" value="{{ config.webhook_url if config else '' }}"></label>
+        <label><input type="checkbox" name="active" {% if not config or config.active %}checked{% endif %}> Integração ativa</label>
+      </div>
+      <button type="submit">Salvar configuração</button>
+    </form>
+  </div>
+  <div class="card section-card">
+    <h3>O.S. prontas para nota</h3>
+    <table class="table"><thead><tr><th>O.S.</th><th>Cliente</th><th>Total</th><th></th></tr></thead><tbody>{% for order in work_orders %}<tr><td>{{ order.numero }}</td><td>{{ order.client_nome or (order.client.nome if order.client else '-') }}</td><td>{{ format_currency(order.total_geral) }}</td><td><a class="button small" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id) }}">Preparar nota</a></td></tr>{% else %}<tr><td colspan="4">Nenhuma O.S. disponível.</td></tr>{% endfor %}</tbody></table>
+  </div>
+</div>
+<div class="table-card section-card" style="margin-top:18px;"><h3>Documentos fiscais</h3><table class="table"><thead><tr><th>O.S.</th><th>Tipo</th><th>Status</th><th>Provedor</th><th>XML</th></tr></thead><tbody>{% for document in documents %}<tr><td>{{ document.work_order.numero if document.work_order else '-' }}</td><td>{{ document.document_type }}</td><td>{{ document.status }}</td><td>{{ document.provider_name }}</td><td>{% if document.xml_content %}<a class="button small secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">Baixar XML</a>{% else %}-{% endif %}</td></tr>{% else %}<tr><td colspan="5">Nenhum documento fiscal preparado ainda.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

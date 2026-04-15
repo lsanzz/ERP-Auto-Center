@@ -131,6 +131,7 @@ class XmlInvoiceImport(db.Model, TimestampMixin, SerializableMixin):
     emissao_em = db.Column(db.Date)
     informacoes_complementares = db.Column(db.Text)
     items_json = db.Column(db.Text, nullable=False, default='[]')
+    raw_xml = db.Column(db.Text)
 
     def set_items(self, items: list[dict]) -> None:
         self.items_json = json.dumps(items, ensure_ascii=False)
@@ -140,6 +141,47 @@ class XmlInvoiceImport(db.Model, TimestampMixin, SerializableMixin):
             return json.loads(self.items_json or '[]')
         except json.JSONDecodeError:
             return []
+
+
+class FiscalApiConfig(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'fiscal_api_configs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    provider_name = db.Column(db.String(80), nullable=False, default='CUSTOM')
+    environment = db.Column(db.String(20), nullable=False, default='HOMOLOGACAO')
+    api_base_url = db.Column(db.String(255))
+    api_token = db.Column(db.String(255))
+    company_name = db.Column(db.String(160))
+    company_document = db.Column(db.String(20))
+    municipal_registration = db.Column(db.String(40))
+    state_registration = db.Column(db.String(40))
+    tax_regime = db.Column(db.String(40))
+    default_service_code = db.Column(db.String(40))
+    default_nature = db.Column(db.String(120))
+    webhook_url = db.Column(db.String(255))
+    active = db.Column(db.Boolean, default=True, nullable=False)
+
+
+class FiscalDocument(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'fiscal_documents'
+
+    id = db.Column(db.Integer, primary_key=True)
+    work_order_id = db.Column(db.Integer, db.ForeignKey('work_orders.id'), nullable=False)
+    provider_name = db.Column(db.String(80), nullable=False, default='CUSTOM')
+    document_type = db.Column(db.String(20), nullable=False, default='NFSE')
+    environment = db.Column(db.String(20), nullable=False, default='HOMOLOGACAO')
+    status = db.Column(db.String(30), nullable=False, default='RASCUNHO')
+    numero = db.Column(db.String(30))
+    serie = db.Column(db.String(20))
+    external_id = db.Column(db.String(80))
+    access_key = db.Column(db.String(80))
+    request_payload = db.Column(db.Text)
+    response_payload = db.Column(db.Text)
+    xml_content = db.Column(db.Text)
+    pdf_url = db.Column(db.String(255))
+    error_message = db.Column(db.Text)
+
+    work_order = db.relationship('WorkOrder')
 
 
 class PaymentMethod(db.Model, TimestampMixin, SerializableMixin):

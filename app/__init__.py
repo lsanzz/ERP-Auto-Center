@@ -25,8 +25,8 @@ def _run_schema_updates(app: Flask) -> None:
     if 'work_orders' not in table_names:
         return
 
-    columns = {column['name'] for column in inspector.get_columns('work_orders')}
     statements = []
+    columns = {column['name'] for column in inspector.get_columns('work_orders')}
     if 'client_nome' not in columns:
         statements.append("ALTER TABLE work_orders ADD COLUMN client_nome VARCHAR(160)")
     if 'emitir_nota' not in columns:
@@ -34,6 +34,12 @@ def _run_schema_updates(app: Flask) -> None:
             statements.append("ALTER TABLE work_orders ADD COLUMN emitir_nota BOOLEAN NOT NULL DEFAULT FALSE")
         else:
             statements.append("ALTER TABLE work_orders ADD COLUMN emitir_nota BOOLEAN NOT NULL DEFAULT 0")
+
+    if 'xml_invoice_imports' in table_names:
+        xml_columns = {column['name'] for column in inspector.get_columns('xml_invoice_imports')}
+        if 'raw_xml' not in xml_columns:
+            statements.append("ALTER TABLE xml_invoice_imports ADD COLUMN raw_xml TEXT")
+
     for sql in statements:
         db.session.execute(text(sql))
     if statements:
@@ -58,8 +64,6 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     if test_config:
         app.config.update(test_config)
-        
-        print("DATABASE_URL REAL:", database_url)
 
     db.init_app(app)
 

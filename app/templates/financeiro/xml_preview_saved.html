@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>Dados do XML importado</h2><p class="muted">Visualize os dados que vieram da nota e exporte o XML original quando precisar enviar para a contabilidade.</p></div><div class="actions"><a class="button" href="{{ url_for('web.finance_xml_export', xml_id=xml_import.id) }}">Exportar XML</a><a class="button secondary" href="{{ url_for('web.finance_index') }}">Voltar</a></div></div>
+<div class="grid grid-2">
+  <div class="card section-card">
+    <div class="kv"><strong>Chave</strong><span>{{ xml_import.chave_acesso }}</span></div>
+    <div class="kv"><strong>Número / série</strong><span>{{ xml_import.numero }}/{{ xml_import.serie }}</span></div>
+    <div class="kv"><strong>Emitente</strong><span>{{ xml_import.emitente_nome }} · {{ xml_import.emitente_cnpj }}</span></div>
+    <div class="kv"><strong>Destinatário</strong><span>{{ xml_import.destinatario_nome }} · {{ xml_import.destinatario_cnpj }}</span></div>
+    <div class="kv"><strong>Total</strong><span>{{ format_currency(xml_import.total_nota) }}</span></div>
+  </div>
+  <div class="card section-card">
+    <h3>Informações complementares</h3>
+    <p>{{ xml_import.informacoes_complementares or 'Sem informações complementares.' }}</p>
+  </div>
+</div>
+<div class="table-card section-card" style="margin-top:18px;"><h3>Itens</h3><table class="table"><thead><tr><th>Código</th><th>Descrição</th><th>Qtd.</th><th>Valor un.</th><th>Total</th></tr></thead><tbody>{% for item in parsed.itens %}<tr><td>{{ item.codigo }}</td><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ format_currency(item.valor_unitario) }}</td><td>{{ format_currency(item.valor_total) }}</td></tr>{% else %}<tr><td colspan="5">Nenhum item registrado.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}
