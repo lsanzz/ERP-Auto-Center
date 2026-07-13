@@ -1,3 +1,85 @@
 # ERP Auto Center
 
-Sistema web para oficina auto center com foco em ordens de serviço, clientes, financeiro e importação de XML.
+ERP Auto Center é um sistema de gestão desenvolvido para **oficinas mecânicas (Auto Center)**, criado para centralizar e automatizar toda a operação da empresa em uma única plataforma. O projeto foi desenvolvido sob medida para atender às necessidades do negócio, proporcionando maior organização, controle e eficiência nos processos administrativos e operacionais.
+
+A plataforma reúne em um único ambiente o gerenciamento de clientes, ordens de serviço, orçamentos, peças, serviços, financeiro, documentos fiscais e equipe, permitindo que toda a rotina da oficina seja administrada de forma prática e segura.
+
+## 🚀 Principais funcionalidades
+
+### 📋 Gestão de clientes
+
+- Cadastro completo de clientes
+- Consulta rápida de informações
+- Histórico de atendimentos
+
+### 🔧 Ordens de Serviço
+
+- Abertura de O.S.
+- Controle dos serviços executados
+- Inclusão de peças utilizadas
+- Acompanhamento do andamento dos serviços
+- Emissão de documentos em PDF
+
+### 💰 Orçamentos
+
+- Criação de orçamentos
+- Inclusão de peças e serviços
+- Conversão para Ordem de Serviço
+
+### 🛠 Gestão de serviços
+
+- Cadastro de serviços
+- Organização dos procedimentos realizados pela oficina
+
+### 📦 Controle de peças
+
+- Cadastro de produtos
+- Controle de estoque
+- Utilização de peças nas Ordens de Serviço
+
+### 💳 Financeiro
+
+- Controle de receitas
+- Registro de pagamentos
+- Acompanhamento financeiro da oficina
+
+### 💵 Formas de pagamento
+
+- Cadastro e gerenciamento das formas de pagamento aceitas
+
+### 👨‍🔧 Funcionários
+
+- Cadastro de colaboradores
+- Controle de acesso por níveis de permissão
+- Área administrativa para gerenciamento da equipe
+
+### 📄 Fiscal
+
+- Importação de XML de Nota Fiscal Eletrônica (NF-e)
+- Organização de documentos fiscais
+
+### 📊 Dashboard
+
+- Visão geral da operação
+- Indicadores e informações importantes para gestão
+
+## 🛠 Tecnologias utilizadas
+
+- Python
+- Flask
+- SQLAlchemy
+- HTML
+- CSS
+- Jinja2
+- SQLite
+- Bootstrap (interface personalizada)
+
+## 🎯 Sobre o projeto
+
+O ERP Auto Center foi desenvolvido como uma solução personalizada para atender às necessidades de uma oficina mecânica, substituindo controles manuais e processos descentralizados por um sistema integrado.
+
+Seu objetivo é facilitar o gerenciamento das operações diárias, oferecendo mais organização, produtividade e controle sobre clientes, serviços, estoque, financeiro e documentos fiscais.
+
+---
+
+**ERP Auto Center** demonstra a aplicação de tecnologias web na criação de um sistema de gestão empresarial voltado para oficinas mecânicas, reunindo em uma única plataforma os principais processos necessários para uma administração eficiente e profissional.
