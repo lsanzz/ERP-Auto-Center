@@ -27,6 +27,7 @@ from .services import (
     split_installments,
 )
 from .utils import parse_date, parse_decimal
+from .vehicles import lookup_plate
 from .xml_import import parse_nfe_xml
 
 
@@ -833,3 +834,15 @@ def employee_resource(employee_id: int):
         employee.ativo = bool(data.get('ativo'))
     db.session.commit()
     return as_json(employee.to_dict())
+
+@api_bp.get('/veiculos/placa/<string:placa>')
+@api_login_required
+def lookup_placa(placa: str):
+    try:
+        return as_json(lookup_plate(placa))
+    except ValueError as exc:
+        return as_json({'error': str(exc)}, 400)
+    except LookupError as exc:
+        return as_json({'error': str(exc)}, 404)
+    except RuntimeError as exc:
+        return as_json({'error': str(exc)}, 503)

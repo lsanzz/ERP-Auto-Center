@@ -119,7 +119,7 @@ def _build_item_values(
     if normalized_reference is not None:
         catalog_description, catalog_unit_value = _resolve_catalog_item(item_type, normalized_reference)
 
-    descricao_value = (descricao or catalog_description or '').strip()
+    descricao_value = (descricao or catalog_description or '').strip().upper()
     if not descricao_value:
         label = 'serviço' if item_type == 'SERVICO' else 'peça'
         raise ValueError(f'Informe o nome da {label}.')

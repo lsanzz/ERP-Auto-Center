@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
@@ -24,7 +23,8 @@ def _read_json(url: str, headers: dict | None = None, timeout: int = 10) -> dict
         'User-Agent': 'ERP-Auto-Center/1.0',
         'Accept': 'application/json, text/plain, */*',
     }
-    request = Request(url, headers=headers or default_headers)
+    request_headers = default_headers | (headers or {})
+    request = Request(url, headers=request_headers)
     with urlopen(request, timeout=timeout) as response:
         return json.loads(response.read().decode('utf-8'))
 
@@ -154,29 +154,76 @@ def lookup_cpf(document: str) -> dict:
     if len(cpf) != 11:
         raise ValueError('Informe um CPF com 11 dígitos.')
 
-    token = os.getenv('DUALITY_TOKEN', 'DUALITY-FREE')
-    base_url = os.getenv('DUALITY_BASE_URL', 'https://duality.lat/')
-    url = f"{base_url}?{urlencode({'token': token, 'api': 'cpf', 'query': cpf})}"
+    api_key = os.getenv('CPFHUB_API_KEY')
+    if not api_key:
+        raise RuntimeError('Configure CPFHUB_API_KEY para consultar CPF.')
+
+    base_url = os.getenv('CPFHUB_BASE_URL', 'https://api.cpfhub.io').rstrip('/')
+    url = f'{base_url}/cpf/{cpf}'
     try:
-        payload = _read_json(url)
+        payload = _read_json(url, headers={'x-api-key': api_key})
     except HTTPError as exc:
         if exc.code == 404:
             raise LookupError('CPF não encontrado.') from exc
+        if exc.code in {401, 403}:
+            raise RuntimeError('Chave da API CPFHub inválida ou sem permissão.') from exc
         raise RuntimeError('Falha ao consultar o serviço de CPF.') from exc
     except (URLError, TimeoutError, json.JSONDecodeError) as exc:
         raise RuntimeError('Serviço de consulta de CPF indisponível.') from exc
 
-    dados = payload.get('DADOS') or {}
-    if not dados:
+    data = payload.get('data') if isinstance(payload.get('data'), dict) else payload
+    if not isinstance(data, dict):
         raise LookupError('CPF não encontrado.')
 
+    nome = _first_value(data, 'nome', 'name', 'NOME')
+    telefone = _first_value(data, 'telefone', 'phone', 'celular', 'mobile', 'TELEFONE')
+    email = _first_value(data, 'email', 'EMAIL')
+    endereco = _build_cpfhub_address(data)
+
     return {
-        'cpf_cnpj': dados.get('CPF') or cpf,
-        'nome': dados.get('NOME') or '',
-        'telefone': _best_phone(payload.get('TELEFONE') or []),
-        'email': _best_email(payload.get('EMAIL') or []),
-        'endereco': _best_address(payload.get('ENDERECOS') or []),
-        'data_nascimento': dados.get('NASC') or '',
-        'nome_mae': dados.get('NOME_MAE') or '',
-        'raw': payload,
+        'cpf_cnpj': only_digits(_first_value(data, 'cpf', 'CPF')) or cpf,
+        'nome': nome,
+        'telefone': telefone,
+        'email': email,
+        'endereco': endereco,
     }
+
+
+def _first_value(data: dict, *keys: str) -> str:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if value not in (None, '', [], {}):
+            return str(value).strip()
+    return ''
+
+
+def _build_cpfhub_address(data: dict) -> str:
+    direct = _first_value(data, 'endereco', 'address')
+    if direct:
+        return direct
+
+    address = data.get('enderecos') or data.get('addresses') or data.get('ENDERECOS')
+    if isinstance(address, list) and address:
+        address = address[0]
+    if isinstance(address, dict):
+        return _build_address({
+            'logradouro': _first_value(address, 'logradouro', 'street', 'LOGR_NOME'),
+            'numero': _first_value(address, 'numero', 'number', 'LOGR_NUMERO'),
+            'complemento': _first_value(address, 'complemento', 'details', 'LOGR_COMPLEMENTO'),
+            'bairro': _first_value(address, 'bairro', 'district', 'BAIRRO'),
+            'municipio': _first_value(address, 'cidade', 'city', 'CIDADE'),
+            'uf': _first_value(address, 'uf', 'state', 'UF'),
+            'cep': _first_value(address, 'cep', 'zip_code', 'CEP'),
+        })
+
+    return _build_address({
+        'logradouro': _first_value(data, 'logradouro', 'street'),
+        'numero': _first_value(data, 'numero', 'number'),
+        'complemento': _first_value(data, 'complemento', 'details'),
+        'bairro': _first_value(data, 'bairro', 'district'),
+        'municipio': _first_value(data, 'cidade', 'city', 'municipio'),
+        'uf': _first_value(data, 'uf', 'state'),
+        'cep': _first_value(data, 'cep', 'zip_code'),
+    })

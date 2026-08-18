@@ -1,23 +1,44 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="page-header">
-  <div><h2>Clientes</h2><p class="muted">Cadastro único de clientes. Para CNPJ, o formulário consulta dados automaticamente.</p></div>
-  <a class="button" href="{{ url_for('web.clients_new') }}">Novo cliente</a>
+  <div>
+    <span class="eyebrow">Catálogo</span>
+    <h2 class="display">Clientes</h2>
+  </div>
+  <a class="button" href="{{ url_for('web.clients_new') }}">Novo Cliente</a>
 </div>
+
 <div class="table-card">
   <table class="table">
-    <thead><tr><th>Nome</th><th>CPF/CNPJ</th><th>Telefone</th><th>E-mail</th><th></th></tr></thead>
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Documento</th>
+        <th>Telefone</th>
+        <th>E-mail</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
     <tbody>
       {% for client in clients %}
       <tr>
-        <td><a href="{{ url_for('web.clients_show', client_id=client.id) }}">{{ client.nome }}</a></td>
+        <td><strong style="color: var(--color-graphite); font-weight: 500;">{{ client.nome }}</strong></td>
         <td>{{ client.cpf_cnpj or '-' }}</td>
         <td>{{ client.telefone or '-' }}</td>
         <td>{{ client.email or '-' }}</td>
-        <td><a class="button secondary" href="{{ url_for('web.clients_edit', client_id=client.id) }}">Editar</a></td>
+        <td>
+          <div style="display: flex; gap: 10px;">
+            <a class="button secondary" href="{{ url_for('web.clients_edit', client_id=client.id) }}">Editar</a>
+            {% if current_user().role == 'ADMINISTRADOR' %}
+            <form method="post" action="{{ url_for('web.clients_delete', client_id=client.id) }}" onsubmit="return confirm('Excluir este cliente do sistema?');">
+              <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
       </tr>
       {% else %}
-      <tr><td colspan="5">Nenhum cliente cadastrado.</td></tr>
+      <tr><td colspan="5" class="muted">Nenhum cliente cadastrado.</td></tr>
       {% endfor %}
     </tbody>
   </table>

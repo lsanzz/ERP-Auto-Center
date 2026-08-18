@@ -1,8 +1,21 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="page-header">
-  <div><h2>Peças</h2><p class="muted">Catálogo de peças usado em orçamento e O.S..</p></div>
-  {% if current_user().role == 'ADMINISTRADOR' %}<a class="button" href="{{ url_for('web.products_new') }}">Nova peça</a>{% endif %}
+  <div>
+    <h2>Peças</h2>
+    <p class="muted">Catálogo de peças usado em orçamento e O.S..</p>
+  </div>
+  
+  {% if current_user().role == 'ADMINISTRADOR' %}
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <form method="post" action="{{ url_for('web.products_import_xml_preview') }}" enctype="multipart/form-data" style="display: flex; gap: 5px; align-items: center; margin: 0;">
+      <input type="file" name="xml_file" accept=".xml" required style="font-size: 0.9em; padding: 5px;">
+      <button type="submit" class="button secondary">Revisar e Importar XML</button>
+    </form>
+    
+    <a class="button" href="{{ url_for('web.products_new') }}">Nova peça</a>
+  </div>
+  {% endif %}
 </div>
 <div class="table-card">
   <table class="table">

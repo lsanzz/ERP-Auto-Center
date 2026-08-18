@@ -6,6 +6,7 @@ import io
 import json
 import re
 from flask import Blueprint, flash, redirect, render_template, request, send_file, url_for
+from decimal import Decimal
 
 from .auth import admin_required, current_user, login_required, login_user, logout_user
 from .cnpj import is_cnpj, is_cpf, lookup_cnpj, lookup_cpf
@@ -224,6 +225,213 @@ def products_edit(product_id: int):
         flash('Peça atualizada.', 'success')
         return redirect(url_for('web.products_index'))
     return render_template('produtos/form.html', product=product)
+
+@web_bp.post('/produtos/importar-xml')
+@login_required
+@admin_required
+def products_import_xml():
+    upload = request.files.get('xml_file')
+    if not upload or not upload.filename:
+        flash('Selecione um arquivo XML.', 'error')
+        return redirect(url_for('web.products_index'))
+        
+    try:
+        raw_xml = upload.read()
+        parsed = parse_nfe_xml(raw_xml)
+        
+        novos = 0
+        atualizados = 0
+        
+        for item in parsed.get('itens', []):
+            # Tenta encontrar a peça pelo código original do fornecedor
+            product = Product.query.filter_by(codigo=item['codigo']).first()
+            
+            custo_unitario = parse_decimal(item['valor_unitario'])
+            
+            if product:
+                # Se a peça já existe, apenas atualiza o custo
+                product.custo = custo_unitario
+                atualizados += 1
+            else:
+                # Se não existe, cria a nova peça
+                product = Product(
+                    codigo=item['codigo'],
+                    nome=item['descricao'],
+                    unidade=item['unidade'],
+                    custo=custo_unitario,
+                    # Adicionando uma margem de lucro padrão inicial (ex: 50%)
+                    preco_venda=custo_unitario * Decimal('1.5'),
+                    ativo=True
+                )
+                db.session.add(product)
+                novos += 1
+                
+        db.session.commit()
+        flash(f'XML Importado com sucesso! {novos} peças adicionadas e {atualizados} peças atualizadas (custo).', 'success')
+        
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Falha ao importar peças pelo XML: {exc}', 'error')
+        
+    return redirect(url_for('web.products_index'))
+
+@web_bp.post('/produtos/importar-xml/preview')
+@login_required
+@admin_required
+def products_import_xml_preview():
+    upload = request.files.get('xml_file')
+    if not upload or not upload.filename:
+        flash('Selecione um arquivo XML.', 'error')
+        return redirect(url_for('web.products_index'))
+
+    try:
+        raw_xml = upload.read()
+        parsed = parse_nfe_xml(raw_xml)
+        
+        # Verificar se o fornecedor já existe
+        fornecedor = Client.query.filter_by(cpf_cnpj=parsed.get('emitente_cnpj')).first()
+        parsed['fornecedor_cadastrado'] = 'Sim' if fornecedor else 'Não'
+
+        for item in parsed.get('itens', []):
+            existing = Product.query.filter_by(codigo=item['codigo']).first()
+            item['exists'] = bool(existing)
+            if existing:
+                item['nome_sugerido'] = existing.nome
+                item['margem_sugerida'] = 0 
+                item['preco_venda_sugerido'] = float(existing.preco_venda)
+            else:
+                item['nome_sugerido'] = item['descricao']
+                item['margem_sugerida'] = 50.0
+                item['preco_venda_sugerido'] = float(item['valor_unitario']) * 1.5
+
+        # Envia o XML cru encodado para podermos ler depois na confirmação
+        raw_xml_b64 = base64.b64encode(raw_xml).decode('ascii')
+
+        return render_template(
+            'produtos/xml_preview.html',
+            parsed=parsed,
+            raw_xml_b64=raw_xml_b64
+        )
+    except Exception as exc:
+        flash(f'Falha ao ler XML: {exc}', 'error')
+        return redirect(url_for('web.products_index'))
+
+
+@web_bp.post('/produtos/importar-xml/confirmar')
+@login_required
+@admin_required
+def products_import_xml_confirm():
+    codigos = request.form.getlist('codigo[]')
+    nomes = request.form.getlist('nome[]')
+    unidades = request.form.getlist('unidade[]')
+    custos = request.form.getlist('custo[]')
+    precos_venda = request.form.getlist('preco_venda[]')
+    importar_flags = request.form.getlist('importar[]')
+    
+    raw_xml_b64 = request.form.get('raw_xml_b64')
+
+    novos = 0
+    atualizados = 0
+
+    try:
+        # 1. Salva os produtos no catálogo
+        for idx, codigo in enumerate(codigos):
+            if codigo not in importar_flags:
+                continue 
+
+            product = Product.query.filter_by(codigo=codigo).first()
+            custo_val = parse_decimal(custos[idx])
+            venda_val = parse_decimal(precos_venda[idx])
+
+            if product:
+                product.nome = nomes[idx]
+                product.unidade = unidades[idx]
+                product.custo = custo_val
+                product.preco_venda = venda_val
+                atualizados += 1
+            else:
+                product = Product(
+                    codigo=codigo,
+                    nome=nomes[idx],
+                    unidade=unidades[idx],
+                    custo=custo_val,
+                    preco_venda=venda_val,
+                    ativo=True
+                )
+                db.session.add(product)
+                novos += 1
+            
+            db.session.flush()
+
+        # 2. Registra o XML e lança no Financeiro (Contas a Pagar)
+        if raw_xml_b64:
+            raw_xml = base64.b64decode(raw_xml_b64.encode('ascii'))
+            parsed = parse_nfe_xml(raw_xml)
+            
+            vencimento_padrao = request.form.get('vencimento_padrao')
+            
+            existing_xml = XmlInvoiceImport.query.filter_by(chave_acesso=parsed['chave_acesso']).first()
+            if not existing_xml:
+                supplier = Client.query.filter_by(cpf_cnpj=parsed.get('emitente_cnpj')).first()
+                if not supplier:
+                    supplier = Client(nome=parsed.get('emitente_nome') or 'Fornecedor XML', cpf_cnpj=parsed.get('emitente_cnpj'))
+                    db.session.add(supplier)
+                    db.session.flush()
+
+                xml_import = XmlInvoiceImport(
+                    chave_acesso=parsed['chave_acesso'],
+                    numero=parsed.get('numero'),
+                    serie=parsed.get('serie'),
+                    natureza_operacao=parsed.get('natureza_operacao'),
+                    emitente_nome=parsed.get('emitente_nome'),
+                    emitente_cnpj=parsed.get('emitente_cnpj'),
+                    destinatario_nome=parsed.get('destinatario_nome'),
+                    destinatario_cnpj=parsed.get('destinatario_cnpj'),
+                    total_nota=parse_decimal(parsed.get('total_nota')),
+                    emissao_em=parse_date(parsed.get('issued_at')),
+                    informacoes_complementares=parsed.get('informacoes_complementares'),
+                    raw_xml=raw_xml.decode('utf-8', errors='ignore')
+                )
+                xml_import.set_items(parsed.get('itens') or [])
+                db.session.add(xml_import)
+                db.session.flush()
+                
+                faturas = parsed.get('faturas')
+                if faturas:
+                    for fatura in faturas:
+                        data_venc = vencimento_padrao if vencimento_padrao else (fatura['vencimento'] or parsed.get('issued_at'))
+                        create_financial_entries(
+                            entry_type='PAGAR',
+                            descricao=f"NF-e {parsed.get('numero')} - {parsed.get('emitente_nome')} (Dup. {fatura['numero']})",
+                            categoria='NF-e XML',
+                            valor_total=parse_decimal(fatura['valor']),
+                            vencimento=data_venc,
+                            status='PENDENTE',
+                            reference_type='XML_NFE',
+                            reference_id=xml_import.id,
+                            installment_count=1
+                        )
+                else:
+                    data_venc = vencimento_padrao if vencimento_padrao else parsed.get('issued_at')
+                    create_financial_entries(
+                        entry_type='PAGAR',
+                        descricao=f"NF-e {parsed.get('numero')} - {parsed.get('emitente_nome')}",
+                        categoria='NF-e XML',
+                        valor_total=parse_decimal(parsed.get('total_nota')),
+                        vencimento=data_venc,
+                        status='PENDENTE',
+                        reference_type='XML_NFE',
+                        reference_id=xml_import.id,
+                        installment_count=1
+                    )
+
+        db.session.commit()
+        flash(f'Importação concluída: {novos} peças novas e {atualizados} atualizadas. NF-e enviada ao Financeiro!', 'success')
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Falha ao salvar as peças e financeiro: {exc}', 'error')
+
+    return redirect(url_for('web.products_index'))
 
 
 @web_bp.get('/servicos')
@@ -640,29 +848,47 @@ def _group_financial_entries(entries: list[FinancialEntry]) -> list[dict]:
 @admin_required
 def finance_index():
     entries = FinancialEntry.query.order_by(FinancialEntry.vencimento.desc(), FinancialEntry.id.desc()).all()
+    # Necessários para o form inline de liquidar
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all()
     bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all()
-    xml_imports = XmlInvoiceImport.query.order_by(XmlInvoiceImport.id.desc()).limit(10).all()
+    
     total_receber = sum(parse_decimal(entry.valor) for entry in entries if entry.entry_type == 'RECEBER' and entry.status == 'PENDENTE')
     total_pagar = sum(parse_decimal(entry.valor) for entry in entries if entry.entry_type == 'PAGAR' and entry.status == 'PENDENTE')
     entry_groups = _group_financial_entries(entries)
-    return render_template('financeiro/index.html', entries=entries, entry_groups=entry_groups, payment_methods=payment_methods, bank_accounts=bank_accounts, xml_imports=xml_imports, cash=dashboard_data('ADMINISTRADOR')['caixa_diario'], total_receber=total_receber, total_pagar=total_pagar)
+    
+    return render_template(
+        'financeiro/index.html', 
+        entries=entries, 
+        entry_groups=entry_groups, 
+        payment_methods=payment_methods, 
+        bank_accounts=bank_accounts, 
+        cash=dashboard_data('ADMINISTRADOR')['caixa_diario'], 
+        total_receber=total_receber, 
+        total_pagar=total_pagar
+    )
 
 
-@web_bp.post('/financeiro/novo')
+@web_bp.route('/financeiro/novo', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def finance_new():
+    if request.method == 'GET':
+        payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all()
+        bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all()
+        return render_template('financeiro/form.html', payment_methods=payment_methods, bank_accounts=bank_accounts)
+
     entry_type = request.form.get('entry_type') or 'RECEBER'
     payment_mode = request.form.get('payment_mode') or 'UNICO'
     installment_count = int(request.form.get('installment_count') or 1)
     installment_value = parse_decimal(request.form.get('installment_value'))
     total_value = parse_decimal(request.form.get('valor'))
+    
     if entry_type == 'PAGAR' and payment_mode == 'PARCELADO':
         installment_count = max(installment_count, 1)
         total_value = installment_value * installment_count
     else:
         installment_count = 1
+        
     entries = create_financial_entries(
         entry_type=entry_type,
         descricao=request.form.get('descricao', '').strip(),
@@ -680,6 +906,14 @@ def finance_new():
     db.session.commit()
     flash(f'{len(entries)} lançamento(s) financeiro(s) criado(s).', 'success')
     return redirect(url_for('web.finance_index'))
+
+
+@web_bp.get('/financeiro/importacoes')
+@login_required
+@admin_required
+def finance_imports():
+    xml_imports = XmlInvoiceImport.query.order_by(XmlInvoiceImport.id.desc()).limit(20).all()
+    return render_template('financeiro/importacoes.html', xml_imports=xml_imports)
 
 
 @web_bp.post('/financeiro/<int:entry_id>/liquidar')
@@ -962,6 +1196,91 @@ def payment_methods_edit(method_id: int):
         return redirect(url_for('web.payment_methods_index'))
     return render_template('formas_pagamento/form.html', method=method)
 
+@web_bp.post('/os/<int:work_order_id>/excluir')
+@login_required
+@admin_required
+def work_orders_delete(work_order_id: int):
+    order = db.session.get(WorkOrder, work_order_id)
+    if not order:
+        return redirect(url_for('web.work_orders_index'))
+    
+    entradas_fin = FinancialEntry.query.filter_by(reference_type='OS', reference_id=order.id).all()
+    for entrada in entradas_fin:
+        db.session.delete(entrada)
+        
+    db.session.delete(order)
+    db.session.commit()
+    flash('Ordem de serviço excluída com sucesso.', 'success')
+    return redirect(url_for('web.work_orders_index'))
+
+@web_bp.post('/clientes/<int:client_id>/excluir')
+@login_required
+@admin_required
+def clients_delete(client_id: int):
+    client = db.session.get(Client, client_id)
+    if not client:
+        return redirect(url_for('web.clients_index'))
+        
+    if client.work_orders or client.budgets:
+        flash('Não é possível excluir: Cliente possui Ordens de Serviço ou Orçamentos vinculados.', 'error')
+        return redirect(url_for('web.clients_index'))
+        
+    db.session.delete(client)
+    db.session.commit()
+    flash('Cliente excluído com sucesso.', 'success')
+    return redirect(url_for('web.clients_index'))
+
+@web_bp.post('/financeiro/<int:entry_id>/estornar')
+@login_required
+@admin_required
+def finance_revert(entry_id: int):
+    entry = db.session.get(FinancialEntry, entry_id)
+    if not entry:
+        return redirect(url_for('web.finance_index'))
+        
+    if entry.status in ['RECEBIDO', 'PAGO']:
+        # Estorna o saldo da conta bancária
+        if entry.bank_account_id:
+            account = db.session.get(BankAccount, entry.bank_account_id)
+            if account:
+                value = parse_decimal(entry.valor)
+                if entry.entry_type == 'RECEBER':
+                    account.saldo_atual = parse_decimal(account.saldo_atual) - value
+                else:
+                    account.saldo_atual = parse_decimal(account.saldo_atual) + value
+                    
+        # Reverte o lançamento para pendente
+        entry.status = 'PENDENTE'
+        entry.payment_receipt_at = None
+        db.session.commit()
+        flash('Lançamento estornado e saldo revertido com sucesso.', 'success')
+    else:
+        flash('Apenas lançamentos liquidados podem ser estornados.', 'error')
+        
+    return redirect(url_for('web.finance_index'))
+
+@web_bp.post('/financeiro/<int:entry_id>/remover')
+@login_required
+@admin_required
+def finance_delete(entry_id: int):
+    entry = db.session.get(FinancialEntry, entry_id)
+    if not entry:
+        return redirect(url_for('web.finance_index'))
+        
+    # Se o lançamento estava liquidado, reverte o saldo da conta bancária antes de apagar
+    if entry.status in ['RECEBIDO', 'PAGO'] and entry.bank_account_id:
+        account = db.session.get(BankAccount, entry.bank_account_id)
+        if account:
+            val = parse_decimal(entry.valor)
+            if entry.entry_type == 'RECEBER':
+                account.saldo_atual = parse_decimal(account.saldo_atual) - val
+            else:
+                account.saldo_atual = parse_decimal(account.saldo_atual) + val
+                
+    db.session.delete(entry)
+    db.session.commit()
+    flash('Lançamento financeiro removido com sucesso.', 'success')
+    return redirect(url_for('web.finance_index'))
 
 @web_bp.get('/funcionarios')
 @login_required
@@ -983,7 +1302,6 @@ def employees_new():
         flash('Funcionário cadastrado.', 'success')
         return redirect(url_for('web.employees_index'))
     return render_template('funcionarios/form.html', employee=None)
-
 
 @web_bp.route('/funcionarios/<int:employee_id>/editar', methods=['GET', 'POST'])
 @login_required
@@ -1128,8 +1446,8 @@ def _fill_client_from_form(client: Client) -> None:
 
 
 def _fill_product_from_form(product: Product) -> None:
-    product.codigo = request.form.get('codigo', '').strip()
-    product.nome = request.form.get('nome', '').strip()
+    product.codigo = request.form.get('codigo', '').strip().upper()
+    product.nome = request.form.get('nome', '').strip().upper()
     product.categoria = request.form.get('categoria') or None
     product.marca = request.form.get('marca') or None
     product.unidade = request.form.get('unidade') or 'UN'
@@ -1139,7 +1457,7 @@ def _fill_product_from_form(product: Product) -> None:
 
 
 def _fill_service_from_form(service: Service) -> None:
-    service.nome = request.form.get('nome', '').strip()
+    service.nome = request.form.get('nome', '').strip().upper()
     service.descricao = request.form.get('descricao') or None
     service.preco_base = parse_decimal(request.form.get('preco_base'))
     service.ativo = bool(request.form.get('ativo'))

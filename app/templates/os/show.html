@@ -1,67 +1,115 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header">
+<div class="page-header" style="margin-bottom: 40px;">
   <div>
-    <span class="eyebrow">ordem de serviço</span>
-    <h2>{{ order.numero }}</h2>
-    <p class="muted">Ficha completa da O.S. com itens, responsável, status e emissão em PDF.</p>
+    <span class="eyebrow">Ordem de Serviço</span>
+    <h2 class="display">{{ order.numero }}</h2>
+    <span class="status-badge status-{{ order.status|lower|replace('_', '-') }}" style="margin-top: 12px;">
+      <span class="status-dot"></span>{{ order.status|replace('_', ' ') }}
+    </span>
   </div>
-  <div class="actions">
-    <a class="button secondary" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar O.S.</a>
-    <a class="button" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}">Emitir PDF</a>
-    {% if current_user() and current_user().role == 'ADMINISTRADOR' %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id) }}">Prévia fiscal / XML</a>{% endif %}
-    <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Voltar</a>
+<div class="actions" style="margin-top: 0; display: flex; gap: 10px;">
+    {% if current_user().role == 'ADMINISTRADOR' %}
+    <form method="post" action="{{ url_for('web.work_orders_delete', work_order_id=order.id) }}" onsubmit="return confirm('Atenção: Excluir esta O.S. apagará também os recebimentos pendentes atrelados a ela. Deseja continuar?');">
+      <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir O.S.</button>
+    </form>
+    {% endif %}
+    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}">Baixar PDF</a>
+    <a class="button" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar O.S.</a>
   </div>
 </div>
 
-<div class="hero-panel">
-  <div>
-    <div class="hero-kicker">cliente</div>
-    <h3>{{ order.client_nome or (order.client.nome if order.client else '-') }}</h3>
-    <p class="muted">{{ order.veiculo_descricao or 'Sem descrição do veículo' }}{% if order.placa %} · {{ order.placa }}{% endif %}</p>
-  </div>
-  <div class="hero-meta">
-    <div class="hero-stat">
-      <span>Status</span>
-      <strong><span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span></strong>
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px; margin-bottom: 60px;">
+  <div class="card asymmetric" style="margin-bottom: 0;">
+    <h3 style="margin-bottom: 24px;">Dados do Cliente</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <div>
+        <span class="muted" style="display: block; margin-bottom: 4px;">Cliente</span>
+        <strong style="color: var(--color-graphite);">{{ order.client_nome or (order.client.nome if order.client else '-') }}</strong>
+      </div>
+      <div>
+        <span class="muted" style="display: block; margin-bottom: 4px;">Veículo</span>
+        <strong style="color: var(--color-graphite);">{{ order.veiculo_descricao or '-' }}</strong>
+      </div>
+      <div>
+        <span class="muted" style="display: block; margin-bottom: 4px;">Placa</span>
+        <strong style="color: var(--color-graphite);">{{ order.placa or '-' }}</strong>
+      </div>
+      <div>
+        <span class="muted" style="display: block; margin-bottom: 4px;">Responsável</span>
+        <strong style="color: var(--color-graphite);">{{ order.employee.nome if order.employee else '-' }}</strong>
+      </div>
     </div>
-    <div class="hero-stat"><span>Entrada</span><strong>{{ order.data_entrada|date_br }}</strong></div>
-    <div class="hero-stat"><span>Responsável</span><strong>{{ order.employee.nome if order.employee else '-' }}</strong></div>
-    <div class="hero-stat"><span>Total</span><strong>{{ format_currency(order.total_geral) }}</strong></div>
-  </div>
-</div>
-
-<div class="grid grid-2">
-  <div class="card section-card">
-    <h3>Dados gerais</h3>
-    <div class="kv"><strong>Cliente</strong><span>{{ order.client_nome or (order.client.nome if order.client else '-') }}</span></div>
-    <div class="kv"><strong>Funcionário</strong><span>{{ order.employee.nome if order.employee else '-' }}</span></div>
-    <div class="kv"><strong>Forma de pagamento</strong><span>{{ order.payment_method.nome if order.payment_method else '-' }}</span></div>
-    <div class="kv"><strong>Parcelas</strong><span>{{ order.installment_count or 1 }}x</span></div>
-    {% if installment_values %}
-    <div class="kv"><strong>Valor por parcela</strong><span>{{ format_currency(installment_values[0]) }}</span></div>
+    {% if order.observacoes %}
+    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-mist);">
+      <span class="muted" style="display: block; margin-bottom: 4px;">Observações</span>
+      <p style="color: var(--color-steel);">{{ order.observacoes }}</p>
+    </div>
     {% endif %}
   </div>
-  <div class="card section-card">
-    <h3>Observações</h3>
-    <p>{{ order.observacoes or 'Sem observações.' }}</p>
+
+  <div class="card" style="background: var(--color-canvas-white); border: 1px solid var(--color-mist); border-radius: 8px; margin-bottom: 0; padding: 40px;">
+    <h3 style="margin-bottom: 24px;">Resumo Financeiro</h3>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+      <span class="muted">Serviços</span>
+      <span style="color: var(--color-graphite);">{{ format_currency(order.total_servicos) }}</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--color-mist);">
+      <span class="muted">Peças</span>
+      <span style="color: var(--color-graphite);">{{ format_currency(order.total_pecas) }}</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+      <strong style="color: var(--color-graphite);">Total</strong>
+      <strong style="font-family: var(--font-polysans); font-size: 32px; color: var(--color-ember-orange); letter-spacing: -0.64px;">{{ format_currency(order.total_geral) }}</strong>
+    </div>
+    
+    {% if order.payment_method %}
+    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-mist);">
+      <span class="muted" style="display: block; margin-bottom: 4px;">Forma de pagamento</span>
+      <strong style="color: var(--color-graphite);">{{ order.payment_method.nome }}</strong>
+      {% if order.installment_count and order.installment_count > 1 %}
+        <span class="muted" style="display: block; font-size: 13px;">({{ order.installment_count }}x de {{ format_currency((order.total_geral / order.installment_count)) }})</span>
+      {% endif %}
+    </div>
+    {% endif %}
   </div>
 </div>
 
-<div class="grid grid-2">
-  <div class="table-card section-card">
-    <h3>Serviços realizados</h3>
-    <table class="table"><thead><tr><th>Descrição</th><th>Qtd.</th><th>Valor un.</th><th>Total</th></tr></thead><tbody>{% for item in service_items %}<tr><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ format_currency(item.valor_unitario) }}</td><td>{{ format_currency(item.total) }}</td></tr>{% else %}<tr><td colspan="4">Nenhum serviço informado.</td></tr>{% endfor %}</tbody></table>
-  </div>
-  <div class="table-card section-card">
-    <h3>Peças usadas</h3>
-    <table class="table"><thead><tr><th>Descrição</th><th>Qtd.</th><th>Valor un.</th><th>Total</th></tr></thead><tbody>{% for item in part_items %}<tr><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ format_currency(item.valor_unitario) }}</td><td>{{ format_currency(item.total) }}</td></tr>{% else %}<tr><td colspan="4">Nenhuma peça informada.</td></tr>{% endfor %}</tbody></table>
-  </div>
+<div class="table-card">
+  <h3 style="margin-bottom: 24px;">Serviços Realizados</h3>
+  <table class="table">
+    <thead><tr><th>Descrição</th><th style="text-align: right;">Qtd</th><th style="text-align: right;">Valor Unitário</th><th style="text-align: right;">Total</th></tr></thead>
+    <tbody>
+      {% for item in service_items %}
+      <tr>
+        <td><strong style="color: var(--color-graphite); font-weight: 500;">{{ item.descricao }}</strong></td>
+        <td style="text-align: right;">{{ item.quantidade|int }}</td>
+        <td style="text-align: right;">{{ format_currency(item.valor_unitario) }}</td>
+        <td style="text-align: right; font-family: var(--font-polysans); color: var(--color-graphite);">{{ format_currency(item.total) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">Nenhum serviço registrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 
-<div class="grid grid-3" style="margin-top:18px;">
-  <div class="stat accent-red"><span>Total serviços</span><strong>{{ format_currency(order.total_servicos) }}</strong></div>
-  <div class="stat accent-dark"><span>Total peças</span><strong>{{ format_currency(order.total_pecas) }}</strong></div>
-  <div class="stat accent-red"><span>Total geral</span><strong>{{ format_currency(order.total_geral) }}</strong></div>
+<div class="table-card" style="margin-top: 60px;">
+  <h3 style="margin-bottom: 24px;">Peças Utilizadas</h3>
+  <table class="table">
+    <thead><tr><th>Descrição</th><th style="text-align: right;">Qtd</th><th style="text-align: right;">Valor Unitário</th><th style="text-align: right;">Total</th></tr></thead>
+    <tbody>
+      {% for item in part_items %}
+      <tr>
+        <td><strong style="color: var(--color-graphite); font-weight: 500;">{{ item.descricao }}</strong></td>
+        <td style="text-align: right;">{{ item.quantidade|int }}</td>
+        <td style="text-align: right;">{{ format_currency(item.valor_unitario) }}</td>
+        <td style="text-align: right; font-family: var(--font-polysans); color: var(--color-graphite);">{{ format_currency(item.total) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">Nenhuma peça registrada.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endblock %}
