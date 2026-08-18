@@ -14,6 +14,7 @@
       <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir O.S.</button>
     </form>
     {% endif %}
+    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir O.S.</a>
     <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}">Baixar PDF</a>
     <a class="button" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar O.S.</a>
   </div>
@@ -74,6 +75,25 @@
     {% endif %}
   </div>
 </div>
+
+{% if current_user().role == 'ADMINISTRADOR' and order.status in ['FINALIZADA', 'ENTREGUE'] %}
+{% set has_receivables = receivables|length > 0 %}
+{% set all_received = has_receivables and (receivables|selectattr('status', 'equalto', 'RECEBIDO')|list|length == receivables|length) %}
+<div class="card section-card" style="margin-bottom:60px;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap;">
+    <div><h3>Financeiro desta O.S.</h3><p class="muted" style="margin-top:8px;">{{ 'Recebimento já lançado.' if has_receivables else 'Esta ordem está pronta para entrar em contas a receber.' }}</p></div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      {% if not has_receivables %}
+      <form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><button type="submit">Lançar contas</button></form>
+      {% else %}
+      <a class="button secondary" href="{{ url_for('web.finance_index') }}">Abrir financeiro</a>
+      {% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary" style="color:var(--color-ember-orange)!important; border-color:var(--color-ember-orange)!important;">Estornar recebimento</button></form>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% if has_receivables %}<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:24px;">{% for entry in receivables %}<div style="padding:16px; border:1px solid var(--color-mist); background:var(--color-canvas-white);"><span class="muted">Parcela {{ entry.installment_number }}/{{ entry.installment_total }}</span><strong style="display:block; margin-top:7px;">{{ format_currency(entry.valor) }}</strong><span class="muted small">{{ entry.status }}</span></div>{% endfor %}</div>{% endif %}
+</div>
+{% endif %}
 
 <div class="table-card">
   <h3 style="margin-bottom: 24px;">Serviços Realizados</h3>

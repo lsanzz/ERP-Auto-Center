@@ -114,7 +114,7 @@ def _summary_table(order, styles: dict[str, ParagraphStyle]) -> Table:
     ]))
     return table
 
-def generate_work_order_pdf(order, service_items, part_items) -> bytes:
+def generate_work_order_pdf(order, service_items, part_items, company_name: str = 'ERP Auto Center') -> bytes:
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -124,7 +124,7 @@ def generate_work_order_pdf(order, service_items, part_items) -> bytes:
         topMargin=18 * mm,
         bottomMargin=16 * mm,
         title=f'Ordem de Serviço {order.numero}',
-        author='ERP Auto Center',
+        author=company_name,
     )
     base = getSampleStyleSheet()
 
@@ -153,7 +153,7 @@ def generate_work_order_pdf(order, service_items, part_items) -> bytes:
                 ParagraphStyle('header_right', parent=styles['subtitle'], alignment=TA_RIGHT),
             ),
         ],
-        [Paragraph('Documento gerado pelo ERP Auto Center', styles['subtitle']), ''],
+        [Paragraph(f'Documento gerado pelo {_safe(company_name)}', styles['subtitle']), ''],
     ], colWidths=[115 * mm, 65 * mm])
     
     header.setStyle(TableStyle([
@@ -189,7 +189,7 @@ def generate_work_order_pdf(order, service_items, part_items) -> bytes:
         canvas.line(doc.leftMargin, 11 * mm, A4[0] - doc.rightMargin, 11 * mm)
         canvas.setFont('Helvetica', 8)
         canvas.setFillColor(colors.HexColor('#828282')) # Slate Text
-        canvas.drawString(doc.leftMargin, 7 * mm, 'ERP Auto Center — ordem de serviço gerada via sistema')
+        canvas.drawString(doc.leftMargin, 7 * mm, f'{_safe(company_name)} — ordem de serviço gerada via sistema')
         canvas.drawRightString(A4[0] - doc.rightMargin, 7 * mm, f'Página {canvas.getPageNumber()}')
         canvas.restoreState()
 

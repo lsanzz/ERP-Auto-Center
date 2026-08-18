@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="eyebrow">Administração</span>
+    <h2>Configurações</h2>
+    <p class="muted">Personalize a identidade, os padrões e os acessos da oficina em um único lugar.</p>
+  </div>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:16px; margin-bottom:40px;">
+  <a class="data-card" href="#empresa" style="text-decoration:none; color:inherit;">
+    <span class="eyebrow">01</span><h3>Empresa</h3><p class="muted">Nome, contato e endereço usados no sistema.</p>
+  </a>
+  <a class="data-card" href="#operacao" style="text-decoration:none; color:inherit;">
+    <span class="eyebrow">02</span><h3>Operação</h3><p class="muted">Numeração e validade padrão de orçamentos.</p>
+  </a>
+  <a class="data-card" href="#acessos" style="text-decoration:none; color:inherit;">
+    <span class="eyebrow">03</span><h3>Acessos</h3><p class="muted">Usuários, perfis e senhas do ERP.</p>
+  </a>
+  <a class="data-card" href="{{ url_for('web.fiscal_index') }}" style="text-decoration:none; color:inherit;">
+    <span class="eyebrow">04</span><h3>Integrações</h3><p class="muted">API fiscal e emissão de documentos.</p>
+  </a>
+</div>
+
+<section id="empresa" class="card">
+  <div class="page-header" style="margin-bottom:28px;">
+    <div><h3>Dados da empresa</h3><p class="muted">Esses dados aparecem no cabeçalho e identificam a oficina nos documentos.</p></div>
+  </div>
+  <form method="post" action="{{ url_for('web.settings_save_company') }}">
+    <div class="form-grid-2">
+      <label>Nome exibido no sistema<input name="company_name" value="{{ settings.company_name or '' }}" required></label>
+      <label>Razão social<input name="trade_name" value="{{ settings.trade_name or '' }}"></label>
+      <label>CNPJ/CPF<input name="company_document" value="{{ settings.company_document or '' }}"></label>
+      <label>Telefone<input name="phone" value="{{ settings.phone or '' }}"></label>
+      <label>E-mail<input type="email" name="email" value="{{ settings.email or '' }}"></label>
+      <label>CEP<input name="zip_code" value="{{ settings.zip_code or '' }}"></label>
+      <label>Endereço<input name="address" value="{{ settings.address or '' }}"></label>
+      <div class="form-grid-2" style="margin-bottom:0;">
+        <label>Cidade<input name="city" value="{{ settings.city or '' }}"></label>
+        <label>UF<input name="state" maxlength="2" value="{{ settings.state or '' }}"></label>
+      </div>
+    </div>
+    <div class="actions"><button type="submit">Salvar dados da empresa</button></div>
+  </form>
+</section>
+
+<section id="operacao" class="card">
+  <div class="page-header" style="margin-bottom:28px;">
+    <div><h3>Padrões da operação</h3><p class="muted">Defina como os próximos documentos serão identificados e apresentados.</p></div>
+  </div>
+  <form method="post" action="{{ url_for('web.settings_save_operation') }}">
+    <div class="form-grid-2">
+      <label>Prefixo de orçamento<input name="budget_prefix" maxlength="10" value="{{ settings.budget_prefix or 'ORC' }}" required></label>
+      <label>Prefixo de O.S.<input name="work_order_prefix" maxlength="10" value="{{ settings.work_order_prefix or 'OS' }}" required></label>
+      <label>Validade padrão do orçamento (dias)<input type="number" min="0" name="budget_validity_days" value="{{ settings.budget_validity_days if settings.budget_validity_days is not none else 7 }}" required></label>
+      <label>Garantia padrão dos serviços (dias)<input type="number" min="0" name="warranty_days" value="{{ settings.warranty_days if settings.warranty_days is not none else 90 }}" required></label>
+    </div>
+    <p class="muted">As alterações de prefixo valem para novos registros e não renomeiam documentos já emitidos.</p>
+    <div class="actions"><button type="submit">Salvar padrões</button></div>
+  </form>
+</section>
+
+<section id="acessos" class="card">
+  <div class="page-header" style="margin-bottom:28px;">
+    <div><h3>Usuários e acessos</h3><p class="muted">Controle quem entra no sistema e quais áreas administrativas cada pessoa pode acessar.</p></div>
+    <a class="button" href="{{ url_for('web.settings_users_new') }}">Novo usuário</a>
+  </div>
+  <table class="table">
+    <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for user in users %}
+      <tr><td>{{ user.nome }}</td><td>{{ user.username }}</td><td>{{ user.role }}</td><td>{{ 'Ativo' if user.ativo else 'Inativo' }}</td><td><a class="button secondary" href="{{ url_for('web.settings_users_edit', user_id=user.id) }}">Editar</a></td></tr>
+      {% else %}<tr><td colspan="5">Nenhum usuário cadastrado.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <div class="page-header" style="margin-bottom:28px;">
+    <div><h3>Meu perfil</h3><p class="muted">Atualize seu nome ou troque sua senha de acesso.</p></div>
+  </div>
+  <form method="post" action="{{ url_for('web.settings_save_profile') }}">
+    <div class="form-grid-2">
+      <label>Nome<input name="nome" value="{{ current_user().nome }}" required></label>
+      <label>Usuário<input value="{{ current_user().username }}" disabled></label>
+      <label>Senha atual<input type="password" name="current_password" autocomplete="current-password"></label>
+      <label>Nova senha<input type="password" name="new_password" minlength="6" autocomplete="new-password"></label>
+    </div>
+    <p class="muted">Para trocar a senha, informe a senha atual. Deixe os campos de senha em branco para manter a atual.</p>
+    <div class="actions"><button type="submit">Salvar meu perfil</button></div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="page-header" style="margin-bottom:28px;">
+    <div><h3>Cadastros administrativos</h3><p class="muted">Atalhos para os dados internos que sustentam a operação.</p></div>
+  </div>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px;">
+    <a class="button secondary" href="{{ url_for('web.employees_index') }}">Funcionários</a>
+    <a class="button secondary" href="{{ url_for('web.payment_methods_index') }}">Formas de pagamento</a>
+    <a class="button secondary" href="{{ url_for('web.services_index') }}">Catálogo de serviços</a>
+    <a class="button secondary" href="{{ url_for('web.products_index') }}">Catálogo de peças</a>
+    <a class="button secondary" href="{{ url_for('web.finance_index') }}">Contas e financeiro</a>
+    <a class="button secondary" href="{{ url_for('web.fiscal_index') }}">Fiscal e integrações</a>
+  </div>
+</section>
+{% endblock %}

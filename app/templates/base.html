@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ERP Auto Center</title>
+  <title>{{ system_settings.company_name }}{% block page_title %}{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <!-- Inter para corpo/UI e Space Grotesk substituindo PolySans (neo-grotesque 400) -->
@@ -248,19 +248,20 @@
   <div class="container">
     <header class="top-header">
       <div class="brand">
-        <a href="{{ url_for('web.dashboard') }}" style="text-decoration: none;"><strong>ERP Auto Center</strong></a>
+        <a href="{{ url_for('web.dashboard') }}" style="text-decoration: none;"><strong>{{ system_settings.company_name }}</strong></a>
       </div>
       
       <nav class="nav-pill-container">
         <a href="{{ url_for('web.dashboard') }}">Painel</a>
         <a href="{{ url_for('web.clients_index') }}">Clientes</a>
-        <a href="{{ url_for('web.products_index') }}">Peças</a>
+        <a href="{{ url_for('web.products_index') }}">Estoque</a>
         <a href="{{ url_for('web.services_index') }}">Serviços</a>
         <a href="{{ url_for('web.budgets_index') }}">Orçamentos</a>
         <a href="{{ url_for('web.work_orders_index') }}">O.S.</a>
         {% if current_user() and current_user().role == 'ADMINISTRADOR' %}
         <a href="{{ url_for('web.finance_index') }}">Financeiro</a>
         <a href="{{ url_for('web.fiscal_index') }}">Fiscal</a>
+        <a href="{{ url_for('web.settings_index') }}">Configurações</a>
         {% endif %}
       </nav>
 

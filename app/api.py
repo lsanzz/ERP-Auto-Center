@@ -20,6 +20,7 @@ from .services import (
     dashboard_data,
     finalize_work_order,
     next_number,
+    record_work_order_status,
     recalculate_budget_totals,
     recalculate_work_order_totals,
     replace_work_order_items,
@@ -27,6 +28,7 @@ from .services import (
     split_installments,
 )
 from .utils import parse_date, parse_decimal
+from .settings import budget_default_date, get_system_settings
 from .vehicles import lookup_plate
 from .xml_import import parse_nfe_xml
 
@@ -314,6 +316,8 @@ def products_collection():
         unidade=data.get('unidade') or 'UN',
         custo=parse_decimal(data.get('custo')),
         preco_venda=parse_decimal(data.get('preco_venda')),
+        estoque_atual=parse_decimal(data.get('estoque_atual')),
+        estoque_minimo=parse_decimal(data.get('estoque_minimo')),
         ativo=bool(data.get('ativo', True)),
     )
     db.session.add(product)
@@ -339,6 +343,10 @@ def product_resource(product_id: int):
         product.custo = parse_decimal(data.get('custo'))
     if 'preco_venda' in data:
         product.preco_venda = parse_decimal(data.get('preco_venda'))
+    if 'estoque_atual' in data:
+        product.estoque_atual = parse_decimal(data.get('estoque_atual'))
+    if 'estoque_minimo' in data:
+        product.estoque_minimo = parse_decimal(data.get('estoque_minimo'))
     if 'ativo' in data:
         product.ativo = bool(data.get('ativo'))
     db.session.commit()
@@ -394,13 +402,13 @@ def budgets_collection():
     data = payload()
     budget = Budget(
         client_id=int(data.get('client_id')),
-        numero=next_number(Budget, 'ORC'),
+        numero=next_number(Budget, get_system_settings().budget_prefix or 'ORC'),
         status=data.get('status') or 'ABERTO',
         placa=(data.get('placa') or '').upper() or None,
         veiculo_descricao=data.get('veiculo_descricao') or None,
         desconto=parse_decimal(data.get('desconto')),
         observacoes=data.get('observacoes') or None,
-        validade=parse_date(data.get('validade')),
+        validade=parse_date(data.get('validade')) or budget_default_date(),
     )
     db.session.add(budget)
     db.session.flush()
@@ -493,7 +501,7 @@ def work_orders_collection():
             employee_id=int(data.get('employee_id')) if data.get('employee_id') else None,
             budget_id=int(data.get('budget_id')) if data.get('budget_id') else None,
             payment_method_id=int(data.get('payment_method_id')) if data.get('payment_method_id') else None,
-            numero=next_number(WorkOrder, 'OS'),
+            numero=next_number(WorkOrder, get_system_settings().work_order_prefix or 'OS'),
             status=data.get('status') or 'ABERTA',
             data_entrada=parse_date(data.get('data_entrada')) or date.today(),
             placa=(data.get('placa') or '').upper() or None,
@@ -504,6 +512,7 @@ def work_orders_collection():
         )
         db.session.add(order)
         db.session.flush()
+        record_work_order_status(order, order.status, current_user().id, 'O.S. cadastrada')
         if items_payload:
             replace_work_order_items(order, items_payload)
         else:
@@ -597,7 +606,9 @@ def work_order_change_status(work_order_id: int):
     if not order:
         return as_json({'error': 'ordem de serviço não encontrada'}, 404)
     try:
-        change_work_order_status(order, payload().get('status', ''))
+        status = payload().get('status', '')
+        change_work_order_status(order, status)
+        record_work_order_status(order, status, current_user().id, payload().get('observation'))
         db.session.commit()
         return as_json(serialize_work_order(order))
     except ValueError as exc:
@@ -612,7 +623,10 @@ def work_order_finish(work_order_id: int):
     order = get_or_404(WorkOrder, work_order_id)
     if not order:
         return as_json({'error': 'ordem de serviço não encontrada'}, 404)
+    was_finalized = order.status == 'FINALIZADA'
     entries = finalize_work_order(order)
+    if not was_finalized:
+        record_work_order_status(order, 'FINALIZADA', current_user().id, 'O.S. finalizada')
     db.session.commit()
     return as_json({'work_order': serialize_work_order(order), 'financial_entries': [entry.to_dict() for entry in entries]})
 

@@ -16,9 +16,11 @@ from .models import (
     WorkOrder,
     WorkOrderChecklist,
     WorkOrderItem,
+    WorkOrderStatusHistory,
     db,
 )
 from .utils import parse_date, parse_decimal
+from .settings import get_system_settings
 
 
 BUDGET_STATUSES = ['ABERTO', 'APROVADO', 'REPROVADO', 'CANCELADO']
@@ -268,7 +270,7 @@ def create_work_order_from_budget(budget: Budget) -> WorkOrder:
         client_id=budget.client_id,
         client_nome=budget.client.nome if budget.client else None,
         budget=budget,
-        numero=next_number(WorkOrder, 'OS'),
+        numero=next_number(WorkOrder, get_system_settings().work_order_prefix or 'OS'),
         status='ABERTA',
         data_entrada=date.today(),
         placa=budget.placa,
@@ -322,6 +324,17 @@ def change_work_order_status(order: WorkOrder, status: str) -> WorkOrder:
     if status in {'FINALIZADA', 'ENTREGUE'} and not order.data_saida:
         order.data_saida = date.today()
     return order
+
+
+def record_work_order_status(order: WorkOrder, status: str, user_id: int | None = None, observation: str | None = None) -> WorkOrderStatusHistory:
+    history = WorkOrderStatusHistory(
+        work_order=order,
+        status=status,
+        user_id=user_id,
+        observation=(observation or '').strip() or None,
+    )
+    db.session.add(history)
+    return history
 
 
 def add_months(base_date: date, months: int) -> date:
@@ -394,6 +407,25 @@ def finalize_work_order(order: WorkOrder) -> list[FinancialEntry]:
     order.status = 'FINALIZADA'
     order.data_saida = date.today()
     return ensure_work_order_receivables(order)
+
+
+def deduct_work_order_stock(order: WorkOrder) -> list[str]:
+    if order.estoque_baixado:
+        return []
+
+    warnings = []
+    for item in order.items:
+        if item.item_type != 'PECA' or not item.reference_id:
+            continue
+        product = db.session.get(Product, item.reference_id)
+        if not product:
+            continue
+        quantity = parse_decimal(item.quantidade)
+        product.estoque_atual = parse_decimal(product.estoque_atual) - quantity
+        if product.estoque_atual < parse_decimal(product.estoque_minimo):
+            warnings.append(f'{product.nome}: estoque abaixo do mínimo')
+    order.estoque_baixado = True
+    return warnings
 
 
 def update_work_order_receivables(order: WorkOrder, status: str, payment_method_id: int | None = None, payment_receipt_at=None, bank_account_id: int | None = None) -> list[FinancialEntry]:

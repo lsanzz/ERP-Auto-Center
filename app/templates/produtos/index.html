@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
 {% block content %}
+<style>.stock-low { color:#c2410c; }.stock-ok { color:#15803d; }</style>
 <div class="page-header">
   <div>
     <h2>Peças</h2>
-    <p class="muted">Catálogo de peças usado em orçamento e O.S..</p>
+    <p class="muted">Catálogo de peças, saldo atual e alertas de reposição.</p>
   </div>
   
   {% if current_user().role == 'ADMINISTRADOR' %}
@@ -17,21 +18,23 @@
   </div>
   {% endif %}
 </div>
+{% if low_stock_count %}<div class="flash warning" style="margin-bottom:24px;">{{ low_stock_count }} peça(s) estão no estoque mínimo ou abaixo dele.</div>{% endif %}
 <div class="table-card">
   <table class="table">
-    <thead><tr><th>Código</th><th>Nome</th><th>Categoria</th><th>Venda</th><th>Ativa</th><th></th></tr></thead>
+    <thead><tr><th>Código</th><th>Nome</th><th>Categoria</th><th>Estoque</th><th>Venda</th><th>Ativa</th><th></th></tr></thead>
     <tbody>
       {% for product in products %}
       <tr>
         <td>{{ product.codigo }}</td>
         <td>{{ product.nome }}</td>
         <td>{{ product.categoria or '-' }}</td>
+        <td><strong class="{{ 'stock-low' if product.estoque_minimo > 0 and product.estoque_atual <= product.estoque_minimo else 'stock-ok' }}">{{ product.estoque_atual|int }}</strong><span class="muted small"> / mín. {{ product.estoque_minimo|int }}</span></td>
         <td>{{ format_currency(product.preco_venda) }}</td>
         <td>{{ 'Sim' if product.ativo else 'Não' }}</td>
         <td>{% if current_user().role == 'ADMINISTRADOR' %}<a class="button secondary" href="{{ url_for('web.products_edit', product_id=product.id) }}">Editar</a>{% else %}-{% endif %}</td>
       </tr>
       {% else %}
-      <tr><td colspan="6">Nenhuma peça cadastrada.</td></tr>
+      <tr><td colspan="7">Nenhuma peça cadastrada.</td></tr>
       {% endfor %}
     </tbody>
   </table>

@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from .auth import admin_required, current_user, login_required, login_user, logout_user
 from .cnpj import is_cnpj, is_cpf, lookup_cnpj, lookup_cpf
-from .models import BankAccount, Budget, Client, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, Product, Service, User, WorkOrder, XmlInvoiceImport, db
+from .models import BankAccount, Budget, Client, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, Product, Service, User, WorkOrder, WorkOrderItem, XmlInvoiceImport, db
 from .services import (
     BUDGET_STATUSES,
     WORK_ORDER_STATUSES,
@@ -31,9 +31,12 @@ from .services import (
     settle_financial_entry,
     split_installments,
     update_work_order_receivables,
+    deduct_work_order_stock,
+    record_work_order_status,
 )
 from .pdfs import generate_work_order_pdf
 from .utils import parse_date, parse_decimal, format_currency
+from .settings import budget_default_date, get_system_settings
 from .xml_import import parse_nfe_xml
 from .fiscal import (
     build_work_order_invoice_payload,
@@ -95,6 +98,129 @@ def logout():
 @login_required
 def dashboard():
     return render_template('dashboard/index.html', data=dashboard_data(current_user().role), bank_accounts=BankAccount.query.order_by(BankAccount.nome).all() if current_user().role == 'ADMINISTRADOR' else [])
+
+
+@web_bp.route('/configuracoes', methods=['GET'])
+@login_required
+@admin_required
+def settings_index():
+    return render_template(
+        'configuracoes/index.html',
+        settings=get_system_settings(),
+        fiscal_config=FiscalApiConfig.query.order_by(FiscalApiConfig.id.asc()).first(),
+        users=User.query.order_by(User.nome).all(),
+    )
+
+
+@web_bp.post('/configuracoes/empresa')
+@login_required
+@admin_required
+def settings_save_company():
+    settings = get_system_settings()
+    if settings.id is None:
+        db.session.add(settings)
+    settings.company_name = request.form.get('company_name', '').strip() or 'Japa Auto Center'
+    settings.trade_name = request.form.get('trade_name') or None
+    settings.company_document = request.form.get('company_document') or None
+    settings.phone = request.form.get('phone') or None
+    settings.email = request.form.get('email') or None
+    settings.address = request.form.get('address') or None
+    settings.city = request.form.get('city') or None
+    settings.state = (request.form.get('state') or '').strip().upper()[:2] or None
+    settings.zip_code = request.form.get('zip_code') or None
+    db.session.commit()
+    flash('Dados da empresa atualizados.', 'success')
+    return redirect(url_for('web.settings_index'))
+
+
+@web_bp.post('/configuracoes/operacao')
+@login_required
+@admin_required
+def settings_save_operation():
+    settings = get_system_settings()
+    if settings.id is None:
+        db.session.add(settings)
+    settings.budget_prefix = _settings_prefix(request.form.get('budget_prefix'), 'ORC')
+    settings.work_order_prefix = _settings_prefix(request.form.get('work_order_prefix'), 'OS')
+    settings.budget_validity_days = _settings_positive_int(request.form.get('budget_validity_days'), 7)
+    settings.warranty_days = _settings_positive_int(request.form.get('warranty_days'), 90)
+    db.session.commit()
+    flash('Parâmetros operacionais atualizados.', 'success')
+    return redirect(url_for('web.settings_index'))
+
+
+@web_bp.post('/configuracoes/perfil')
+@login_required
+def settings_save_profile():
+    user = current_user()
+    user.nome = request.form.get('nome', '').strip() or user.nome
+    new_password = request.form.get('new_password') or ''
+    if new_password:
+        if not user.check_password(request.form.get('current_password') or ''):
+            flash('A senha atual não confere.', 'error')
+            return redirect(url_for('web.settings_index'))
+        if len(new_password) < 6:
+            flash('A nova senha deve ter pelo menos 6 caracteres.', 'error')
+            return redirect(url_for('web.settings_index'))
+        user.set_password(new_password)
+    db.session.commit()
+    flash('Seu perfil foi atualizado.', 'success')
+    return redirect(url_for('web.settings_index'))
+
+
+@web_bp.route('/configuracoes/usuarios/novo', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def settings_users_new():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password') or ''
+        role = request.form.get('role') if request.form.get('role') in {'ADMINISTRADOR', 'MECANICO'} else 'MECANICO'
+        if not username or len(password) < 6:
+            flash('Informe usuário e uma senha com pelo menos 6 caracteres.', 'error')
+        elif User.query.filter_by(username=username).first():
+            flash('Este usuário já existe.', 'error')
+        else:
+            user = User(username=username, nome=request.form.get('nome', '').strip() or username, role=role, ativo=bool(request.form.get('ativo')))
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            flash('Usuário criado.', 'success')
+            return redirect(url_for('web.settings_index'))
+    return render_template('configuracoes/usuario_form.html', user=None)
+
+
+@web_bp.route('/configuracoes/usuarios/<int:user_id>/editar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def settings_users_edit(user_id: int):
+    user = db.session.get(User, user_id)
+    if not user:
+        return redirect(url_for('web.settings_index'))
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        duplicate = User.query.filter(User.username == username, User.id != user.id).first()
+        password = request.form.get('password') or ''
+        role = request.form.get('role') if request.form.get('role') in {'ADMINISTRADOR', 'MECANICO'} else 'MECANICO'
+        if duplicate:
+            flash('Este usuário já existe.', 'error')
+        elif not username or (password and len(password) < 6):
+            flash('Usuário inválido ou senha menor que 6 caracteres.', 'error')
+        elif user.role == 'ADMINISTRADOR' and user.ativo and (role != 'ADMINISTRADOR' or not request.form.get('ativo')) and User.query.filter_by(role='ADMINISTRADOR', ativo=True).count() <= 1:
+            flash('Mantenha pelo menos um administrador ativo no sistema.', 'error')
+        elif user.id == current_user().id and (not request.form.get('ativo') or role != 'ADMINISTRADOR'):
+            flash('Você não pode remover o próprio acesso de administrador.', 'error')
+        else:
+            user.username = username
+            user.nome = request.form.get('nome', '').strip() or user.nome
+            user.role = role
+            user.ativo = bool(request.form.get('ativo'))
+            if password:
+                user.set_password(password)
+            db.session.commit()
+            flash('Usuário atualizado.', 'success')
+            return redirect(url_for('web.settings_index'))
+    return render_template('configuracoes/usuario_form.html', user=user)
 
 
 
@@ -195,7 +321,8 @@ def clients_show(client_id: int):
 @login_required
 def products_index():
     products = Product.query.order_by(Product.nome).all()
-    return render_template('produtos/index.html', products=products)
+    low_stock_count = sum(1 for product in products if parse_decimal(product.estoque_minimo) > 0 and parse_decimal(product.estoque_atual) <= parse_decimal(product.estoque_minimo))
+    return render_template('produtos/index.html', products=products, low_stock_count=low_stock_count)
 
 
 @web_bp.route('/produtos/novo', methods=['GET', 'POST'])
@@ -251,6 +378,7 @@ def products_import_xml():
             if product:
                 # Se a peça já existe, apenas atualiza o custo
                 product.custo = custo_unitario
+                product.estoque_atual = parse_decimal(product.estoque_atual) + parse_decimal(item.get('quantidade'))
                 atualizados += 1
             else:
                 # Se não existe, cria a nova peça
@@ -261,6 +389,7 @@ def products_import_xml():
                     custo=custo_unitario,
                     # Adicionando uma margem de lucro padrão inicial (ex: 50%)
                     preco_venda=custo_unitario * Decimal('1.5'),
+                    estoque_atual=parse_decimal(item.get('quantidade')),
                     ativo=True
                 )
                 db.session.add(product)
@@ -348,6 +477,7 @@ def products_import_xml_confirm():
                 product.unidade = unidades[idx]
                 product.custo = custo_val
                 product.preco_venda = venda_val
+                product.estoque_atual = parse_decimal(product.estoque_atual) + parse_decimal(parsed['itens'][idx].get('quantidade'))
                 atualizados += 1
             else:
                 product = Product(
@@ -356,6 +486,7 @@ def products_import_xml_confirm():
                     unidade=unidades[idx],
                     custo=custo_val,
                     preco_venda=venda_val,
+                    estoque_atual=parse_decimal(parsed['itens'][idx].get('quantidade')),
                     ativo=True
                 )
                 db.session.add(product)
@@ -482,13 +613,13 @@ def budgets_index():
 def budgets_new():
     clients = Client.query.order_by(Client.nome).all()
     if request.method == 'POST':
-        budget = Budget(numero=next_number(Budget, 'ORC'))
+        budget = Budget(numero=next_number(Budget, get_system_settings().budget_prefix or 'ORC'))
         _fill_budget_from_form(budget)
         db.session.add(budget)
         db.session.commit()
         flash('Orçamento criado.', 'success')
         return redirect(url_for('web.budgets_show', budget_id=budget.id))
-    return render_template('orcamentos/form.html', budget=None, clients=clients, statuses=BUDGET_STATUSES)
+    return render_template('orcamentos/form.html', budget=None, clients=clients, statuses=BUDGET_STATUSES, budget_default_date=budget_default_date())
 
 
 @web_bp.route('/orcamentos/<int:budget_id>/editar', methods=['GET', 'POST'])
@@ -586,7 +717,45 @@ def work_orders_index():
             receivables_by_order.setdefault(entry.reference_id, []).append(entry)
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all() if current_user().role == 'ADMINISTRADOR' else []
     bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all() if current_user().role == 'ADMINISTRADOR' else []
-    return render_template('os/index.html', orders=orders, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts)
+    return render_template('os/index.html', orders=orders, statuses=WORK_ORDER_STATUSES, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts)
+
+
+@web_bp.post('/os/<int:work_order_id>/copiar')
+@login_required
+def work_orders_copy(work_order_id: int):
+    source = db.session.get(WorkOrder, work_order_id)
+    if not source:
+        return redirect(url_for('web.work_orders_index'))
+    copy = WorkOrder(
+        client_id=source.client_id,
+        employee_id=source.employee_id,
+        payment_method_id=source.payment_method_id,
+        numero=next_number(WorkOrder, get_system_settings().work_order_prefix or 'OS'),
+        status='ABERTA',
+        placa=source.placa,
+        veiculo_descricao=source.veiculo_descricao,
+        observacoes=f'Copiada da O.S. {source.numero}. {source.observacoes or ""}'.strip(),
+        installment_count=source.installment_count or 1,
+        client_nome=source.client_nome,
+    )
+    db.session.add(copy)
+    db.session.flush()
+    for item in source.items:
+        db.session.add(WorkOrderItem(
+            work_order=copy,
+            item_type=item.item_type,
+            reference_id=item.reference_id,
+            descricao=item.descricao,
+            quantidade=item.quantidade,
+            valor_unitario=item.valor_unitario,
+            desconto=item.desconto,
+            total=item.total,
+        ))
+    recalculate_work_order_totals(copy)
+    record_work_order_status(copy, 'ABERTA', current_user().id, 'O.S. copiada')
+    db.session.commit()
+    flash(f'O.S. {copy.numero} criada a partir de {source.numero}.', 'success')
+    return redirect(url_for('web.work_orders_show', work_order_id=copy.id))
 
 
 @web_bp.route('/os/nova', methods=['GET', 'POST'])
@@ -594,11 +763,12 @@ def work_orders_index():
 def work_orders_new():
     order = None
     if request.method == 'POST':
-        order = WorkOrder(numero=next_number(WorkOrder, 'OS'), status=request.form.get('status') or 'ABERTA')
+        order = WorkOrder(numero=next_number(WorkOrder, get_system_settings().work_order_prefix or 'OS'), status=request.form.get('status') or 'ABERTA')
         try:
             _fill_work_order_from_form(order)
             db.session.add(order)
             db.session.flush()
+            record_work_order_status(order, order.status, current_user().id, 'O.S. cadastrada')
             _sync_work_order_items_from_form(order)
             recalculate_work_order_totals(order)
             db.session.commit()
@@ -618,10 +788,13 @@ def work_orders_edit(work_order_id: int):
         return redirect(url_for('web.work_orders_index'))
     if request.method == 'POST':
         try:
+            previous_status = order.status
             _fill_work_order_from_form(order)
             _sync_work_order_items_from_form(order)
             if 'status' in request.form and request.form.get('status') in WORK_ORDER_STATUSES:
                 order.status = request.form.get('status')
+                if order.status != previous_status:
+                    record_work_order_status(order, order.status, current_user().id, request.form.get('observation'))
             recalculate_work_order_totals(order)
             db.session.commit()
             flash('O.S. atualizada.', 'success')
@@ -639,6 +812,7 @@ def work_orders_show(work_order_id: int):
     if not order:
         return redirect(url_for('web.work_orders_index'))
     installment_values = split_installments(order.total_geral, order.installment_count or 1) if order.payment_method and order.payment_method.permite_parcelamento else []
+    receivables = FinancialEntry.query.filter_by(reference_type='OS', reference_id=order.id, entry_type='RECEBER').order_by(FinancialEntry.installment_number.asc(), FinancialEntry.id.asc()).all()
     return render_template(
         'os/show.html',
         order=order,
@@ -646,6 +820,10 @@ def work_orders_show(work_order_id: int):
         service_items=[item for item in order.items if item.item_type == 'SERVICO'],
         part_items=[item for item in order.items if item.item_type == 'PECA'],
         installment_values=installment_values,
+        receivables=receivables,
+        payment_methods=PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all() if current_user().role == 'ADMINISTRADOR' else [],
+        bank_accounts=BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all() if current_user().role == 'ADMINISTRADOR' else [],
+        status_history=order.status_history,
     )
 
 
@@ -660,11 +838,12 @@ def work_orders_pdf(work_order_id: int):
         order,
         [item for item in order.items if item.item_type == 'SERVICO'],
         [item for item in order.items if item.item_type == 'PECA'],
+        company_name=get_system_settings().company_name or 'ERP Auto Center',
     )
     return send_file(
         __import__('io').BytesIO(pdf_bytes),
         mimetype='application/pdf',
-        as_attachment=True,
+        as_attachment=request.args.get('download') != '0',
         download_name=f'os-{order.numero}.pdf',
     )
 
@@ -709,7 +888,11 @@ def work_orders_change_status(work_order_id: int):
     if not order:
         return redirect(url_for('web.work_orders_index'))
     try:
-        change_work_order_status(order, request.form.get('status', ''))
+        status = request.form.get('status', '')
+        change_work_order_status(order, status)
+        if status in {'FINALIZADA', 'ENTREGUE'} and request.form.get('data_saida'):
+            order.data_saida = parse_date(request.form.get('data_saida'))
+        record_work_order_status(order, status, current_user().id, request.form.get('observation'))
         db.session.commit()
         flash('Status atualizado.', 'success')
     except ValueError as exc:
@@ -718,18 +901,41 @@ def work_orders_change_status(work_order_id: int):
     return redirect(url_for('web.work_orders_show', work_order_id=order.id))
 
 
+@web_bp.post('/os/<int:work_order_id>/lancar-estoque')
+@login_required
+@admin_required
+def work_orders_launch_stock(work_order_id: int):
+    order = db.session.get(WorkOrder, work_order_id)
+    if not order:
+        return redirect(url_for('web.work_orders_index'))
+    if order.status not in {'FINALIZADA', 'ENTREGUE'}:
+        flash('Finalize ou entregue a O.S. antes de lançar o estoque.', 'error')
+    elif order.estoque_baixado:
+        flash('O estoque desta O.S. já foi lançado.', 'warning')
+    else:
+        warnings = deduct_work_order_stock(order)
+        db.session.commit()
+        flash('Estoque lançado com sucesso.', 'success')
+        for warning in warnings:
+            flash(warning, 'warning')
+    return redirect(url_for('web.work_orders_index'))
+
+
 @web_bp.post('/os/<int:work_order_id>/finalizar')
 @login_required
 def work_orders_finish(work_order_id: int):
     order = db.session.get(WorkOrder, work_order_id)
     if not order:
         return redirect(url_for('web.work_orders_index'))
+    was_finalized = order.status == 'FINALIZADA'
     order.status = 'FINALIZADA'
     if not order.data_saida:
         order.data_saida = parse_date(request.form.get('data_saida')) or __import__('datetime').date.today()
     recalculate_work_order_totals(order)
+    if not was_finalized:
+        record_work_order_status(order, 'FINALIZADA', current_user().id, 'O.S. finalizada')
     db.session.commit()
-    flash('O.S. finalizada. Use o menu de ações para lançar o contas a receber.', 'success')
+    flash('O.S. finalizada. Use as ações da ordem para imprimir ou lançar o contas a receber.', 'success')
     return redirect(url_for('web.work_orders_index'))
 
 
@@ -1318,6 +1524,18 @@ def employees_edit(employee_id: int):
     return render_template('funcionarios/form.html', employee=employee)
 
 
+def _settings_prefix(value: str | None, fallback: str) -> str:
+    cleaned = re.sub(r'[^A-Za-z0-9-]', '', value or '').upper()[:10]
+    return cleaned or fallback
+
+
+def _settings_positive_int(value: str | None, fallback: int) -> int:
+    try:
+        return max(int(value or fallback), 0)
+    except (TypeError, ValueError):
+        return fallback
+
+
 def _decimal_input_value(value, fallback: str = '0.00') -> str:
     if value in (None, ''):
         return fallback
@@ -1453,6 +1671,8 @@ def _fill_product_from_form(product: Product) -> None:
     product.unidade = request.form.get('unidade') or 'UN'
     product.custo = parse_decimal(request.form.get('custo'))
     product.preco_venda = parse_decimal(request.form.get('preco_venda'))
+    product.estoque_atual = parse_decimal(request.form.get('estoque_atual'))
+    product.estoque_minimo = parse_decimal(request.form.get('estoque_minimo'))
     product.ativo = bool(request.form.get('ativo'))
 
 
@@ -1468,7 +1688,7 @@ def _fill_budget_from_form(budget: Budget) -> None:
     budget.placa = (request.form.get('placa') or '').upper() or None
     budget.veiculo_descricao = request.form.get('veiculo_descricao') or None
     budget.desconto = parse_decimal(request.form.get('desconto'))
-    budget.validade = parse_date(request.form.get('validade'))
+    budget.validade = parse_date(request.form.get('validade')) or budget_default_date()
     budget.observacoes = request.form.get('observacoes') or None
 
 

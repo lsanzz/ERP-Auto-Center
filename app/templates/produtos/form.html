@@ -35,6 +35,12 @@
       <label>Preço de venda
         <input type="number" step="0.01" name="preco_venda" value="{{ product.preco_venda if product else 0 }}">
       </label>
+      <label>Estoque atual
+        <input type="number" step="0.01" min="0" name="estoque_atual" value="{{ product.estoque_atual if product else 0 }}">
+      </label>
+      <label>Estoque mínimo
+        <input type="number" step="0.01" min="0" name="estoque_minimo" value="{{ product.estoque_minimo if product else 0 }}">
+      </label>
       
       <!-- Checkbox corrigido: Em linha, sem esticar (width: 18px), e alinhado na base do Grid -->
       <div style="display: flex; align-items: flex-end; padding-bottom: 12px;">

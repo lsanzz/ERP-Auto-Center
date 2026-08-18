@@ -29,7 +29,7 @@
       </label>
       {% endif %}
       <label>Desconto<input type="number" step="0.01" name="desconto" value="{{ budget.desconto if budget else 0 }}"></label>
-      <label>Validade<input type="date" name="validade" value="{{ budget.validade.isoformat() if budget and budget.validade else iso_today() }}"></label>
+      <label>Validade<input type="date" name="validade" value="{{ budget.validade.isoformat() if budget and budget.validade else (budget_default_date.isoformat() if budget_default_date else iso_today()) }}"></label>
     </div>
     <p class="muted" id="placa-status">Consulte a placa para preencher a descrição do veículo.</p>
     <label>Observações<textarea name="observacoes">{{ budget.observacoes if budget else '' }}</textarea></label>

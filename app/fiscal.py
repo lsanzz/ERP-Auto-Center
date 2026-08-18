@@ -11,6 +11,7 @@ from xml.sax.saxutils import escape
 from .models import BankAccount, Client, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, WorkOrder, db
 from .services import next_number
 from .utils import parse_date, parse_decimal
+from .settings import get_system_settings
 
 
 def get_fiscal_config() -> FiscalApiConfig | None:
@@ -332,7 +333,7 @@ def import_external_payload(data: dict[str, Any]) -> dict[str, int]:
     for wo_data in preview['work_orders']:
         numero = (wo_data.get('numero') or wo_data.get('number') or '').strip()
         if not numero:
-            numero = next_number(WorkOrder, 'OS')
+            numero = next_number(WorkOrder, get_system_settings().work_order_prefix or 'OS')
         existing = WorkOrder.query.filter_by(numero=numero).first()
         if existing:
             continue

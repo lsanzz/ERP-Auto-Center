@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login · ERP Auto Center</title>
+  <title>Login · {{ system_settings.company_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body class="login-body">
   <div class="login-card">
-    <h1>ERP Auto Center</h1>
+    <h1>{{ system_settings.company_name }}</h1>
     <p>Faça login para acessar o sistema.</p>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}

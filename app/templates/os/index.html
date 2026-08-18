@@ -1,109 +1,136 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <span class="eyebrow">ordens de serviço</span>
-    <h2>Ordens de serviço</h2>
-    <p class="muted">Controle operacional com status visual, ações rápidas e lançamento de recebimentos direto do painel.</p>
+<style>
+  .os-page { padding-bottom: 40px; }
+  .os-toolbar { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:34px; }
+  .os-toolbar-actions { display:flex; gap:12px; flex-wrap:wrap; }
+  .os-kpis { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:16px; margin-bottom:34px; }
+  .os-kpi { padding:22px 24px; border:1px solid var(--color-mist); background:var(--color-canvas-white); border-radius:12px; }
+  .os-kpi-label { display:block; color:var(--color-slate); font-size:12px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:12px; }
+  .os-kpi strong { font-family:var(--font-polysans); font-size:30px; color:var(--color-graphite); }
+  .os-table-shell { width:100%; max-width:100%; overflow-x:auto; padding:4px; }
+  .os-table { width:100%; min-width:0; table-layout:fixed; border-collapse:separate; border-spacing:0 12px; }
+  .os-table th { padding:0 16px 8px; border-bottom:1px solid var(--color-graphite); white-space:nowrap; font-size:13px; }
+  .os-table td { padding:20px 12px; background:var(--color-canvas-white); border-top:1px solid var(--color-mist); border-bottom:1px solid var(--color-mist); vertical-align:middle; overflow-wrap:anywhere; }
+  .os-table td:first-child { border-left:1px solid var(--color-mist); border-radius:10px 0 0 10px; }
+  .os-table td:last-child { border-right:1px solid var(--color-mist); border-radius:0 10px 10px 0; }
+  .os-number { color:var(--color-graphite); font-family:var(--font-polysans); font-size:18px; text-decoration:none; }
+  .os-client { min-width:0; }
+  .os-client strong { display:block; color:var(--color-graphite); font-weight:600; margin-bottom:4px; }
+  .os-client span { color:var(--color-slate); font-size:12px; }
+  .os-total { color:var(--color-graphite); font-family:var(--font-polysans); font-size:20px; white-space:nowrap; }
+  .os-payment { min-width:0; color:var(--color-steel); }
+  .os-actions { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; min-width:0; }
+  .os-actions .button { height:36px; padding:0 12px; font-size:13px; }
+  .os-menu { position:relative; }
+  .os-menu summary { list-style:none; cursor:pointer; height:36px; padding:0 13px; display:flex; align-items:center; gap:7px; border:1px solid var(--color-graphite); background:var(--color-graphite); color:#fff; font-size:13px; }
+  .os-menu summary::-webkit-details-marker { display:none; }
+  .os-menu summary::after { content:'⌄'; font-size:16px; }
+  .os-menu[open] summary { background:#000; }
+  .os-menu-panel { position:absolute; right:0; top:calc(100% + 8px); z-index:30; min-width:230px; padding:8px; display:grid; gap:4px; background:#fff; border:1px solid var(--color-mist); border-radius:10px; box-shadow:0 16px 34px rgba(32,32,32,.16); }
+  .os-menu-panel a, .os-menu-panel button { width:100%; height:38px; justify-content:flex-start; padding:0 12px; font-size:13px; background:transparent; border:0; color:var(--color-graphite)!important; }
+  .os-menu-panel a:hover, .os-menu-panel button:hover { background:var(--color-fog); border-color:transparent; }
+  .os-menu-separator { height:1px; background:var(--color-mist); margin:4px 0; }
+  .os-menu-danger { color:var(--color-ember-orange)!important; }
+  .status-dialog { width:min(720px, calc(100% - 32px)); margin:auto; border:1px solid var(--color-mist); border-radius:12px; padding:28px; background:var(--color-canvas-white); }
+  .status-dialog::backdrop { background:rgba(32,32,32,.45); }
+  .status-dialog-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+  .status-dialog-close { width:auto!important; font-size:24px!important; padding:0!important; height:auto!important; }
+  @media (max-width: 1150px) {
+    .os-table th:nth-child(3), .os-table td:nth-child(3), .os-table th:nth-child(4), .os-table td:nth-child(4) { display:none; }
+    .os-table th:nth-child(1), .os-table td:nth-child(1) { width:12%; }
+    .os-table th:nth-child(2), .os-table td:nth-child(2) { width:24%; }
+    .os-table th:nth-child(5), .os-table td:nth-child(5) { width:16%; }
+    .os-table th:nth-child(6), .os-table td:nth-child(6) { width:15%; }
+    .os-table th:nth-child(7), .os-table td:nth-child(7) { width:15%; }
+    .os-table th:nth-child(8), .os-table td:nth-child(8) { width:18%; }
+  }
+  .os-finance-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .os-finance-actions .button, .os-finance-actions button { height:32px; padding:0 10px; font-size:12px; }
+  .os-finance-note { display:block; margin-top:7px; }
+  .stock-low { color:#c2410c; }
+  .stock-ok { color:#15803d; }
+  @media (max-width: 900px) { .os-toolbar { align-items:flex-start; flex-direction:column; } .os-kpis { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .os-kpis { grid-template-columns:1fr; } }
+</style>
+
+<div class="os-page">
+  <div class="os-toolbar">
+    <div>
+      <span class="eyebrow">Operação</span>
+      <h2>Ordens de serviço</h2>
+      <p class="muted" style="margin-top:10px;">Acompanhe cada atendimento, seus recebimentos e as peças utilizadas.</p>
+    </div>
+    <div class="os-toolbar-actions">
+      {% if current_user().role == 'ADMINISTRADOR' %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Abrir financeiro</a>{% endif %}
+      <a class="button" href="{{ url_for('web.work_orders_new') }}">+ Nova O.S.</a>
+    </div>
   </div>
-  <a class="button" href="{{ url_for('web.work_orders_new') }}">Nova O.S.</a>
-</div>
-<div class="table-card">
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Número</th>
-        <th>Nome do cliente</th>
-        <th>Funcionário</th>
-        <th>Veículo</th>
-        <th>Status</th>
-        <th>Pagamento</th>
-        <th>Total</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for order in orders %}
-      {% set receivables = receivables_by_order.get(order.id, []) if receivables_by_order is defined else [] %}
-      {% set has_receivables = receivables|length > 0 %}
-      {% set all_received = has_receivables and (receivables|selectattr('status', 'equalto', 'RECEBIDO')|list|length == receivables|length) %}
-      <tr>
-        <td><a href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}"><strong>{{ order.numero }}</strong></a></td>
-        <td>{{ order.client_nome or (order.client.nome if order.client else '-') }}</td>
-        <td>{{ order.employee.nome if order.employee else '-' }}</td>
-        <td>{{ order.placa or '-' }}{% if order.veiculo_descricao %} · {{ order.veiculo_descricao }}{% endif %}</td>
-        <td>
-          <span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span>
-          {% if has_receivables %}
-            <div class="muted small" style="margin-top:6px;">Recebimento: {{ 'Recebido' if all_received else 'Pendente' }}</div>
-          {% endif %}
-        </td>
-        <td>
-          {% if order.payment_method %}
-            {{ order.payment_method.nome }}
-            {% if order.installment_count and order.installment_count > 1 %}
-              <br><span class="muted small">{{ order.installment_count }}x de {{ format_currency((order.total_geral / order.installment_count)) }}</span>
-            {% endif %}
-          {% else %}
-            -
-          {% endif %}
-        </td>
-        <td>{{ format_currency(order.total_geral) }}</td>
-        <td>
-          <div class="os-actions-cell">
-            <a class="button secondary" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar</a>
-            {% if current_user() and current_user().role == 'ADMINISTRADOR' and order.status in ['FINALIZADA', 'ENTREGUE'] %}
-            <details class="action-menu">
-              <summary title="Ações da O.S.">⋯</summary>
-              <div class="action-menu-panel card">
-                <div class="action-menu-title">Ações financeiras</div>
-                {% if not has_receivables %}
-                <form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}" class="action-form">
-                  <p class="muted small">Lança esta O.S. em contas a receber.</p>
-                  <button class="success" type="submit">Lançar contas</button>
-                </form>
-                {% else %}
-                <form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" class="action-form">
-                  <p class="muted small">Atualize meio de pagamento e se o valor já foi recebido.</p>
-                  <label>Status do recebimento
-                    <select name="receivable_status">
-                      <option value="PENDENTE" {% if not all_received %}selected{% endif %}>Ainda não recebeu</option>
-                      <option value="RECEBIDO" {% if all_received %}selected{% endif %}>Já recebeu</option>
-                    </select>
-                  </label>
-                  <label>Meio de pagamento
-                    <select name="payment_method_id">
-                      <option value="">Selecione</option>
-                      {% for method in payment_methods %}
-                      <option value="{{ method.id }}" {% if order.payment_method_id == method.id %}selected{% endif %}>{{ method.nome }}</option>
-                      {% endfor %}
-                    </select>
-                  </label>
-                  <label>Conta bancária
-                    <select name="bank_account_id">
-                      <option value="">Selecione</option>
-                      {% for account in bank_accounts %}
-                      <option value="{{ account.id }}">{{ account.nome }}</option>
-                      {% endfor %}
-                    </select>
-                  </label>
-                  <label>Data do recebimento
-                    <input type="date" name="payment_receipt_at" value="{{ iso_today() }}">
-                  </label>
-                  <button class="success" type="submit">Salvar recebimento</button>
-                </form>
-                <a class="button secondary action-link" href="{{ url_for('web.finance_index') }}">Abrir financeiro</a>
-                {% endif %}
+
+  {% set total_orders = orders|length %}
+  {% set open_orders = orders|selectattr('status', 'equalto', 'ABERTA')|list|length %}
+  {% set progress_orders = orders|selectattr('status', 'equalto', 'EM_ANDAMENTO')|list|length %}
+  {% set finished_orders = orders|selectattr('status', 'in', ['FINALIZADA', 'ENTREGUE'])|list|length %}
+  <div class="os-kpis">
+    <div class="os-kpi"><span class="os-kpi-label">Total de O.S.</span><strong>{{ total_orders }}</strong></div>
+    <div class="os-kpi"><span class="os-kpi-label">Abertas</span><strong>{{ open_orders }}</strong></div>
+    <div class="os-kpi"><span class="os-kpi-label">Em andamento</span><strong>{{ progress_orders }}</strong></div>
+    <div class="os-kpi"><span class="os-kpi-label">Finalizadas</span><strong>{{ finished_orders }}</strong></div>
+  </div>
+
+  <div class="card" style="padding:20px 16px 16px; background:var(--color-fog); margin-bottom:0;">
+    <div class="os-table-shell">
+      <table class="table os-table">
+        <thead><tr><th>O.S.</th><th>Cliente</th><th>Responsável</th><th>Veículo</th><th>Status</th><th>Pagamento</th><th>Total</th><th style="text-align:right;">Ações</th></tr></thead>
+        <tbody>
+          {% for order in orders %}
+          {% set receivables = receivables_by_order.get(order.id, []) if receivables_by_order is defined else [] %}
+          {% set has_receivables = receivables|length > 0 %}
+          {% set all_received = has_receivables and (receivables|selectattr('status', 'equalto', 'RECEBIDO')|list|length == receivables|length) %}
+          <tr>
+            <td><a class="os-number" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">{{ order.numero }}</a><span class="muted small" style="display:block; margin-top:5px;">{{ order.data_entrada|date_br }}</span></td>
+            <td class="os-client"><strong>{{ order.client_nome or (order.client.nome if order.client else '-') }}</strong><span>{{ order.placa or 'Sem placa' }}{% if order.veiculo_descricao %} · {{ order.veiculo_descricao }}{% endif %}</span></td>
+            <td>{{ order.employee.nome if order.employee else '-' }}</td>
+            <td>{{ order.veiculo_descricao or '-' }}{% if order.placa %}<span class="muted small" style="display:block;">{{ order.placa }}</span>{% endif %}</td>
+            <td><span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span>{% if has_receivables %}<span class="os-finance-note muted small">{{ 'Recebido' if all_received else 'Conta pendente' }}</span>{% endif %}</td>
+            <td class="os-payment">{{ order.payment_method.nome if order.payment_method else 'Não definido' }}{% if order.installment_count and order.installment_count > 1 %}<span class="muted small" style="display:block;">{{ order.installment_count }} parcelas</span>{% endif %}</td>
+            <td class="os-total">{{ format_currency(order.total_geral) }}</td>
+            <td>
+              <div class="os-actions">
+                <a class="button secondary" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">Abrir</a>
+                <details class="os-menu">
+                  <summary>Ações</summary>
+                  <div class="os-menu-panel">
+                    <form method="post" action="{{ url_for('web.work_orders_copy', work_order_id=order.id) }}" onsubmit="return confirm('Criar uma nova O.S. copiando os dados desta ordem?');"><button type="submit" class="button secondary">Copiar ordem</button></form>
+                    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir ordem</a>
+                    <button type="button" class="button secondary" onclick="document.getElementById('status-modal-{{ order.id }}').showModal()">Alterar status</button>
+                    {% if current_user().role == 'ADMINISTRADOR' %}
+                    <div class="os-menu-separator"></div>
+                    {% if order.status in ['FINALIZADA', 'ENTREGUE'] and not order.estoque_baixado %}<form method="post" action="{{ url_for('web.work_orders_launch_stock', work_order_id=order.id) }}" onsubmit="return confirm('Lançar as peças desta O.S. no estoque?');"><button type="submit" class="button secondary">Lançar estoque</button></form>{% elif order.estoque_baixado %}<span class="muted small" style="padding:10px 12px;">Estoque já lançado</span>{% endif %}
+                    {% if order.status in ['FINALIZADA', 'ENTREGUE'] %}
+                    {% if not has_receivables %}<form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><button type="submit" class="button secondary">Lançar contas</button></form>{% else %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Ver contas</a>{% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary os-menu-danger">Estornar contas</button></form>{% endif %}{% endif %}
+                    {% endif %}
+                    {% endif %}
+                    <div class="os-menu-separator"></div>
+                    <a class="button secondary" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar ordem</a>
+                  </div>
+                </details>
               </div>
-            </details>
-            {% endif %}
-          </div>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="8">Nenhuma O.S. cadastrada.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+              <dialog id="status-modal-{{ order.id }}" class="status-dialog">
+                <div class="status-dialog-header"><h3>Alterar situação</h3><button type="button" class="status-dialog-close" onclick="this.closest('dialog').close()">×</button></div>
+                <form method="post" action="{{ url_for('web.work_orders_change_status', work_order_id=order.id) }}">
+                  <div class="form-grid-2"><label>Nova situação<select name="status" required>{% for status in statuses %}<option value="{{ status }}" {% if status == order.status %}selected{% endif %}>{{ status|replace('_', ' ') }}</option>{% endfor %}</select></label><label>Data de saída<input type="date" name="data_saida" value="{{ order.data_saida.isoformat() if order.data_saida else '' }}"></label></div>
+                  <label>Observação<textarea name="observation" placeholder="Descreva o motivo ou detalhe da alteração"></textarea></label>
+                  <div class="actions"><button type="submit">Salvar situação</button><button type="button" class="button secondary" onclick="this.closest('dialog').close()">Cancelar</button></div>
+                </form>
+                <div style="margin-top:28px; overflow:auto;"><table class="table"><thead><tr><th>Data</th><th>Observação</th><th>Situação</th><th>Usuário</th></tr></thead><tbody>{% for history in order.status_history %}<tr><td>{{ history.changed_at|datetime_br }}</td><td>{{ history.observation or '-' }}</td><td>{{ history.status|replace('_', ' ') }}</td><td>{{ history.user.nome if history.user else '-' }}</td></tr>{% else %}<tr><td colspan="4" class="muted">Nenhuma alteração registrada.</td></tr>{% endfor %}</tbody></table></div>
+              </dialog>
+            </td>
+          </tr>
+          {% else %}<tr><td colspan="8" style="text-align:center; padding:48px;">Nenhuma O.S. cadastrada.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 {% endblock %}

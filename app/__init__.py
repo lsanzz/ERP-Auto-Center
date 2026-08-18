@@ -34,6 +34,18 @@ def _run_schema_updates(app: Flask) -> None:
             statements.append("ALTER TABLE work_orders ADD COLUMN emitir_nota BOOLEAN NOT NULL DEFAULT FALSE")
         else:
             statements.append("ALTER TABLE work_orders ADD COLUMN emitir_nota BOOLEAN NOT NULL DEFAULT 0")
+    if 'estoque_baixado' not in columns:
+        if db.engine.dialect.name == 'postgresql':
+            statements.append("ALTER TABLE work_orders ADD COLUMN estoque_baixado BOOLEAN NOT NULL DEFAULT FALSE")
+        else:
+            statements.append("ALTER TABLE work_orders ADD COLUMN estoque_baixado BOOLEAN NOT NULL DEFAULT 0")
+
+    if 'products' in table_names:
+        product_columns = {column['name'] for column in inspector.get_columns('products')}
+        if 'estoque_atual' not in product_columns:
+            statements.append("ALTER TABLE products ADD COLUMN estoque_atual NUMERIC(12, 2) NOT NULL DEFAULT 0")
+        if 'estoque_minimo' not in product_columns:
+            statements.append("ALTER TABLE products ADD COLUMN estoque_minimo NUMERIC(12, 2) NOT NULL DEFAULT 0")
 
     if 'xml_invoice_imports' in table_names:
         xml_columns = {column['name'] for column in inspector.get_columns('xml_invoice_imports')}
@@ -78,11 +90,13 @@ def create_app(test_config: dict | None = None) -> Flask:
     @app.context_processor
     def utility_context():
         from .auth import current_user
+        from .settings import get_system_settings
 
         return {
             'format_currency': format_currency,
             'iso_today': iso_today,
             'current_user': current_user,
+            'system_settings': get_system_settings(),
         }
 
     from .web import web_bp

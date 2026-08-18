@@ -47,6 +47,25 @@ class User(db.Model, TimestampMixin, SerializableMixin):
         return check_password_hash(self.password_hash, raw_password)
 
 
+class SystemSettings(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'system_settings'
+
+    id = db.Column(db.Integer, primary_key=True)
+    company_name = db.Column(db.String(160), nullable=False, default='Japa Auto Center')
+    trade_name = db.Column(db.String(160))
+    company_document = db.Column(db.String(20))
+    phone = db.Column(db.String(30))
+    email = db.Column(db.String(120))
+    address = db.Column(db.String(255))
+    city = db.Column(db.String(100))
+    state = db.Column(db.String(2))
+    zip_code = db.Column(db.String(12))
+    budget_prefix = db.Column(db.String(10), nullable=False, default='ORC')
+    work_order_prefix = db.Column(db.String(10), nullable=False, default='OS')
+    budget_validity_days = db.Column(db.Integer, nullable=False, default=7)
+    warranty_days = db.Column(db.Integer, nullable=False, default=90)
+
+
 class Employee(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = 'employees'
 
@@ -97,6 +116,8 @@ class Product(db.Model, TimestampMixin, SerializableMixin):
     unidade = db.Column(db.String(20), default='UN', nullable=False)
     custo = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     preco_venda = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    estoque_atual = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    estoque_minimo = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     ativo = db.Column(db.Boolean, default=True, nullable=False)
 
 
@@ -252,6 +273,7 @@ class WorkOrder(db.Model, TimestampMixin, SerializableMixin):
     installment_count = db.Column(db.Integer, nullable=False, default=1)
     client_nome = db.Column(db.String(160))
     emitir_nota = db.Column(db.Boolean, default=False, nullable=False)
+    estoque_baixado = db.Column(db.Boolean, default=False, nullable=False)
     total_pecas = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     total_servicos = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     total_geral = db.Column(db.Numeric(12, 2), nullable=False, default=0)
@@ -262,6 +284,21 @@ class WorkOrder(db.Model, TimestampMixin, SerializableMixin):
     payment_method = db.relationship('PaymentMethod', back_populates='work_orders')
     items = db.relationship('WorkOrderItem', back_populates='work_order', cascade='all, delete-orphan', order_by='WorkOrderItem.id')
     checklist = db.relationship('WorkOrderChecklist', back_populates='work_order', uselist=False, cascade='all, delete-orphan')
+    status_history = db.relationship('WorkOrderStatusHistory', back_populates='work_order', cascade='all, delete-orphan', order_by='WorkOrderStatusHistory.changed_at.desc()')
+
+
+class WorkOrderStatusHistory(db.Model, SerializableMixin):
+    __tablename__ = 'work_order_status_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    work_order_id = db.Column(db.Integer, db.ForeignKey('work_orders.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    status = db.Column(db.String(30), nullable=False)
+    observation = db.Column(db.Text)
+    changed_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
+
+    work_order = db.relationship('WorkOrder', back_populates='status_history')
+    user = db.relationship('User')
 
 
 class WorkOrderItem(db.Model, TimestampMixin, SerializableMixin):
