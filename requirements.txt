@@ -5,3 +5,4 @@ psycopg[binary]==3.2.12
 reportlab==4.4.9
 python-dotenv
 gunicorn
+psycopg2-binary

@@ -15,7 +15,11 @@ def _normalize_database_url(raw_url: str | None, instance_path: Path) -> str:
     if not raw_url:
         return f"sqlite:///{instance_path / 'erp_auto_center.db'}"
     if raw_url.startswith('postgres://'):
-        return raw_url.replace('postgres://', 'postgresql://', 1)
+        return raw_url.replace('postgres://', 'postgresql+psycopg://', 1)
+    if raw_url.startswith('postgresql+psycopg2://'):
+        return raw_url.replace('postgresql+psycopg2://', 'postgresql+psycopg://', 1)
+    if raw_url.startswith('postgresql://'):
+        return raw_url.replace('postgresql://', 'postgresql+psycopg://', 1)
     return raw_url
 
 
