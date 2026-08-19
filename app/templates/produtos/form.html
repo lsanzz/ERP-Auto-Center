@@ -28,6 +28,12 @@
       <label>Unidade
         <input type="text" name="unidade" value="{{ product.unidade if product else 'UN' }}">
       </label>
+      <label>NCM
+        <input type="text" name="ncm" value="{{ product.ncm if product else '' }}">
+      </label>
+      <label>CFOP
+        <input type="text" name="cfop" value="{{ product.cfop if product else '' }}">
+      </label>
       <label>Custo
         <input type="number" step="0.01" name="custo" value="{{ product.custo if product else 0 }}">
       </label>

@@ -290,6 +290,30 @@ button.full, .full { width: 100%; }
 .bullet-list li { margin-bottom: 8px; }
 .code-block { background: #0f172a; color: #e2e8f0; border-radius: 14px; padding: 16px; overflow-x: auto; font-size: 0.85rem; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.pagination { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:18px; color:var(--color-slate, #667085); font-size:13px; }
+
+.plate-float-button {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--color-graphite, #202020);
+  color: #fff !important;
+  text-decoration: none;
+  font-family: var(--font-polysans, sans-serif);
+  border: 1px solid var(--color-graphite, #202020);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .15);
+}
+.plate-float-button:hover { background: var(--color-ember-orange, #ff682c); border-color: var(--color-ember-orange, #ff682c); }
+.plate-float-button span { font-size: 20px; line-height: 1; }
+
+@media (max-width: 600px) {
+  .plate-float-button { right: 16px; bottom: 16px; padding: 11px 13px; font-size: 14px; }
+}
 
 select {
   background-color: #1f222b;

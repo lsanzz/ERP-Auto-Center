@@ -13,12 +13,15 @@ def only_plate_chars(value: str | None) -> str:
 
 def lookup_plate(plate: str) -> dict:
     normalized_plate = only_plate_chars(plate)
-    if len(normalized_plate) != 7:
+    if len(normalized_plate) != 7 or not normalized_plate.isalnum():
         raise ValueError('Informe uma placa válida.')
 
     url_template = os.getenv('PLATE_API_URL')
+    api_token = os.getenv('PLATE_API_TOKEN')
+    if not url_template and api_token:
+        url_template = 'https://wdapi2.com.br/consulta/{placa}/' + api_token
     if not url_template:
-        raise RuntimeError('Configure PLATE_API_URL para consultar placa sem OCR.')
+        raise RuntimeError('Configure PLATE_API_URL e PLATE_API_TOKEN para consultar placa.')
 
     url = url_template.format(placa=quote(normalized_plate), plate=quote(normalized_plate))
     headers = {'Accept': 'application/json'}
@@ -33,10 +36,14 @@ def lookup_plate(plate: str) -> dict:
         with urlopen(req, timeout=int(os.getenv('PLATE_API_TIMEOUT', '10'))) as response:
             payload = json.loads(response.read().decode('utf-8'))
     except HTTPError as exc:
-        if exc.code == 404:
-            raise LookupError('Placa não encontrada.') from exc
-        if exc.code in {401, 403}:
-            raise RuntimeError('Chave da API de placa inválida ou sem permissão.') from exc
+        if exc.code == 401:
+            raise ValueError('Placa inválida. Use o formato AAA0X00 ou AAA9999.') from exc
+        if exc.code == 402:
+            raise RuntimeError('Token da API de placa inválido.') from exc
+        if exc.code == 406:
+            raise LookupError('Nenhum resultado encontrado para esta placa.') from exc
+        if exc.code == 429:
+            raise RuntimeError('Limite diário de consultas de placa atingido.') from exc
         raise RuntimeError('Falha ao consultar o serviço de placa.') from exc
     except (URLError, TimeoutError, json.JSONDecodeError) as exc:
         raise RuntimeError('Serviço de consulta de placa indisponível.') from exc
@@ -53,13 +60,13 @@ def normalize_plate_payload(payload: dict, fallback_plate: str) -> dict:
     if not isinstance(data, dict):
         raise LookupError('Placa não encontrada.')
 
-    plate = only_plate_chars(_first_value(data, 'placa', 'plate')) or fallback_plate
+    plate = only_plate_chars(_first_value(data, 'placa', 'PLACA', 'plate')) or fallback_plate
     description_parts = [
-        _first_value(data, 'marca', 'brand'),
-        _first_value(data, 'modelo', 'model'),
-        _first_value(data, 'versao', 'version'),
-        _first_value(data, 'ano_modelo', 'model_year', 'ano', 'year'),
-        _first_value(data, 'cor', 'color'),
+        _first_value(data, 'marca', 'MARCA', 'marcaModelo', 'brand'),
+        _first_value(data, 'modelo', 'MODELO', 'model'),
+        _first_value(data, 'submodelo', 'SUBMODELO', 'versao', 'VERSAO', 'version'),
+        _first_value(data, 'anoModelo', 'ano_modelo', 'ano', 'model_year', 'year'),
+        _first_value(data, 'cor', 'COR', 'color'),
     ]
     vehicle_description = ' '.join(part for part in description_parts if part).upper()
 

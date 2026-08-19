@@ -50,11 +50,50 @@ def _run_schema_updates(app: Flask) -> None:
             statements.append("ALTER TABLE products ADD COLUMN estoque_atual NUMERIC(12, 2) NOT NULL DEFAULT 0")
         if 'estoque_minimo' not in product_columns:
             statements.append("ALTER TABLE products ADD COLUMN estoque_minimo NUMERIC(12, 2) NOT NULL DEFAULT 0")
+        if 'ncm' not in product_columns:
+            statements.append("ALTER TABLE products ADD COLUMN ncm VARCHAR(20)")
+        if 'cfop' not in product_columns:
+            statements.append("ALTER TABLE products ADD COLUMN cfop VARCHAR(10)")
 
     if 'xml_invoice_imports' in table_names:
         xml_columns = {column['name'] for column in inspector.get_columns('xml_invoice_imports')}
         if 'raw_xml' not in xml_columns:
             statements.append("ALTER TABLE xml_invoice_imports ADD COLUMN raw_xml TEXT")
+
+    if 'fiscal_documents' in table_names:
+        fiscal_columns = {column['name']: column for column in inspector.get_columns('fiscal_documents')}
+        work_order_column = fiscal_columns.get('work_order_id')
+        if work_order_column and not work_order_column.get('nullable', True):
+            if db.engine.dialect.name == 'postgresql':
+                statements.append('ALTER TABLE fiscal_documents ALTER COLUMN work_order_id DROP NOT NULL')
+            elif db.engine.dialect.name == 'sqlite':
+                with db.engine.begin() as connection:
+                    connection.exec_driver_sql('PRAGMA foreign_keys=OFF')
+                    connection.exec_driver_sql('ALTER TABLE fiscal_documents RENAME TO fiscal_documents_old')
+                    connection.exec_driver_sql('''
+                        CREATE TABLE fiscal_documents (
+                            id INTEGER PRIMARY KEY,
+                            work_order_id INTEGER,
+                            provider_name VARCHAR(80) NOT NULL DEFAULT 'CUSTOM',
+                            document_type VARCHAR(20) NOT NULL DEFAULT 'NFSE',
+                            environment VARCHAR(20) NOT NULL DEFAULT 'HOMOLOGACAO',
+                            status VARCHAR(30) NOT NULL DEFAULT 'RASCUNHO',
+                            numero VARCHAR(30), serie VARCHAR(20), external_id VARCHAR(80),
+                            access_key VARCHAR(80), request_payload TEXT, response_payload TEXT,
+                            xml_content TEXT, pdf_url VARCHAR(255), error_message TEXT,
+                            created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,
+                            FOREIGN KEY(work_order_id) REFERENCES work_orders(id)
+                        )
+                    ''')
+                    connection.exec_driver_sql('''
+                        INSERT INTO fiscal_documents
+                        SELECT id, work_order_id, provider_name, document_type, environment, status,
+                               numero, serie, external_id, access_key, request_payload, response_payload,
+                               xml_content, pdf_url, error_message, created_at, updated_at
+                        FROM fiscal_documents_old
+                    ''')
+                    connection.exec_driver_sql('DROP TABLE fiscal_documents_old')
+                    connection.exec_driver_sql('PRAGMA foreign_keys=ON')
 
     for sql in statements:
         db.session.execute(text(sql))

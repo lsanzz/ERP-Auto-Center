@@ -16,6 +16,16 @@
       <label>E-mail<input id="email" type="email" name="email" value="{{ client.email if client else '' }}"></label>
     </div>
     <p class="muted" id="documento-status">Para CPF, consulta pela API configurada. Para CNPJ, consulta automática do CNPJ.</p>
+    <div class="form-grid-2">
+      <label>CEP
+        <div class="inline-form">
+          <input id="cep" type="text" inputmode="numeric" maxlength="9" placeholder="00000-000">
+          <button type="button" class="secondary" id="buscar-cep">Buscar CEP</button>
+        </div>
+      </label>
+      <div></div>
+    </div>
+    <p class="muted" id="cep-status">Informe o CEP para preencher o endereço automaticamente.</p>
     <label>Endereço<input id="endereco" type="text" name="endereco" value="{{ client.endereco if client else '' }}"></label>
     <label>Observações<textarea id="observacoes" name="observacoes">{{ client.observacoes if client else '' }}</textarea></label>
     <div class="actions"><button type="submit">Salvar</button><a class="button secondary" href="{{ url_for('web.clients_index') }}">Cancelar</a></div>
@@ -56,6 +66,7 @@
     }
   }
   button.addEventListener('click', consultarDocumento);
+  setupCepLookup({cepId: 'cep', buttonId: 'buscar-cep', statusId: 'cep-status', addressId: 'endereco'});
 })();
 </script>
 {% endblock %}

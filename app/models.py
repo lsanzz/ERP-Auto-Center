@@ -114,6 +114,8 @@ class Product(db.Model, TimestampMixin, SerializableMixin):
     categoria = db.Column(db.String(80))
     marca = db.Column(db.String(80))
     unidade = db.Column(db.String(20), default='UN', nullable=False)
+    ncm = db.Column(db.String(20))
+    cfop = db.Column(db.String(10))
     custo = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     preco_venda = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     estoque_atual = db.Column(db.Numeric(12, 2), nullable=False, default=0)
@@ -187,7 +189,7 @@ class FiscalDocument(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = 'fiscal_documents'
 
     id = db.Column(db.Integer, primary_key=True)
-    work_order_id = db.Column(db.Integer, db.ForeignKey('work_orders.id'), nullable=False)
+    work_order_id = db.Column(db.Integer, db.ForeignKey('work_orders.id'), nullable=True)
     provider_name = db.Column(db.String(80), nullable=False, default='CUSTOM')
     document_type = db.Column(db.String(20), nullable=False, default='NFSE')
     environment = db.Column(db.String(20), nullable=False, default='HOMOLOGACAO')

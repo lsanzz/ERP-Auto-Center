@@ -103,9 +103,12 @@
                   <div class="os-menu-panel">
                     <form method="post" action="{{ url_for('web.work_orders_copy', work_order_id=order.id) }}" onsubmit="return confirm('Criar uma nova O.S. copiando os dados desta ordem?');"><button type="submit" class="button secondary">Copiar ordem</button></form>
                     <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir ordem</a>
+                    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0, recibo=1) }}" target="_blank">Imprimir recibo completo</a>
                     <button type="button" class="button secondary" onclick="document.getElementById('status-modal-{{ order.id }}').showModal()">Alterar status</button>
                     {% if current_user().role == 'ADMINISTRADOR' %}
                     <div class="os-menu-separator"></div>
+                    {% if order.items|selectattr('item_type', 'equalto', 'SERVICO')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFSE') }}">Emitir NFS-e de serviços</a>{% endif %}
+                    {% if order.items|selectattr('item_type', 'equalto', 'PECA')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFE') }}">Emitir NF-e de peças</a>{% endif %}
                     {% if order.status in ['FINALIZADA', 'ENTREGUE'] and not order.estoque_baixado %}<form method="post" action="{{ url_for('web.work_orders_launch_stock', work_order_id=order.id) }}" onsubmit="return confirm('Lançar as peças desta O.S. no estoque?');"><button type="submit" class="button secondary">Lançar estoque</button></form>{% elif order.estoque_baixado %}<span class="muted small" style="padding:10px 12px;">Estoque já lançado</span>{% endif %}
                     {% if order.status in ['FINALIZADA', 'ENTREGUE'] %}
                     {% if not has_receivables %}<form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><button type="submit" class="button secondary">Lançar contas</button></form>{% else %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Ver contas</a>{% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary os-menu-danger">Estornar contas</button></form>{% endif %}{% endif %}
@@ -130,6 +133,7 @@
           {% else %}<tr><td colspan="8" style="text-align:center; padding:48px;">Nenhuma O.S. cadastrada.</td></tr>{% endfor %}
         </tbody>
       </table>
+      {% include '_pagination.html' %}
     </div>
   </div>
 </div>

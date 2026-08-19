@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header"><div><h2>Fiscal e APIs de nota</h2><p class="muted">Configure a integração com a API emissora e acompanhe as prévias/exportações de XML das notas.</p></div></div>
+<div class="page-header"><div><h2>Fiscal e APIs de nota</h2><p class="muted">Emita NF-e de peças, NF-e vinculada à O.S., devoluções, consultas e cancelamentos.</p></div><div class="actions"><a class="button" href="{{ url_for('web.fiscal_parts_invoice_new') }}">Nova NF-e de peças</a></div></div>
 <div class="grid grid-2">
   <div class="card section-card">
     <h3>Configuração da API</h3>
@@ -8,25 +8,29 @@
       <div class="form-grid-2">
         <label>Provedor<select name="provider_name"><option value="CUSTOM" {% if not config or config.provider_name == 'CUSTOM' %}selected{% endif %}>Custom</option><option value="FOCUSNFE" {% if config and config.provider_name == 'FOCUSNFE' %}selected{% endif %}>Focus NFe</option><option value="NFEIO" {% if config and config.provider_name == 'NFEIO' %}selected{% endif %}>NFE.io</option><option value="TECNOSPEED" {% if config and config.provider_name == 'TECNOSPEED' %}selected{% endif %}>TecnoSpeed</option></select></label>
         <label>Ambiente<select name="environment"><option value="HOMOLOGACAO" {% if not config or config.environment == 'HOMOLOGACAO' %}selected{% endif %}>Homologação</option><option value="PRODUCAO" {% if config and config.environment == 'PRODUCAO' %}selected{% endif %}>Produção</option></select></label>
-        <label>URL da API<input type="url" name="api_base_url" value="{{ config.api_base_url if config else '' }}" placeholder="https://api.exemplo.com/notas"></label>
-        <label>Token/API Key<input type="text" name="api_token" value="{{ config.api_token if config else '' }}"></label>
-        <label>Razão social<input type="text" name="company_name" value="{{ config.company_name if config else '' }}"></label>
-        <label>CNPJ<input type="text" name="company_document" value="{{ config.company_document if config else '' }}"></label>
-        <label>Inscrição municipal<input type="text" name="municipal_registration" value="{{ config.municipal_registration if config else '' }}"></label>
-        <label>Inscrição estadual<input type="text" name="state_registration" value="{{ config.state_registration if config else '' }}"></label>
-        <label>Regime tributário<input type="text" name="tax_regime" value="{{ config.tax_regime if config else '' }}"></label>
-        <label>Código padrão de serviço<input type="text" name="default_service_code" value="{{ config.default_service_code if config else '' }}"></label>
-        <label>Natureza padrão<input type="text" name="default_nature" value="{{ config.default_nature if config else '' }}"></label>
+        <label>URL base da API<input type="url" name="api_base_url" value="{{ config.api_base_url if config else '' }}" placeholder="https://homologacao.focusnfe.com.br"></label>
+        <label>Token/API Key<input type="password" name="api_token" placeholder="{% if config and config.api_token %}Token já configurado{% else %}Cole o token da Focus NFe{% endif %}"></label>
         <label>Webhook URL<input type="url" name="webhook_url" value="{{ config.webhook_url if config else '' }}"></label>
         <label><input type="checkbox" name="active" {% if not config or config.active %}checked{% endif %}> Integração ativa</label>
       </div>
+      <p class="muted small">Os dados cadastrais da empresa ficam na Focus NFe e não precisam ser repetidos aqui. Esta tela guarda apenas token, ambiente e comunicação.</p>
       <button type="submit">Salvar configuração</button>
     </form>
   </div>
   <div class="card section-card">
-    <h3>O.S. prontas para nota</h3>
-    <table class="table"><thead><tr><th>O.S.</th><th>Cliente</th><th>Total</th><th></th></tr></thead><tbody>{% for order in work_orders %}<tr><td>{{ order.numero }}</td><td>{{ order.client_nome or (order.client.nome if order.client else '-') }}</td><td>{{ format_currency(order.total_geral) }}</td><td><a class="button small" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id) }}">Preparar nota</a></td></tr>{% else %}<tr><td colspan="4">Nenhuma O.S. disponível.</td></tr>{% endfor %}</tbody></table>
+    <h3>Notas da O.S.</h3>
+    <table class="table"><thead><tr><th>O.S.</th><th>Cliente</th><th>Total</th><th>Emissões</th></tr></thead><tbody>{% for order in work_orders %}<tr><td>{{ order.numero }}</td><td>{{ order.client_nome or (order.client.nome if order.client else '-') }}</td><td>{{ format_currency(order.total_geral) }}</td><td><div class="actions">{% if order.items|selectattr('item_type', 'equalto', 'SERVICO')|list %}<a class="button small" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFSE') }}">NFS-e serviços</a>{% endif %}{% if order.items|selectattr('item_type', 'equalto', 'PECA')|list %}<a class="button small secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFE') }}">NF-e peças</a>{% endif %}</div></td></tr>{% else %}<tr><td colspan="4">Nenhuma O.S. disponível.</td></tr>{% endfor %}</tbody></table>
   </div>
 </div>
-<div class="table-card section-card" style="margin-top:18px;"><h3>Documentos fiscais</h3><table class="table"><thead><tr><th>O.S.</th><th>Tipo</th><th>Status</th><th>Provedor</th><th>XML</th></tr></thead><tbody>{% for document in documents %}<tr><td>{{ document.work_order.numero if document.work_order else '-' }}</td><td>{{ document.document_type }}</td><td>{{ document.status }}</td><td>{{ document.provider_name }}</td><td>{% if document.xml_content %}<a class="button small secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">Baixar XML</a>{% else %}-{% endif %}</td></tr>{% else %}<tr><td colspan="5">Nenhum documento fiscal preparado ainda.</td></tr>{% endfor %}</tbody></table></div>
+<div class="card section-card" style="margin-top:18px;">
+  <h3>Importar XML na Focus NFe</h3>
+  <form method="post" action="{{ url_for('web.fiscal_focus_import_nfe') }}" enctype="multipart/form-data">
+    <div class="form-grid-2">
+      <label>Referência opcional<input type="text" name="ref" placeholder="Se vazio, a Focus usa a chave da nota"></label>
+      <label>XML da NF-e<input type="file" name="xml_file" accept=".xml,application/xml,text/xml"></label>
+    </div>
+    <button type="submit">Enviar XML para Focus</button>
+  </form>
+</div>
+<div class="table-card section-card" style="margin-top:18px;"><h3>Documentos fiscais</h3><table class="table"><thead><tr><th>Origem</th><th>Tipo</th><th>Status</th><th>Chave</th><th>Ações</th></tr></thead><tbody>{% for document in documents %}<tr><td>{{ document.work_order.numero if document.work_order else 'NF-e de peças' }}</td><td>{{ document.document_type }}</td><td>{{ document.status }}</td><td>{{ document.access_key or '-' }}</td><td><div class="actions"><form method="post" action="{{ url_for('web.fiscal_document_issue', document_id=document.id) }}"><button class="small success" type="submit" {% if document.status not in ['PRONTO_PARA_ENVIO', 'ERRO'] %}disabled{% endif %}>Emitir</button></form><form method="post" action="{{ url_for('web.fiscal_document_consult', document_id=document.id) }}"><button class="small secondary" type="submit" {% if not document.external_id %}disabled{% endif %}>Consultar</button></form>{% if document.xml_content %}<a class="button small secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">XML</a>{% endif %}</div>{% if document.external_id and document.status == 'AUTORIZADO' %}<form method="post" action="{{ url_for('web.fiscal_document_cancel', document_id=document.id) }}" style="margin-top:6px; display:flex; gap:6px;"><input name="justificativa" minlength="15" maxlength="255" placeholder="Justificativa do cancelamento" required><button class="small danger" type="submit">Cancelar</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="5">Nenhum documento fiscal preparado ainda.</td></tr>{% endfor %}</tbody></table></div>
 {% endblock %}

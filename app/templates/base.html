@@ -9,6 +9,20 @@
   <!-- Inter para corpo/UI e Space Grotesk substituindo PolySans (neo-grotesque 400) -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400&display=swap" rel="stylesheet">
   <style>
+    .plate-float-button {
+      position: fixed; right: 24px; bottom: 24px; z-index: 100;
+      display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px;
+      background: var(--color-graphite); color: #fff !important; text-decoration: none;
+      font-family: var(--font-polysans); border: 1px solid var(--color-graphite);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, .15);
+    }
+    .plate-float-button:hover { background: var(--color-ember-orange); border-color: var(--color-ember-orange); }
+    .plate-float-button span { font-size: 20px; line-height: 1; }
+    @media (max-width: 600px) {
+      .plate-float-button { right: 16px; bottom: 16px; padding: 11px 13px; font-size: 14px; }
+    }
+  </style>
+  <style>
     :root {
       /* Ventriloc Color Tokens */
       --color-graphite: #202020;
@@ -242,7 +256,52 @@
       color: var(--color-graphite) !important; /* Trava o preto e remove o azul de link */
     }
     .button.secondary:hover { background: var(--color-fog); border-color: var(--color-graphite); }
+    .button.success, button.success { background: var(--color-graphite); border-color: var(--color-graphite); color: var(--color-canvas-white) !important; }
+    .button.success:hover, button.success:hover { background: var(--color-ember-orange); border-color: var(--color-ember-orange); }
+
+    /* Editor de emissão fiscal */
+    .fiscal-page-header { margin-bottom: 28px; }
+    .fiscal-header-actions { margin-top: 0; }
+    .fiscal-editor { gap: 18px; }
+    .fiscal-section { margin-bottom: 0; padding: 28px 32px; }
+    .fiscal-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid var(--color-mist); }
+    .fiscal-section-heading .eyebrow { margin-bottom: 2px; }
+    .fiscal-section-heading h3 { margin: 0; }
+    .fiscal-reference, .fiscal-check { color: var(--color-slate); font-size: 13px; }
+    .fiscal-check { color: #4f7f2f; font-weight: 600; }
+    .fiscal-main-fields, .fiscal-customer-grid { display: grid; grid-template-columns: 2fr repeat(4, minmax(0, 1fr)); gap: 16px; }
+    .fiscal-main-fields .field-wide, .fiscal-customer-grid .field-wide { grid-column: span 2; }
+    .fiscal-main-fields .field-wide:last-child { grid-column: span 2; }
+    .fiscal-help { margin-top: 14px; }
+    .fiscal-items-wrap { overflow-x: auto; }
+    .fiscal-items-table { min-width: 980px; }
+    .fiscal-items-table th, .fiscal-items-table td { padding: 9px 7px; vertical-align: middle; }
+    .fiscal-items-table th { font-size: 11px; white-space: nowrap; }
+    .fiscal-items-table input { min-width: 70px; padding: 9px 8px; font-size: 13px; }
+    .fiscal-items-table td:nth-child(2) input { min-width: 220px; }
+    .fiscal-items-table td:nth-child(6) input, .fiscal-items-table td:nth-child(9) input { min-width: 92px; }
+    .fiscal-item-number { display: inline-grid; place-items: center; width: 28px; height: 28px; background: var(--color-graphite); color: #fff; font-size: 12px; }
+    .fiscal-totals-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
+    .fiscal-totals-grid .total-highlight { grid-column: span 2; color: #4f7f2f; }
+    .fiscal-totals-grid .total-highlight input { border: 2px solid #77ad42; font-weight: 700; }
+    .fiscal-lower-grid { margin: 0; }
+    .fiscal-footer-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 4px 0 18px; }
+    .fiscal-footer-actions .button, .fiscal-footer-actions button { margin-top: 0; }
+    .fiscal-document-actions { margin-top: 0; }
+    @media (max-width: 1100px) {
+      .fiscal-main-fields, .fiscal-customer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .fiscal-main-fields .field-wide, .fiscal-customer-grid .field-wide, .fiscal-main-fields .field-wide:last-child { grid-column: span 2; }
+      .fiscal-totals-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 700px) {
+      .fiscal-section { padding: 22px 18px; }
+      .fiscal-main-fields, .fiscal-customer-grid, .fiscal-totals-grid { grid-template-columns: 1fr; }
+      .fiscal-main-fields .field-wide, .fiscal-customer-grid .field-wide, .fiscal-main-fields .field-wide:last-child, .fiscal-totals-grid .total-highlight { grid-column: auto; }
+      .fiscal-footer-actions { justify-content: stretch; flex-direction: column-reverse; align-items: stretch; }
+      .fiscal-footer-actions .button, .fiscal-footer-actions button { width: 100%; }
+    }
   </style>
+  <script src="{{ url_for('static', filename='cep.js') }}"></script>
 </head>
 <body>
   <div class="container">
@@ -260,7 +319,6 @@
         <a href="{{ url_for('web.work_orders_index') }}">O.S.</a>
         {% if current_user() and current_user().role == 'ADMINISTRADOR' %}
         <a href="{{ url_for('web.finance_index') }}">Financeiro</a>
-        <a href="{{ url_for('web.fiscal_index') }}">Fiscal</a>
         <a href="{{ url_for('web.settings_index') }}">Configurações</a>
         {% endif %}
       </nav>
@@ -290,5 +348,10 @@
       {% block content %}{% endblock %}
     </main>
   </div>
+  {% if current_user() %}
+  <a class="plate-float-button" href="{{ url_for('web.plate_lookup_page') }}" title="Consultar placa">
+    <span aria-hidden="true">⌕</span> Consultar placa
+  </a>
+  {% endif %}
 </body>
 </html>

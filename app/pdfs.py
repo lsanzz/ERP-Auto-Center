@@ -1,6 +1,8 @@
 from __future__ import annotations
-from io import BytesIO
+
 from decimal import Decimal
+from html import escape
+from io import BytesIO
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT
@@ -11,186 +13,124 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from .utils import date_br, format_currency
 
+
 def _money(value: Decimal | float | int | None) -> str:
     return format_currency(value or 0)
 
-def _safe(text: object, fallback: str = '-') -> str:
-    value = str(text or '').strip()
-    return value or fallback
 
-def _paragraph(text: object, style: ParagraphStyle) -> Paragraph:
-    safe = _safe(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br/>')
-    return Paragraph(safe, style)
+def _safe(value: object, fallback: str = '-') -> str:
+    text = str(value or '').strip()
+    return text or fallback
 
-def _meta_table(order, styles: dict[str, ParagraphStyle]) -> Table:
-    payment_name = order.payment_method.nome if order.payment_method else '-'
-    payment_detail = payment_name
-    if order.payment_method and getattr(order.payment_method, 'permite_parcelamento', False):
-        parcelas = max(order.installment_count or 1, 1)
-        payment_detail = f'{payment_name} — {parcelas}x de {_money((order.total_geral or 0) / parcelas)}'
 
-    rows = [
-        [_paragraph('Cliente', styles['label']), _paragraph(order.client_nome or (order.client.nome if order.client else '-'), styles['value'])],
-        [_paragraph('Funcionário', styles['label']), _paragraph(order.employee.nome if order.employee else '-', styles['value'])],
-        [_paragraph('Veículo', styles['label']), _paragraph(order.veiculo_descricao or '-', styles['value'])],
-        [_paragraph('Placa', styles['label']), _paragraph(order.placa or '-', styles['value'])],
-        [_paragraph('Pagamento', styles['label']), _paragraph(payment_detail, styles['value'])],
-        [_paragraph('Entrada', styles['label']), _paragraph(date_br(order.data_entrada), styles['value'])],
-        [_paragraph('Status', styles['label']), _paragraph(str(order.status).replace('_', ' '), styles['value'])],
-    ]
-    table = Table(rows, colWidths=[34 * mm, 140 * mm], repeatRows=0)
-    
-    # Ventriloc Theme for Information Block
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#efefef')), # Ash Surface
-        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.HexColor('#efefef'), colors.HexColor('#f5f5f5')]), # Ash / Fog
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e8e8e8')),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e8e8e8')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 7),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    return table
+def _p(value: object, style: ParagraphStyle, fallback: str = '-') -> Paragraph:
+    text = escape(_safe(value, fallback)).replace('\n', '<br/>')
+    return Paragraph(text, style)
 
-def _items_table(title: str, items: list, empty_label: str, styles: dict[str, ParagraphStyle]) -> list:
-    story: list = [Paragraph(title, styles['section']), Spacer(1, 4 * mm)]
+
+def _label_value(label: str, value: object, styles: dict[str, ParagraphStyle]) -> Paragraph:
+    return Paragraph(f'<b>{escape(label)}:</b> {escape(_safe(value))}', styles['small'])
+
+
+def _section(title: str, styles: dict[str, ParagraphStyle]) -> list:
+    return [Paragraph(escape(title).upper(), styles['section']), Spacer(1, 1.5 * mm)]
+
+
+def _items_table(title: str, items: list, item_type: str, styles: dict[str, ParagraphStyle]) -> list:
+    story = _section(title, styles)
     if not items:
-        story.append(Paragraph(empty_label, styles['muted']))
-        story.append(Spacer(1, 4 * mm))
+        story.extend([Paragraph('Nenhum item informado.', styles['muted']), Spacer(1, 3 * mm)])
         return story
 
-    data = [[
-        Paragraph('Descrição', styles['thead']),
-        Paragraph('Qtd.', styles['thead']),
-        Paragraph('Valor un.', styles['thead']),
-        Paragraph('Total', styles['thead']),
-    ]]
-    for item in items:
-        data.append([
-            _paragraph(item.descricao, styles['cell']),
-            Paragraph(_safe(item.quantidade), styles['cell_center']),
-            Paragraph(_money(item.valor_unitario), styles['cell_right']),
-            Paragraph(_money(item.total), styles['cell_right_bold']),
-        ])
-    
-    table = Table(data, colWidths=[108 * mm, 18 * mm, 28 * mm, 28 * mm], repeatRows=1)
+    if item_type == 'SERVICO':
+        headers = ['#', 'SERVIÇO', 'HORAS/QTDE', 'V. UNIT.', 'V. TOTAL']
+        widths = [8 * mm, 104 * mm, 24 * mm, 23 * mm, 27 * mm]
+    else:
+        headers = ['#', 'PRODUTO', 'UNIDADE', 'QTDE.', 'NCM', 'V. UNIT.', 'V. TOTAL']
+        widths = [8 * mm, 73 * mm, 20 * mm, 19 * mm, 24 * mm, 23 * mm, 27 * mm]
+
+    data = [[_p(header, styles['thead']) for header in headers]]
+    for index, item in enumerate(items, start=1):
+        if item_type == 'SERVICO':
+            row = [_p(f'{index}.', styles['cell']), _p(item.descricao, styles['cell']), _p(item.quantidade, styles['cell_right']), _p(_money(item.valor_unitario), styles['cell_right']), _p(_money(item.total), styles['cell_right'])]
+        else:
+            product = getattr(item, 'product', None)
+            row = [_p(f'{index}.', styles['cell']), _p(item.descricao, styles['cell']), _p(getattr(product, 'unidade', '-') if product else '-', styles['cell']), _p(item.quantidade, styles['cell_right']), _p(getattr(product, 'ncm', '-') if product else '-', styles['cell']), _p(_money(item.valor_unitario), styles['cell_right']), _p(_money(item.total), styles['cell_right'])]
+        data.append(row)
+
+    table = Table(data, colWidths=widths, repeatRows=1)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#efefef')), # Ash Header
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#202020')), # Graphite Text
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')]),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e8e8e8')),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e8e8e8')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 7),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-        ('LEFTPADDING', (0, 0), (-1, -1), 7),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 7),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.7, colors.black),
+        ('LINEBELOW', (0, -1), (-1, -1), 0.35, colors.HexColor('#999999')),
+        ('LINEBELOW', (0, 1), (-1, -2), 0.25, colors.HexColor('#cccccc')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1.2),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1.2),
     ]))
-    story.extend([table, Spacer(1, 5 * mm)])
+    story.extend([table, Spacer(1, 3.5 * mm)])
     return story
 
-def _summary_table(order, styles: dict[str, ParagraphStyle]) -> Table:
-    data = [
-        [Paragraph('Resumo financeiro', styles['section_inline']), '', ''],
-        [Paragraph('Total de serviços', styles['label']), Paragraph(_money(order.total_servicos), styles['cell_right']), ''],
-        [Paragraph('Total de peças', styles['label']), Paragraph(_money(order.total_pecas), styles['cell_right']), ''],
-        [Paragraph('Total geral', styles['label']), Paragraph(_money(order.total_geral), styles['cell_right_ember']), ''],
-    ]
-    table = Table(data, colWidths=[70 * mm, 45 * mm, 67 * mm])
-    table.setStyle(TableStyle([
-        ('SPAN', (0, 0), (-1, 0)),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#202020')), # Graphite Header
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e8e8e8')),
-        ('INNERGRID', (0, 1), (-1, -1), 0.5, colors.HexColor('#e8e8e8')),
-        ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    return table
 
-def generate_work_order_pdf(order, service_items, part_items, company_name: str = 'ERP Auto Center') -> bytes:
+def generate_work_order_pdf(order, service_items, part_items, company_name: str = 'ERP Auto Center', document_title: str = 'ORDEM DE SERVIÇO') -> bytes:
     buffer = BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=14 * mm,
-        rightMargin=14 * mm,
-        topMargin=18 * mm,
-        bottomMargin=16 * mm,
-        title=f'Ordem de Serviço {order.numero}',
-        author=company_name,
-    )
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=10 * mm, rightMargin=10 * mm, topMargin=9 * mm, bottomMargin=12 * mm, title=f'{document_title} {order.numero}', author=company_name)
     base = getSampleStyleSheet()
-
-    # Ventriloc Editorial Typography Config
-    styles: dict[str, ParagraphStyle] = {
-        'title': ParagraphStyle('title', parent=base['Heading1'], fontName='Helvetica-Bold', fontSize=20, leading=24, textColor=colors.white, spaceAfter=0),
-        'subtitle': ParagraphStyle('subtitle', parent=base['Normal'], fontName='Helvetica', fontSize=9, leading=12, textColor=colors.white, spaceAfter=0),
-        'section': ParagraphStyle('section', parent=base['Heading2'], fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#202020'), spaceBefore=2 * mm, spaceAfter=2 * mm),
-        'section_inline': ParagraphStyle('section_inline', parent=base['Heading2'], fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.white),
-        'label': ParagraphStyle('label', parent=base['BodyText'], fontName='Helvetica-Bold', fontSize=9.5, leading=12, textColor=colors.HexColor('#202020')),
-        'value': ParagraphStyle('value', parent=base['BodyText'], fontName='Helvetica', fontSize=9.5, leading=12.5, textColor=colors.HexColor('#4d4d4d')),
-        'muted': ParagraphStyle('muted', parent=base['BodyText'], fontName='Helvetica-Oblique', fontSize=9, leading=12, textColor=colors.HexColor('#828282')),
-        'thead': ParagraphStyle('thead', parent=base['BodyText'], fontName='Helvetica-Bold', fontSize=9, leading=11, textColor=colors.HexColor('#202020')),
-        'cell': ParagraphStyle('cell', parent=base['BodyText'], fontName='Helvetica', fontSize=9, leading=11.5, textColor=colors.HexColor('#4d4d4d')),
-        'cell_center': ParagraphStyle('cell_center', parent=base['BodyText'], fontName='Helvetica', fontSize=9, leading=11.5, alignment=1, textColor=colors.HexColor('#4d4d4d')),
-        'cell_right': ParagraphStyle('cell_right', parent=base['BodyText'], fontName='Helvetica', fontSize=9, leading=11.5, alignment=TA_RIGHT, textColor=colors.HexColor('#4d4d4d')),
-        'cell_right_bold': ParagraphStyle('cell_right_bold', parent=base['BodyText'], fontName='Helvetica-Bold', fontSize=9, leading=11.5, alignment=TA_RIGHT, textColor=colors.HexColor('#202020')),
-        'cell_right_ember': ParagraphStyle('cell_right_ember', parent=base['BodyText'], fontName='Helvetica-Bold', fontSize=10, leading=11.5, alignment=TA_RIGHT, textColor=colors.HexColor('#ff682c')), # Laranja Ember para destaque do total
+    styles = {
+        'title': ParagraphStyle('pdf_title', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=15, leading=16, textColor=colors.black),
+        'company': ParagraphStyle('pdf_company', parent=base['Normal'], fontName='Helvetica', fontSize=7.5, leading=9, textColor=colors.black),
+        'section': ParagraphStyle('pdf_section', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.black, spaceBefore=1.5 * mm),
+        'small': ParagraphStyle('pdf_small', parent=base['Normal'], fontName='Helvetica', fontSize=7.2, leading=9, textColor=colors.black),
+        'thead': ParagraphStyle('pdf_thead', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=6.8, leading=8, textColor=colors.black),
+        'cell': ParagraphStyle('pdf_cell', parent=base['Normal'], fontName='Helvetica', fontSize=6.8, leading=8, textColor=colors.black),
+        'cell_right': ParagraphStyle('pdf_cell_right', parent=base['Normal'], fontName='Helvetica', fontSize=6.8, leading=8, alignment=TA_RIGHT, textColor=colors.black),
+        'muted': ParagraphStyle('pdf_muted', parent=base['Normal'], fontName='Helvetica-Oblique', fontSize=7, leading=8, textColor=colors.HexColor('#555555')),
+        'total_label': ParagraphStyle('pdf_total_label', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.black),
+        'total': ParagraphStyle('pdf_total', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=10, alignment=TA_RIGHT, textColor=colors.black),
     }
 
+    client = order.client
+    client_name = order.client_nome or (client.nome if client else '-')
     header = Table([
-        [
-            Paragraph('ORDEM DE SERVIÇO', styles['title']),
-            Paragraph(
-                f'Número: {_safe(order.numero)}<br/>Entrada: {date_br(order.data_entrada)}<br/>Status: {_safe(str(order.status).replace("_", " "))}',
-                ParagraphStyle('header_right', parent=styles['subtitle'], alignment=TA_RIGHT),
-            ),
-        ],
-        [Paragraph(f'Documento gerado pelo {_safe(company_name)}', styles['subtitle']), ''],
-    ], colWidths=[115 * mm, 65 * mm])
-    
-    header.setStyle(TableStyle([
-        ('SPAN', (0, 1), (1, 1)),
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#202020')), # Graphite Header
-        ('BOX', (0, 0), (-1, -1), 0.8, colors.HexColor('#202020')),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
+        [Paragraph(escape(_safe(document_title)) + f' <b>#{escape(_safe(order.numero))}</b>', styles['title']), _p(f'DATA: {date_br(order.data_saida or order.data_entrada)}', styles['company'])],
+        [Paragraph(f'<b>{escape(_safe(company_name))}</b><br/>ORDEM DE SERVIÇO<br/>Veículo: {escape(_safe(order.veiculo_descricao))} &nbsp;&nbsp; Placa: {escape(_safe(order.placa))}', styles['company']), _p(f'TÉCNICO: {order.employee.nome if order.employee else "-"}\nSTATUS: {str(order.status).replace("_", " ")}', styles['company'])],
+    ], colWidths=[142 * mm, 48 * mm])
+    header.setStyle(TableStyle([('LINEBELOW', (0, 0), (-1, 0), 0.7, colors.black), ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('ALIGN', (1, 0), (1, -1), 'RIGHT'), ('TOPPADDING', (0, 0), (-1, -1), 1.5), ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0)]))
 
-    story: list = [header, Spacer(1, 5 * mm), Paragraph('Dados principais', styles['section']), Spacer(1, 2 * mm), _meta_table(order, styles), Spacer(1, 5 * mm)]
-    story.extend(_items_table('Serviços realizados', service_items, 'Nenhum serviço informado.', styles))
-    story.extend(_items_table('Peças usadas', part_items, 'Nenhuma peça informada.', styles))
-    story.extend([_summary_table(order, styles), Spacer(1, 5 * mm), Paragraph('Observações', styles['section']), Spacer(1, 2 * mm)])
+    client_table = Table([
+        [_p('DADOS DO CLIENTE', styles['section']), '', _p(f'TÉCNICO: {order.employee.nome if order.employee else "-"}', styles['small']), _p(f'ATENDIMENTO: {str(order.status).replace("_", " ")}', styles['small'])],
+        [_label_value('NOME', client_name, styles), _label_value('CPF/CNPJ', client.cpf_cnpj if client else '-', styles), _label_value('TELEFONE', client.telefone if client else '-', styles), _label_value('E-MAIL', client.email if client else '-', styles)],
+        [_label_value('ENDEREÇO', client.endereco if client else '-', styles), '', _label_value('VEÍCULO', order.veiculo_descricao, styles), _label_value('PLACA', order.placa, styles)],
+    ], colWidths=[74 * mm, 42 * mm, 40 * mm, 34 * mm])
+    client_table.setStyle(TableStyle([('SPAN', (0, 0), (1, 0)), ('LINEBELOW', (0, 0), (-1, 0), 0.7, colors.black), ('LINEBELOW', (0, 2), (-1, 2), 0.25, colors.HexColor('#aaaaaa')), ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('TOPPADDING', (0, 0), (-1, -1), 1.5), ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 2)]))
 
-    obs = Table([[_paragraph(order.observacoes or 'Sem observações registradas.', styles['value'])]], colWidths=[180 * mm])
-    obs.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e8e8e8')),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    story.append(obs)
+    story: list = [header, Spacer(1, 3 * mm), client_table, Spacer(1, 2.5 * mm)]
+    story.extend(_items_table('Serviços executados', service_items, 'SERVICO', styles))
+    story.extend(_items_table('Produtos utilizados', part_items, 'PECA', styles))
 
-    def draw_footer(canvas, doc):
+    payment_name = order.payment_method.nome if order.payment_method else '-'
+    service_quantity = sum((item.quantidade or 0) for item in service_items)
+    part_quantity = sum((item.quantidade or 0) for item in part_items)
+    payment = Table([
+        [_p('DADOS DE PAGAMENTO', styles['section']), '', '', ''],
+        [_p('TOTAL DE HORAS/QTDE DE SERVIÇOS', styles['thead']), _p(service_quantity, styles['cell_right']), _p('VALOR TOTAL DOS SERVIÇOS', styles['thead']), _p(_money(order.total_servicos), styles['cell_right'])],
+        [_p('TOTAL DE PRODUTOS', styles['thead']), _p(part_quantity, styles['cell_right']), _p('VALOR TOTAL DOS PRODUTOS', styles['thead']), _p(_money(order.total_pecas), styles['cell_right'])],
+        ['', '', _p('VALOR TOTAL DA O.S.', styles['total_label']), _p(_money(order.total_geral), styles['total'])],
+        [_p('PAGAMENTO', styles['thead']), _p(payment_name, styles['cell']), _p('PARCELAS', styles['thead']), _p(order.installment_count or 1, styles['cell'])],
+    ], colWidths=[70 * mm, 25 * mm, 61 * mm, 34 * mm])
+    payment.setStyle(TableStyle([('SPAN', (0, 0), (-1, 0)), ('LINEBELOW', (0, 0), (-1, 0), 0.7, colors.black), ('LINEABOVE', (2, 3), (3, 3), 0.5, colors.black), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (1, 1), (1, -1), 'RIGHT'), ('ALIGN', (3, 1), (3, -1), 'RIGHT'), ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 2)]))
+    story.extend([payment, Spacer(1, 2.5 * mm), Paragraph(f'<b>OBSERVAÇÕES:</b> {escape(_safe(order.observacoes, "Sem observações."))}', styles['small'])])
+
+    def draw_footer(canvas, document):
         canvas.saveState()
-        canvas.setStrokeColor(colors.HexColor('#e8e8e8')) # Mist Line
-        canvas.line(doc.leftMargin, 11 * mm, A4[0] - doc.rightMargin, 11 * mm)
-        canvas.setFont('Helvetica', 8)
-        canvas.setFillColor(colors.HexColor('#828282')) # Slate Text
-        canvas.drawString(doc.leftMargin, 7 * mm, f'{_safe(company_name)} — ordem de serviço gerada via sistema')
-        canvas.drawRightString(A4[0] - doc.rightMargin, 7 * mm, f'Página {canvas.getPageNumber()}')
+        canvas.setStrokeColor(colors.HexColor('#999999'))
+        canvas.setLineWidth(0.35)
+        canvas.line(document.leftMargin, 7 * mm, A4[0] - document.rightMargin, 7 * mm)
+        canvas.setFont('Helvetica', 6.5)
+        canvas.setFillColor(colors.HexColor('#555555'))
+        canvas.drawString(document.leftMargin, 4 * mm, 'Documento gerado pelo sistema. Este recibo não substitui a nota fiscal oficial.')
+        canvas.drawRightString(A4[0] - document.rightMargin, 4 * mm, f'Página {canvas.getPageNumber()}')
         canvas.restoreState()
 
     doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)

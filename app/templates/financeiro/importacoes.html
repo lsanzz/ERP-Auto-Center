@@ -12,7 +12,7 @@
 <div class="grid grid-2" style="margin-top:18px;">
   <div class="card">
     <h3>Importar NF-e XML Avulsa</h3>
-    <p class="muted small">Lança despesas diretamente no financeiro sem movimentar os produtos do estoque. <strong>Para comprar peças, utilize <a href="{{ url_for('web.products_index') }}">Peças > Importar XML</a>.</strong></p>
+    <p class="muted small">Lança despesas diretamente no financeiro sem movimentar os produtos do estoque. <strong>Para comprar peças, utilize <a href="{{ url_for('web.products_index') }}">Peças &gt; Importar XML</a>.</strong></p>
     <form method="post" action="{{ url_for('web.finance_import_xml_preview') }}" enctype="multipart/form-data" style="margin-top: 18px;">
       <div class="form-grid-2">
         <label>Arquivo XML <input type="file" name="xml_file" accept=".xml" required></label>
@@ -51,8 +51,11 @@
         <td>{{ xml.emitente_nome }}</td>
         <td>{{ format_currency(xml.total_nota) }}</td>
         <td>
-          <a class="button small secondary" href="{{ url_for('web.finance_xml_preview', xml_id=xml.id) }}">Ver dados</a>
-          <a class="button small" href="{{ url_for('web.finance_xml_export', xml_id=xml.id) }}">Baixar Original</a>
+          <div class="actions" style="margin-top:0;">
+            <a class="button small secondary" href="{{ url_for('web.finance_xml_preview', xml_id=xml.id) }}">Ver nota completa</a>
+            <a class="button small" href="{{ url_for('web.finance_xml_export', xml_id=xml.id) }}">Baixar XML</a>
+            <a class="button small success" href="{{ url_for('web.fiscal_parts_invoice_new', xml_import_id=xml.id, finalidade=4) }}">Devolver compra</a>
+          </div>
         </td>
       </tr>
       {% else %}
@@ -60,5 +63,6 @@
       {% endfor %}
     </tbody>
   </table>
+  {% set pagination = xml_imports_pagination %}{% include '_pagination.html' %}
 </div>
 {% endblock %}

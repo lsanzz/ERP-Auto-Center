@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set invoice = payload.get('invoice') or {} %}
+{% set customer = payload.get('customer') or {} %}
+{% set totals = payload.get('totals') or {} %}
+<div class="page-header fiscal-page-header">
+  <div>
+    <span class="eyebrow">Emissão fiscal · O.S. {{ order.numero }}</span>
+    <h2>Dados da NFS-e</h2>
+    <p class="muted">Confira os serviços e os dados fiscais antes de salvar ou emitir a nota.</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Voltar para O.S.</a>
+</div>
+{% if document and document.error_message %}<div class="flash error"><strong>Falha na emissão:</strong> {{ document.error_message }}</div>{% endif %}
+
+<form method="post" action="{{ url_for('web.work_order_invoice_save_data', work_order_id=order.id, tipo='NFSE') }}" class="fiscal-editor">
+  <section class="card section-card fiscal-section">
+    <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 1</span><h3>Dados da nota</h3></div><span class="fiscal-reference">NFS-e</span></div>
+    <div class="fiscal-main-fields">
+      <label class="field-wide">Natureza da operação<select name="natureza_operacao" required>
+        {% set natureza_nfse = invoice.get('natureza_operacao') or '1' %}
+        <option value="1" {% if natureza_nfse in ['1', 'Tributação no município'] %}selected{% endif %}>Tributação no município</option>
+        <option value="2" {% if natureza_nfse in ['2', 'Tributação fora do município'] %}selected{% endif %}>Tributação fora do município</option>
+        <option value="3" {% if natureza_nfse in ['3', 'Isenção'] %}selected{% endif %}>Isenção</option>
+        <option value="4" {% if natureza_nfse in ['4', 'Imune'] %}selected{% endif %}>Imune</option>
+        <option value="5" {% if natureza_nfse in ['5', 'Exigibilidade suspensa por decisão judicial'] %}selected{% endif %}>Exigibilidade suspensa por decisão judicial</option>
+        <option value="6" {% if natureza_nfse in ['6', 'Exigibilidade suspensa por procedimento administrativo'] %}selected{% endif %}>Exigibilidade suspensa por procedimento administrativo</option>
+      </select></label>
+      <label>Data de emissão<input type="date" name="data_emissao" value="{{ invoice.get('data_emissao') or iso_today() }}" required></label>
+      <label>Código do serviço municipal<input name="item_lista_servico" value="{{ invoice.get('item_lista_servico') or (config.default_service_code if config else '') or '' }}" placeholder="Ex.: 14.01" required></label>
+      <label>Alíquota ISS<input name="aliquota" inputmode="decimal" value="{{ invoice.get('aliquota') or '' }}"></label>
+    </div>
+  </section>
+
+  <section class="card section-card fiscal-section">
+    <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 2</span><h3>Cliente</h3></div><span class="fiscal-check">✓ Cliente da O.S.</span></div>
+    <div class="fiscal-customer-grid">
+      <label class="field-wide">Nome/Razão social<input value="{{ customer.get('nome') or '-' }}" readonly></label>
+      <label>CPF/CNPJ<input value="{{ customer.get('documento') or '-' }}" readonly></label>
+      <label>Telefone<input value="{{ customer.get('telefone') or '-' }}" readonly></label>
+      <label class="field-wide">Endereço<input value="{{ customer.get('endereco') or '-' }}" readonly></label>
+    </div>
+  </section>
+
+  <section class="card section-card fiscal-section">
+    <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 3</span><h3>Serviços</h3></div><span class="muted small">Total: {{ format_currency(totals.get('servicos') or totals.get('geral') or 0) }}</span></div>
+    <div class="fiscal-items-wrap">
+      <table class="table fiscal-items-table">
+        <thead><tr><th>#</th><th>Descrição</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
+        <tbody>{% for item in payload.get('items', {}).get('services') or [] %}<tr><td><span class="fiscal-item-number">{{ loop.index }}</span></td><td><input value="{{ item.descricao }}" readonly></td><td><input value="{{ item.quantidade }}" readonly></td><td><input value="{{ format_currency(item.valor_unitario) }}" readonly></td><td><input value="{{ format_currency(item.total) }}" readonly></td></tr>{% else %}<tr><td colspan="5">Nenhum serviço encontrado na O.S.</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    <label style="margin-top:18px;">Discriminação dos serviços<textarea name="service_description" rows="5" required>{% if invoice.get('service_description') %}{{ invoice.get('service_description') }}{% else %}{% for item in payload.get('items', {}).get('services') or [] %}{{ item.descricao }} - {{ format_currency(item.total) }}{% if not loop.last %}
+{% endif %}{% endfor %}{% endif %}</textarea></label>
+  </section>
+
+  <section class="card section-card fiscal-section">
+    <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 4</span><h3>Tributação e observações</h3></div></div>
+    <div class="form-grid-3">
+      <label>ISS retido<select name="iss_retido"><option value="false" {% if invoice.get('iss_retido') not in ['true', '1', 1, true] %}selected{% endif %}>Não</option><option value="true" {% if invoice.get('iss_retido') in ['true', '1', 1, true] %}selected{% endif %}>Sim</option></select></label>
+      <label>Valor ISS retido<input name="valor_iss_retido" inputmode="decimal" value="{{ invoice.get('valor_iss_retido') or '0' }}"></label>
+      <label>Valor dos serviços<input value="{{ format_currency(totals.get('servicos') or totals.get('geral') or 0) }}" readonly></label>
+    </div>
+    <div class="form-grid-2">
+      <label>Observações<textarea name="observacoes" rows="4">{{ invoice.get('observacoes') or payload.get('work_order', {}).get('observacoes') or '' }}</textarea></label>
+      <label>Informações adicionais do Fisco<textarea name="informacoes_fisco" rows="4">{{ invoice.get('informacoes_fisco') or '' }}</textarea></label>
+    </div>
+  </section>
+
+  <div class="fiscal-footer-actions">
+    <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Cancelar</a>
+    <button type="submit">Salvar</button>
+    <button class="success" type="submit" formaction="{{ url_for('web.work_order_invoice_issue', work_order_id=order.id, tipo='NFSE') }}">Salvar e emitir</button>
+  </div>
+</form>
+{% endblock %}

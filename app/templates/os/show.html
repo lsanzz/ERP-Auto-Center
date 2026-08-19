@@ -15,6 +15,7 @@
     </form>
     {% endif %}
     <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir O.S.</a>
+    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0, recibo=1) }}" target="_blank">Imprimir recibo completo</a>
     <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}">Baixar PDF</a>
     <a class="button" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar O.S.</a>
   </div>

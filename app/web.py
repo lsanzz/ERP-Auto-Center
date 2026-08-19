@@ -9,6 +9,7 @@ from flask import Blueprint, flash, redirect, render_template, request, send_fil
 from decimal import Decimal
 
 from .auth import admin_required, current_user, login_required, login_user, logout_user
+from .cep import lookup_cep
 from .cnpj import is_cnpj, is_cpf, lookup_cnpj, lookup_cpf
 from .models import BankAccount, Budget, Client, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, Product, Service, User, WorkOrder, WorkOrderItem, XmlInvoiceImport, db
 from .services import (
@@ -40,10 +41,17 @@ from .settings import budget_default_date, get_system_settings
 from .xml_import import parse_nfe_xml
 from .fiscal import (
     build_work_order_invoice_payload,
+    apply_invoice_form,
+    cancel_focus_nfe,
+    cancel_focus_nfse,
+    consult_focus_nfe,
+    consult_focus_nfse,
     create_or_update_fiscal_document,
+    create_parts_fiscal_document,
     decode_payload,
     get_fiscal_config,
     import_external_payload,
+    import_nfe_xml_to_focus,
     issue_with_external_api,
     preview_external_import,
     save_fiscal_config_from_form,
@@ -51,6 +59,29 @@ from .fiscal import (
 
 
 web_bp = Blueprint('web', __name__)
+PAGE_SIZE = 20
+
+
+def _page_number() -> int:
+    try:
+        return max(int(request.args.get('page', 1)), 1)
+    except (TypeError, ValueError):
+        return 1
+
+
+def paginate_query(query, per_page: int = PAGE_SIZE) -> dict:
+    page = _page_number()
+    total = query.count()
+    pages = max((total + per_page - 1) // per_page, 1)
+    page = min(page, pages)
+    return {
+        'items': query.offset((page - 1) * per_page).limit(per_page).all(),
+        'page': page,
+        'pages': pages,
+        'total': total,
+        'has_prev': page > 1,
+        'has_next': page < pages,
+    }
 
 
 @web_bp.app_errorhandler(403)
@@ -100,15 +131,26 @@ def dashboard():
     return render_template('dashboard/index.html', data=dashboard_data(current_user().role), bank_accounts=BankAccount.query.order_by(BankAccount.nome).all() if current_user().role == 'ADMINISTRADOR' else [])
 
 
+@web_bp.get('/consultas/placa')
+@login_required
+def plate_lookup_page():
+    return render_template('consultas/placa.html')
+
+
 @web_bp.route('/configuracoes', methods=['GET'])
 @login_required
 @admin_required
 def settings_index():
+    fiscal_documents_page = paginate_query(FiscalDocument.query.order_by(FiscalDocument.id.desc()))
+    users_page = paginate_query(User.query.order_by(User.nome))
     return render_template(
         'configuracoes/index.html',
         settings=get_system_settings(),
         fiscal_config=FiscalApiConfig.query.order_by(FiscalApiConfig.id.asc()).first(),
-        users=User.query.order_by(User.nome).all(),
+        fiscal_documents=fiscal_documents_page['items'],
+        fiscal_documents_pagination=fiscal_documents_page,
+        users=users_page['items'],
+        users_pagination=users_page,
     )
 
 
@@ -277,8 +319,21 @@ def bank_accounts_delete(account_id: int):
 @web_bp.get('/clientes')
 @login_required
 def clients_index():
-    clients = Client.query.order_by(Client.nome).all()
-    return render_template('clientes/index.html', clients=clients)
+    page = paginate_query(Client.query.order_by(Client.nome))
+    return render_template('clientes/index.html', clients=page['items'], pagination=page)
+
+
+@web_bp.get('/api/cep/<cep>')
+@login_required
+def cep_lookup(cep: str):
+    try:
+        return lookup_cep(cep)
+    except ValueError as exc:
+        return {'error': str(exc)}, 400
+    except LookupError as exc:
+        return {'error': str(exc)}, 404
+    except RuntimeError as exc:
+        return {'error': str(exc)}, 502
 
 
 @web_bp.route('/clientes/novo', methods=['GET', 'POST'])
@@ -320,9 +375,9 @@ def clients_show(client_id: int):
 @web_bp.get('/produtos')
 @login_required
 def products_index():
-    products = Product.query.order_by(Product.nome).all()
-    low_stock_count = sum(1 for product in products if parse_decimal(product.estoque_minimo) > 0 and parse_decimal(product.estoque_atual) <= parse_decimal(product.estoque_minimo))
-    return render_template('produtos/index.html', products=products, low_stock_count=low_stock_count)
+    page = paginate_query(Product.query.order_by(Product.nome))
+    low_stock_count = Product.query.filter(Product.estoque_minimo > 0, Product.estoque_atual <= Product.estoque_minimo).count()
+    return render_template('produtos/index.html', products=page['items'], low_stock_count=low_stock_count, pagination=page)
 
 
 @web_bp.route('/produtos/novo', methods=['GET', 'POST'])
@@ -378,6 +433,8 @@ def products_import_xml():
             if product:
                 # Se a peça já existe, apenas atualiza o custo
                 product.custo = custo_unitario
+                product.ncm = item.get('ncm') or product.ncm
+                product.cfop = item.get('cfop') or product.cfop
                 product.estoque_atual = parse_decimal(product.estoque_atual) + parse_decimal(item.get('quantidade'))
                 atualizados += 1
             else:
@@ -390,6 +447,8 @@ def products_import_xml():
                     # Adicionando uma margem de lucro padrão inicial (ex: 50%)
                     preco_venda=custo_unitario * Decimal('1.5'),
                     estoque_atual=parse_decimal(item.get('quantidade')),
+                    ncm=item.get('ncm'),
+                    cfop=item.get('cfop'),
                     ativo=True
                 )
                 db.session.add(product)
@@ -463,6 +522,8 @@ def products_import_xml_confirm():
     atualizados = 0
 
     try:
+        raw_xml = base64.b64decode(raw_xml_b64.encode('ascii')) if raw_xml_b64 else b''
+        parsed = parse_nfe_xml(raw_xml) if raw_xml else {'itens': []}
         # 1. Salva os produtos no catálogo
         for idx, codigo in enumerate(codigos):
             if codigo not in importar_flags:
@@ -477,6 +538,8 @@ def products_import_xml_confirm():
                 product.unidade = unidades[idx]
                 product.custo = custo_val
                 product.preco_venda = venda_val
+                product.ncm = parsed['itens'][idx].get('ncm') or product.ncm
+                product.cfop = parsed['itens'][idx].get('cfop') or product.cfop
                 product.estoque_atual = parse_decimal(product.estoque_atual) + parse_decimal(parsed['itens'][idx].get('quantidade'))
                 atualizados += 1
             else:
@@ -487,6 +550,8 @@ def products_import_xml_confirm():
                     custo=custo_val,
                     preco_venda=venda_val,
                     estoque_atual=parse_decimal(parsed['itens'][idx].get('quantidade')),
+                    ncm=parsed['itens'][idx].get('ncm'),
+                    cfop=parsed['itens'][idx].get('cfop'),
                     ativo=True
                 )
                 db.session.add(product)
@@ -568,8 +633,8 @@ def products_import_xml_confirm():
 @web_bp.get('/servicos')
 @login_required
 def services_index():
-    services = Service.query.order_by(Service.nome).all()
-    return render_template('servicos/index.html', services=services)
+    page = paginate_query(Service.query.order_by(Service.nome))
+    return render_template('servicos/index.html', services=page['items'], pagination=page)
 
 
 @web_bp.route('/servicos/novo', methods=['GET', 'POST'])
@@ -604,8 +669,8 @@ def services_edit(service_id: int):
 @web_bp.get('/orcamentos')
 @login_required
 def budgets_index():
-    budgets = Budget.query.order_by(Budget.id.desc()).all()
-    return render_template('orcamentos/index.html', budgets=budgets)
+    page = paginate_query(Budget.query.order_by(Budget.id.desc()))
+    return render_template('orcamentos/index.html', budgets=page['items'], pagination=page)
 
 
 @web_bp.route('/orcamentos/novo', methods=['GET', 'POST'])
@@ -700,7 +765,8 @@ def budgets_convert(budget_id: int):
 @web_bp.get('/os')
 @login_required
 def work_orders_index():
-    orders = WorkOrder.query.order_by(WorkOrder.id.desc()).all()
+    orders_page = paginate_query(WorkOrder.query.order_by(WorkOrder.id.desc()))
+    orders = orders_page['items']
     receivables_by_order: dict[int, list[FinancialEntry]] = {}
     if current_user().role == 'ADMINISTRADOR' and orders:
         order_ids = [order.id for order in orders]
@@ -717,7 +783,7 @@ def work_orders_index():
             receivables_by_order.setdefault(entry.reference_id, []).append(entry)
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all() if current_user().role == 'ADMINISTRADOR' else []
     bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all() if current_user().role == 'ADMINISTRADOR' else []
-    return render_template('os/index.html', orders=orders, statuses=WORK_ORDER_STATUSES, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts)
+    return render_template('os/index.html', orders=orders, pagination=orders_page, statuses=WORK_ORDER_STATUSES, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts)
 
 
 @web_bp.post('/os/<int:work_order_id>/copiar')
@@ -834,17 +900,19 @@ def work_orders_pdf(work_order_id: int):
     order = db.session.get(WorkOrder, work_order_id)
     if not order:
         return redirect(url_for('web.work_orders_index'))
+    is_receipt = request.args.get('recibo') == '1'
     pdf_bytes = generate_work_order_pdf(
         order,
         [item for item in order.items if item.item_type == 'SERVICO'],
         [item for item in order.items if item.item_type == 'PECA'],
         company_name=get_system_settings().company_name or 'ERP Auto Center',
+        document_title='RECIBO COMPLETO DA O.S.' if is_receipt else 'ORDEM DE SERVIÇO',
     )
     return send_file(
         __import__('io').BytesIO(pdf_bytes),
         mimetype='application/pdf',
         as_attachment=request.args.get('download') != '0',
-        download_name=f'os-{order.numero}.pdf',
+        download_name=f'{"recibo" if is_receipt else "os"}-{order.numero}.pdf',
     )
 
 
@@ -1053,13 +1121,32 @@ def _group_financial_entries(entries: list[FinancialEntry]) -> list[dict]:
 @login_required
 @admin_required
 def finance_index():
-    entries = FinancialEntry.query.order_by(FinancialEntry.vencimento.desc(), FinancialEntry.id.desc()).all()
+    entries_page = paginate_query(FinancialEntry.query.order_by(FinancialEntry.vencimento.desc(), FinancialEntry.id.desc()))
+    entries = entries_page['items']
+    work_order_ids = {
+        entry.reference_id
+        for entry in entries
+        if entry.reference_type == 'OS' and entry.reference_id
+    }
+    work_orders_by_id = {
+        order.id: order
+        for order in WorkOrder.query.filter(WorkOrder.id.in_(work_order_ids)).all()
+    } if work_order_ids else {}
+    xml_import_ids = {
+        entry.reference_id
+        for entry in entries
+        if entry.reference_type == 'XML_NFE' and entry.reference_id
+    }
+    xml_imports_by_id = {
+        xml_import.id: xml_import
+        for xml_import in XmlInvoiceImport.query.filter(XmlInvoiceImport.id.in_(xml_import_ids)).all()
+    } if xml_import_ids else {}
     # Necessários para o form inline de liquidar
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all()
     bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all()
     
-    total_receber = sum(parse_decimal(entry.valor) for entry in entries if entry.entry_type == 'RECEBER' and entry.status == 'PENDENTE')
-    total_pagar = sum(parse_decimal(entry.valor) for entry in entries if entry.entry_type == 'PAGAR' and entry.status == 'PENDENTE')
+    total_receber = db.session.query(db.func.coalesce(db.func.sum(FinancialEntry.valor), 0)).filter(FinancialEntry.entry_type == 'RECEBER', FinancialEntry.status == 'PENDENTE').scalar() or 0
+    total_pagar = db.session.query(db.func.coalesce(db.func.sum(FinancialEntry.valor), 0)).filter(FinancialEntry.entry_type == 'PAGAR', FinancialEntry.status == 'PENDENTE').scalar() or 0
     entry_groups = _group_financial_entries(entries)
     
     return render_template(
@@ -1070,7 +1157,10 @@ def finance_index():
         bank_accounts=bank_accounts, 
         cash=dashboard_data('ADMINISTRADOR')['caixa_diario'], 
         total_receber=total_receber, 
-        total_pagar=total_pagar
+        total_pagar=total_pagar,
+        pagination=entries_page,
+        work_orders_by_id=work_orders_by_id,
+        xml_imports_by_id=xml_imports_by_id,
     )
 
 
@@ -1118,8 +1208,8 @@ def finance_new():
 @login_required
 @admin_required
 def finance_imports():
-    xml_imports = XmlInvoiceImport.query.order_by(XmlInvoiceImport.id.desc()).limit(20).all()
-    return render_template('financeiro/importacoes.html', xml_imports=xml_imports)
+    xml_imports_page = paginate_query(XmlInvoiceImport.query.order_by(XmlInvoiceImport.id.desc()))
+    return render_template('financeiro/importacoes.html', xml_imports=xml_imports_page['items'], xml_imports_pagination=xml_imports_page)
 
 
 @web_bp.post('/financeiro/<int:entry_id>/liquidar')
@@ -1225,9 +1315,19 @@ def finance_xml_preview(xml_id: int):
     xml_import = db.session.get(XmlInvoiceImport, xml_id)
     if not xml_import:
         return redirect(url_for('web.finance_index'))
-    parsed = xml_import.to_dict()
-    parsed['itens'] = xml_import.get_items()
-    return render_template('financeiro/xml_preview_saved.html', xml_import=xml_import, parsed=parsed)
+    parsed = parse_nfe_xml(xml_import.raw_xml.encode('utf-8')) if xml_import.raw_xml else xml_import.to_dict()
+    parsed['itens'] = parsed.get('itens') or xml_import.get_items()
+    document_error = None
+    linked_documents = FiscalDocument.query.filter_by(work_order_id=None, document_type='NFE').order_by(FiscalDocument.id.desc()).limit(PAGE_SIZE).all()
+    for linked_document in linked_documents:
+        try:
+            linked_payload = json.loads(linked_document.request_payload or '{}')
+        except json.JSONDecodeError:
+            linked_payload = {}
+        if str(linked_payload.get('source_xml_id') or '') == str(xml_import.id):
+            document_error = linked_document.error_message
+            break
+    return render_template('financeiro/xml_preview_saved.html', xml_import=xml_import, parsed=parsed, document_error=document_error)
 
 
 @web_bp.get('/financeiro/xml/<int:xml_id>/exportar')
@@ -1286,10 +1386,7 @@ def finance_import_other_system_confirm():
 @login_required
 @admin_required
 def fiscal_index():
-    config = get_fiscal_config()
-    documents = FiscalDocument.query.order_by(FiscalDocument.id.desc()).limit(20).all()
-    work_orders = WorkOrder.query.order_by(WorkOrder.id.desc()).limit(20).all()
-    return render_template('fiscal/index.html', config=config, documents=documents, work_orders=work_orders)
+    return redirect(url_for('web.settings_index') + '#fiscal-documentos')
 
 
 @web_bp.post('/fiscal/configuracoes')
@@ -1299,7 +1396,132 @@ def fiscal_save_config():
     save_fiscal_config_from_form(request.form)
     db.session.commit()
     flash('Configurações fiscais salvas.', 'success')
+    return redirect(url_for('web.settings_index') + '#fiscal')
+
+
+@web_bp.post('/fiscal/focus/importar-nfe')
+@login_required
+@admin_required
+def fiscal_focus_import_nfe():
+    config = get_fiscal_config()
+    upload = request.files.get('xml_file')
+    if not config or config.provider_name != 'FOCUSNFE':
+        flash('Configure o provedor Focus NFe antes de importar XML pela API.', 'error')
+        return redirect(url_for('web.fiscal_index'))
+    if not upload or not upload.filename:
+        flash('Selecione um arquivo XML de NF-e.', 'error')
+        return redirect(url_for('web.fiscal_index'))
+    try:
+        result = import_nfe_xml_to_focus(upload.read(), config, request.form.get('ref') or None)
+        flash(f"XML enviado para a Focus NFe. Status: {result.get('status') or 'recebido'}.", 'success')
+    except Exception as exc:
+        flash(f'Falha ao importar XML na Focus NFe: {exc}', 'error')
     return redirect(url_for('web.fiscal_index'))
+
+
+@web_bp.route('/fiscal/nfe-pecas/nova', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def fiscal_parts_invoice_new():
+    config = get_fiscal_config()
+    xml_imports = XmlInvoiceImport.query.order_by(XmlInvoiceImport.emissao_em.desc(), XmlInvoiceImport.id.desc()).limit(PAGE_SIZE).all()
+    products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
+    selected_product = db.session.get(Product, int(request.args.get('product_id'))) if request.args.get('product_id') else None
+    source_import = db.session.get(XmlInvoiceImport, int(request.args.get('xml_import_id'))) if request.args.get('xml_import_id') else None
+    source_details = parse_nfe_xml(source_import.raw_xml.encode('utf-8')) if source_import and source_import.raw_xml else None
+    if request.method == 'POST':
+        form = request.form.copy()
+        document = None
+        document_id = None
+        xml_import = db.session.get(XmlInvoiceImport, int(form.get('xml_import_id'))) if form.get('xml_import_id') else None
+        source_import = xml_import or source_import
+        source_details = parse_nfe_xml(source_import.raw_xml.encode('utf-8')) if source_import and source_import.raw_xml else source_details
+        if xml_import and form.get('finalidade_emissao') == '4':
+            form['chave_referenciada'] = xml_import.chave_acesso
+            form['cliente_nome'] = form.get('cliente_nome') or xml_import.emitente_nome or ''
+            form['cliente_documento'] = form.get('cliente_documento') or xml_import.emitente_cnpj or ''
+            form['cliente_telefone'] = form.get('cliente_telefone') or (source_details or {}).get('emitente_telefone') or ''
+            form['cliente_endereco'] = form.get('cliente_endereco') or (source_details or {}).get('emitente_endereco') or ''
+        if not (form.get('cliente_nome') or '').strip():
+            flash('Informe o cliente da NF-e.', 'error')
+            return render_template('fiscal/parts_invoice.html', config=config, form=form, xml_imports=xml_imports, products=products, selected_product=selected_product, source_import=source_import, source_details=source_details, invoice_items=_parts_invoice_form_items(form, source_import, selected_product))
+        if not any((value or '').strip() for value in form.getlist('item_descricao')):
+            flash('Informe pelo menos um produto.', 'error')
+            return render_template('fiscal/parts_invoice.html', config=config, form=form, xml_imports=xml_imports, products=products, selected_product=selected_product, source_import=source_import, source_details=source_details, invoice_items=_parts_invoice_form_items(form, source_import, selected_product))
+        try:
+            document = create_parts_fiscal_document(form, config)
+            apply_invoice_form(document, form)
+            document_id = document.id
+            db.session.commit()
+            if form.get('emitir'):
+                if not config:
+                    raise ValueError('Configure a integração fiscal antes de emitir.')
+                issue_with_external_api(document, config)
+                db.session.commit()
+            if form.get('emitir') and document.status == 'ERRO':
+                flash(f'Emissão recusada pela Focus NFe: {document.error_message or "verifique o documento fiscal"}', 'error')
+            else:
+                flash('NF-e de peças enviada para a Focus NFe.' if form.get('emitir') else 'NF-e de peças salva como preparada.', 'success')
+            return redirect(url_for('web.settings_index') + '#fiscal-documentos')
+        except Exception as exc:
+            db.session.rollback()
+            if document_id:
+                failed_document = db.session.get(FiscalDocument, document_id)
+                if failed_document:
+                    failed_document.status = 'ERRO'
+                    failed_document.error_message = str(exc)
+                    db.session.commit()
+            flash(f'Falha ao preparar NF-e de peças: {exc}', 'error')
+    return render_template('fiscal/parts_invoice.html', config=config, form=request.form, xml_imports=xml_imports, products=products, selected_product=selected_product, source_import=source_import, source_details=source_details, invoice_items=_parts_invoice_form_items(request.form, source_import, selected_product))
+
+
+def _parts_invoice_form_items(form, source_import=None, selected_product=None) -> list[dict]:
+    descriptions = form.getlist('item_descricao')
+    if descriptions:
+        quantities = form.getlist('item_quantidade')
+        prices = form.getlist('item_valor_unitario')
+        cfops = form.getlist('item_cfop')
+        ncms = form.getlist('item_ncm')
+        units = form.getlist('item_unidade')
+        return [
+            {
+                'descricao': descriptions[index],
+                'quantidade': quantities[index] if index < len(quantities) else '1',
+                'valor_unitario': prices[index] if index < len(prices) else '',
+                'cfop': cfops[index] if index < len(cfops) else '5102',
+                'ncm': ncms[index] if index < len(ncms) else '',
+                'unidade': units[index] if index < len(units) else 'UN',
+            }
+            for index in range(len(descriptions))
+        ]
+    if source_import:
+        return [
+            {
+                'descricao': item.get('descricao') or item.get('codigo') or '',
+                'quantidade': item.get('quantidade') or 1,
+                'valor_unitario': item.get('valor_unitario') or 0,
+                'cfop': item.get('cfop') or '5102',
+                'ncm': item.get('ncm') or '',
+                'unidade': item.get('unidade') or 'UN',
+            }
+            for item in source_import.get_items()
+        ]
+    if selected_product:
+        imported_item = None
+        if not selected_product.ncm or not selected_product.cfop:
+            for imported in XmlInvoiceImport.query.order_by(XmlInvoiceImport.id.desc()).limit(PAGE_SIZE).all():
+                imported_item = next((item for item in imported.get_items() if item.get('codigo') == selected_product.codigo), None)
+                if imported_item:
+                    break
+        return [{
+            'descricao': f'{selected_product.codigo} - {selected_product.nome}',
+            'quantidade': 1,
+            'valor_unitario': selected_product.preco_venda or 0,
+            'cfop': selected_product.cfop or (imported_item or {}).get('cfop') or '5102',
+            'ncm': selected_product.ncm or (imported_item or {}).get('ncm') or '',
+            'unidade': selected_product.unidade or 'UN',
+        }]
+    return [{'descricao': '', 'quantidade': 1, 'valor_unitario': '', 'cfop': '5102', 'ncm': '', 'unidade': 'UN'}]
 
 
 @web_bp.get('/os/<int:work_order_id>/nota/preview')
@@ -1310,9 +1532,15 @@ def work_order_invoice_preview(work_order_id: int):
     if not order:
         return redirect(url_for('web.work_orders_index'))
     config = get_fiscal_config()
-    payload = build_work_order_invoice_payload(order, config)
-    document = FiscalDocument.query.filter_by(work_order_id=order.id).order_by(FiscalDocument.id.desc()).first()
-    return render_template('fiscal/issue_preview.html', order=order, payload=payload, config=config, document=document)
+    document_type = (request.args.get('tipo') or '').upper() or ('NFSE' if any(item.item_type == 'SERVICO' for item in order.items) else 'NFE')
+    document = FiscalDocument.query.filter_by(work_order_id=order.id, document_type=document_type).order_by(FiscalDocument.id.desc()).first()
+    payload = build_work_order_invoice_payload(order, config, document_type)
+    if document and document.status in {'PRONTO_PARA_ENVIO', 'ERRO'} and document.request_payload:
+        stored_payload = json.loads(document.request_payload)
+        if stored_payload.get('customer'):
+            payload = stored_payload
+    template = 'fiscal/service_invoice.html' if document_type == 'NFSE' else 'fiscal/issue_preview.html'
+    return render_template(template, order=order, payload=payload, config=config, document=document)
 
 
 @web_bp.post('/os/<int:work_order_id>/nota/preparar')
@@ -1323,10 +1551,29 @@ def work_order_invoice_prepare(work_order_id: int):
     if not order:
         return redirect(url_for('web.work_orders_index'))
     config = get_fiscal_config()
-    document = create_or_update_fiscal_document(order, config)
+    document_type = (request.args.get('tipo') or request.form.get('tipo') or '').upper() or ('NFSE' if any(item.item_type == 'SERVICO' for item in order.items) else 'NFE')
+    document = create_or_update_fiscal_document(order, config, document_type)
     db.session.commit()
     flash('Prévia fiscal gerada. Revise os dados antes de emitir.', 'success')
-    return redirect(url_for('web.work_order_invoice_preview', work_order_id=order.id))
+    return redirect(url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo=document_type))
+
+
+@web_bp.post('/os/<int:work_order_id>/nota/salvar-dados')
+@login_required
+@admin_required
+def work_order_invoice_save_data(work_order_id: int):
+    order = db.session.get(WorkOrder, work_order_id)
+    if not order:
+        return redirect(url_for('web.work_orders_index'))
+    config = get_fiscal_config()
+    document_type = (request.args.get('tipo') or request.form.get('tipo') or '').upper() or 'NFE'
+    document = FiscalDocument.query.filter_by(work_order_id=order.id, document_type=document_type).order_by(FiscalDocument.id.desc()).first()
+    if not document:
+        document = create_or_update_fiscal_document(order, config, document_type)
+    apply_invoice_form(document, request.form)
+    db.session.commit()
+    flash('Dados variáveis da nota salvos.', 'success')
+    return redirect(url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo=document_type))
 
 
 @web_bp.post('/os/<int:work_order_id>/nota/emitir')
@@ -1337,18 +1584,36 @@ def work_order_invoice_issue(work_order_id: int):
     if not order:
         return redirect(url_for('web.work_orders_index'))
     config = get_fiscal_config()
+    document = None
+    document_id = None
+    document_type = (request.args.get('tipo') or request.form.get('tipo') or '').upper() or ('NFSE' if any(item.item_type == 'SERVICO' for item in order.items) else 'NFE')
     if not config:
         flash('Configure a integração fiscal antes de emitir.', 'error')
-        return redirect(url_for('web.work_order_invoice_preview', work_order_id=work_order_id))
+        return redirect(url_for('web.work_order_invoice_preview', work_order_id=work_order_id, tipo=document_type))
     try:
-        document = create_or_update_fiscal_document(order, config)
+        document = FiscalDocument.query.filter_by(work_order_id=order.id, document_type=document_type).order_by(FiscalDocument.id.desc()).first()
+        if not document or document.status not in {'PRONTO_PARA_ENVIO', 'ERRO'}:
+            document = create_or_update_fiscal_document(order, config, document_type)
+        document_id = document.id
+        if request.form.get('natureza_operacao') or request.form.get('item_lista_servico'):
+            apply_invoice_form(document, request.form)
+        db.session.commit()
         issue_with_external_api(document, config)
         db.session.commit()
-        flash('Documento fiscal enviado para a API configurada.', 'success')
+        if document.status == 'ERRO':
+            flash(f'Emissão recusada pela Focus NFe: {document.error_message or "verifique o documento fiscal"}', 'error')
+        else:
+            flash('Documento fiscal enviado para a API configurada.', 'success')
     except Exception as exc:
         db.session.rollback()
+        if document_id:
+            failed_document = db.session.get(FiscalDocument, document_id)
+            if failed_document:
+                failed_document.status = 'ERRO'
+                failed_document.error_message = str(exc)
+                db.session.commit()
         flash(f'Falha ao emitir nota: {exc}', 'error')
-    return redirect(url_for('web.work_order_invoice_preview', work_order_id=work_order_id))
+    return redirect(url_for('web.work_order_invoice_preview', work_order_id=work_order_id, tipo=document_type))
 
 
 @web_bp.get('/fiscal/documentos/<int:document_id>/xml')
@@ -1366,12 +1631,75 @@ def fiscal_document_export_xml(document_id: int):
         download_name=f'{document.numero or document.id}.xml',
     )
 
+
+@web_bp.post('/fiscal/documentos/<int:document_id>/consultar')
+@login_required
+@admin_required
+def fiscal_document_consult(document_id: int):
+    document = db.session.get(FiscalDocument, document_id)
+    config = get_fiscal_config()
+    if not document or not config or config.provider_name != 'FOCUSNFE':
+        flash('Documento ou integração Focus NFe não disponível.', 'error')
+        return redirect(url_for('web.fiscal_index'))
+    try:
+        consult_focus_nfse(document, config) if document.document_type == 'NFSE' else consult_focus_nfe(document, config)
+        db.session.commit()
+        flash(f'Status atualizado: {document.status}.', 'success')
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Falha ao consultar a nota: {exc}', 'error')
+    return redirect(url_for('web.fiscal_index'))
+
+
+@web_bp.post('/fiscal/documentos/<int:document_id>/emitir')
+@login_required
+@admin_required
+def fiscal_document_issue(document_id: int):
+    document = db.session.get(FiscalDocument, document_id)
+    config = get_fiscal_config()
+    if not document or not config:
+        flash('Documento ou integração fiscal não disponível.', 'error')
+        return redirect(url_for('web.fiscal_index'))
+    try:
+        issue_with_external_api(document, config)
+        db.session.commit()
+        if document.status == 'ERRO':
+            flash(f'Emissão recusada pela Focus NFe: {document.error_message or "verifique o documento fiscal"}', 'error')
+        else:
+            flash('Nota enviada para a Focus NFe.', 'success')
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Falha ao emitir a nota: {exc}', 'error')
+    return redirect(url_for('web.fiscal_index'))
+
+
+@web_bp.post('/fiscal/documentos/<int:document_id>/cancelar')
+@login_required
+@admin_required
+def fiscal_document_cancel(document_id: int):
+    document = db.session.get(FiscalDocument, document_id)
+    config = get_fiscal_config()
+    if not document or not config or config.provider_name != 'FOCUSNFE':
+        flash('Documento ou integração Focus NFe não disponível.', 'error')
+        return redirect(url_for('web.fiscal_index'))
+    try:
+        if document.document_type == 'NFSE':
+            cancel_focus_nfse(document, config, request.form.get('justificativa'))
+        else:
+            cancel_focus_nfe(document, config, request.form.get('justificativa'))
+        db.session.commit()
+        flash('Nota cancelada na Focus NFe.', 'success')
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Falha ao cancelar a nota: {exc}', 'error')
+    return redirect(url_for('web.fiscal_index'))
+
 @web_bp.get('/formas-pagamento')
 @login_required
 @admin_required
 def payment_methods_index():
-    methods = PaymentMethod.query.order_by(PaymentMethod.nome).all()
-    return render_template('formas_pagamento/index.html', methods=methods)
+    page = paginate_query(PaymentMethod.query.order_by(PaymentMethod.nome))
+    return render_template('formas_pagamento/index.html', methods=page['items'], pagination=page)
 
 
 @web_bp.route('/formas-pagamento/nova', methods=['GET', 'POST'])
@@ -1492,8 +1820,8 @@ def finance_delete(entry_id: int):
 @login_required
 @admin_required
 def employees_index():
-    employees = Employee.query.order_by(Employee.nome).all()
-    return render_template('funcionarios/index.html', employees=employees)
+    page = paginate_query(Employee.query.order_by(Employee.nome))
+    return render_template('funcionarios/index.html', employees=page['items'], pagination=page)
 
 
 @web_bp.route('/funcionarios/novo', methods=['GET', 'POST'])
@@ -1669,6 +1997,8 @@ def _fill_product_from_form(product: Product) -> None:
     product.categoria = request.form.get('categoria') or None
     product.marca = request.form.get('marca') or None
     product.unidade = request.form.get('unidade') or 'UN'
+    product.ncm = request.form.get('ncm') or product.ncm
+    product.cfop = request.form.get('cfop') or product.cfop
     product.custo = parse_decimal(request.form.get('custo'))
     product.preco_venda = parse_decimal(request.form.get('preco_venda'))
     product.estoque_atual = parse_decimal(request.form.get('estoque_atual'))
