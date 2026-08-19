@@ -11,7 +11,7 @@ from decimal import Decimal
 from .auth import admin_required, current_user, login_required, login_user, logout_user
 from .cep import lookup_cep
 from .cnpj import is_cnpj, is_cpf, lookup_cnpj, lookup_cpf
-from .models import BankAccount, Budget, Client, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, Product, Service, User, WorkOrder, WorkOrderItem, XmlInvoiceImport, db
+from .models import BankAccount, Budget, Client, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, LegacyImportDraft, PaymentMethod, Product, Service, User, WorkOrder, WorkOrderItem, XmlInvoiceImport, db
 from .services import (
     BUDGET_STATUSES,
     WORK_ORDER_STATUSES,
@@ -56,6 +56,7 @@ from .fiscal import (
     preview_external_import,
     save_fiscal_config_from_form,
 )
+from .legacy_import import parse_legacy_reports, serialize_legacy_payload
 
 
 web_bp = Blueprint('web', __name__)
@@ -784,6 +785,48 @@ def work_orders_index():
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all() if current_user().role == 'ADMINISTRADOR' else []
     bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all() if current_user().role == 'ADMINISTRADOR' else []
     return render_template('os/index.html', orders=orders, pagination=orders_page, statuses=WORK_ORDER_STATUSES, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts)
+
+
+@web_bp.post('/os/importar-sistema/preview')
+@login_required
+@admin_required
+def work_orders_import_legacy_preview():
+    entrada = request.files.get('entrada_file')
+    ordem_servico = request.files.get('ordem_servico_file')
+    if not entrada or not entrada.filename or not ordem_servico or not ordem_servico.filename:
+        flash('Selecione os dois arquivos HTML: Entrada e Ordem de Serviço.', 'error')
+        return redirect(url_for('web.work_orders_index'))
+    try:
+        payload = parse_legacy_reports(entrada.read(), ordem_servico.read())
+        draft = LegacyImportDraft(payload=serialize_legacy_payload(payload))
+        db.session.add(draft)
+        db.session.commit()
+        preview = preview_external_import(payload)
+        return render_template('os/import_legacy_preview.html', preview=preview, draft_id=draft.id)
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Falha ao ler os relatórios HTML: {exc}', 'error')
+        return redirect(url_for('web.work_orders_index'))
+
+
+@web_bp.post('/os/importar-sistema/confirmar')
+@login_required
+@admin_required
+def work_orders_import_legacy_confirm():
+    draft_id = request.form.get('draft_id', type=int)
+    draft = db.session.get(LegacyImportDraft, draft_id) if draft_id else None
+    if not draft:
+        flash('A prévia de importação expirou. Envie os arquivos novamente.', 'error')
+        return redirect(url_for('web.work_orders_index'))
+    try:
+        created = import_external_payload(json.loads(draft.payload))
+        db.session.delete(draft)
+        db.session.commit()
+        flash(f"Importação concluída: {created['work_orders']} O.S. e {created['financial_entries']} contas financeiras.", 'success')
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Falha ao importar os dados: {exc}', 'error')
+    return redirect(url_for('web.work_orders_index'))
 
 
 @web_bp.post('/os/<int:work_order_id>/copiar')

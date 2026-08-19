@@ -62,10 +62,24 @@
       <p class="muted" style="margin-top:10px;">Acompanhe cada atendimento, seus recebimentos e as peças utilizadas.</p>
     </div>
     <div class="os-toolbar-actions">
-      {% if current_user().role == 'ADMINISTRADOR' %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Abrir financeiro</a>{% endif %}
+      {% if current_user().role == 'ADMINISTRADOR' %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Abrir financeiro</a><a class="button secondary" href="#migrar-sistema">Migrar sistema antigo</a>{% endif %}
       <a class="button" href="{{ url_for('web.work_orders_new') }}">+ Nova O.S.</a>
     </div>
   </div>
+
+  {% if current_user().role == 'ADMINISTRADOR' %}
+  <div class="card" id="migrar-sistema" style="margin-bottom:28px;">
+    <h3>Migrar O.S. e contas do sistema antigo</h3>
+    <p class="muted small">Envie os relatórios HTML exportados do sistema antigo. A importação será salva no PostgreSQL configurado nesta aplicação (Render quando publicada).</p>
+    <form method="post" action="{{ url_for('web.work_orders_import_legacy_preview') }}" enctype="multipart/form-data" style="margin-top:18px;">
+      <div class="form-grid-2">
+        <label>Relatório de entradas (contas a pagar)<input type="file" name="entrada_file" accept=".html,.htm" required></label>
+        <label>Relatório de ordens de serviço<input type="file" name="ordem_servico_file" accept=".html,.htm" required></label>
+      </div>
+      <button type="submit">Pré-visualizar migração</button>
+    </form>
+  </div>
+  {% endif %}
 
   {% set total_orders = orders|length %}
   {% set open_orders = orders|selectattr('status', 'equalto', 'ABERTA')|list|length %}

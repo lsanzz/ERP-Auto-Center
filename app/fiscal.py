@@ -888,6 +888,7 @@ def import_external_payload(data: dict[str, Any]) -> dict[str, int]:
 
     db.session.flush()
 
+    legacy_os_entries = []
     for entry_data in preview['financial_entries']:
         descricao = (entry_data.get('descricao') or entry_data.get('description') or '').strip()
         if not descricao:
@@ -912,6 +913,8 @@ def import_external_payload(data: dict[str, Any]) -> dict[str, int]:
         if bank:
             entry.bank_account_id = bank.id
         db.session.add(entry)
+        if entry.reference_type == 'OS_NUMERO':
+            legacy_os_entries.append((entry, str(entry.reference_id)))
         created['financial_entries'] += 1
 
     db.session.flush()
@@ -958,6 +961,19 @@ def import_external_payload(data: dict[str, Any]) -> dict[str, int]:
                 total=item.get('total'),
             )
         created['work_orders'] += 1
+
+    # Relatórios antigos identificam a conta da O.S. pelo número visível,
+    # enquanto o ERP atual relaciona pelo id interno.
+    if legacy_os_entries:
+        orders_by_number = {
+            order.numero: order.id
+            for order in WorkOrder.query.filter(WorkOrder.numero.in_([number for _, number in legacy_os_entries])).all()
+        }
+        for entry, number in legacy_os_entries:
+            order_id = orders_by_number.get(number)
+            if order_id:
+                entry.reference_type = 'OS'
+                entry.reference_id = order_id
 
     db.session.flush()
     return created

@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>Pré-visualização da migração</h2><p class="muted">Confira os dados encontrados nos relatórios antes de gravar no sistema.</p></div></div>
+<div class="grid grid-3">
+  <div class="stat"><span>O.S.</span><strong>{{ preview.summary.work_orders }}</strong></div>
+  <div class="stat"><span>Contas a pagar/receber</span><strong>{{ preview.summary.financial_entries }}</strong></div>
+  <div class="stat"><span>Contas bancárias</span><strong>0</strong></div>
+</div>
+<div class="card section-card" style="margin-top:18px;">
+  <h3>Confirmar importação</h3>
+  <p class="muted">O sistema identifica registros já existentes pelo número da O.S. e não os duplica. As contas importadas ficam como pendentes.</p>
+  <form method="post" action="{{ url_for('web.work_orders_import_legacy_confirm') }}">
+    <input type="hidden" name="draft_id" value="{{ draft_id }}">
+    <button type="submit">Confirmar importação</button>
+    <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Cancelar</a>
+  </form>
+</div>
+<div class="grid grid-2" style="margin-top:18px;">
+  <div class="table-card section-card"><h3>Primeiras O.S.</h3><table class="table"><thead><tr><th>Número</th><th>Cliente</th><th>Itens</th></tr></thead><tbody>{% for row in preview.work_orders[:10] %}<tr><td>{{ row.numero }}</td><td>{{ row.client_nome }}</td><td>{{ row.items|length }}</td></tr>{% else %}<tr><td colspan="3">Nenhuma O.S.</td></tr>{% endfor %}</tbody></table></div>
+  <div class="table-card section-card"><h3>Primeiras contas</h3><table class="table"><thead><tr><th>Descrição</th><th>Valor</th></tr></thead><tbody>{% for row in preview.financial_entries[:10] %}<tr><td>{{ row.descricao }}</td><td>{{ format_currency(row.valor) }}</td></tr>{% else %}<tr><td colspan="2">Nenhuma conta.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+{% endblock %}

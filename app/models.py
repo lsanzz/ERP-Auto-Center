@@ -357,3 +357,12 @@ class FinancialEntry(db.Model, TimestampMixin, SerializableMixin):
     bank_account = db.relationship('BankAccount')
 
     payment_method = db.relationship('PaymentMethod', back_populates='financial_entries')
+
+
+class LegacyImportDraft(db.Model, TimestampMixin, SerializableMixin):
+    """Payload temporário de uma prévia de migração de sistema antigo."""
+
+    __tablename__ = 'legacy_import_drafts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    payload = db.Column(db.Text, nullable=False)
