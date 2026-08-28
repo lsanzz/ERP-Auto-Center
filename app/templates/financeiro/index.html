@@ -1,50 +1,17 @@
 {% extends 'base.html' %}
 {% block content %}
 <style>
-  .ventriloc-tabs {
-    display: flex;
-    gap: 32px;
-    border-bottom: 1px solid var(--color-mist);
-    margin-bottom: 40px;
-  }
-  .ventriloc-tab {
-    font-family: var(--font-polysans);
-    font-size: 16px;
-    color: var(--color-slate);
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    padding: 0 0 12px 0;
-    cursor: pointer;
-    color: var(--color-graphite) !important;
-    background: transparent !important;
-    border: 0;
-    box-shadow: none;
-    transition: all 0.2s;
-  }
-  .ventriloc-tab:hover { color: var(--color-graphite); }
-  .ventriloc-tab.active { color: var(--color-graphite) !important; background: transparent !important; border-bottom: 2px solid var(--color-ember-orange); }
+  .ventriloc-tabs { display: flex; gap: 32px; border-bottom: 1px solid var(--color-mist); margin-bottom: 40px; flex-wrap: wrap; }
+  /* CORREÇÃO DAS ABAS: Forçando a cor escura para que não fiquem invisíveis no fundo branco */
+  .ventriloc-tab { font-family: var(--font-polysans); font-size: 16px; color: var(--color-graphite, #333) !important; background: transparent !important; border: none; border-bottom: 2px solid transparent; padding: 0 0 12px 0; cursor: pointer; transition: all 0.2s; }
+  .ventriloc-tab:hover { opacity: 0.7; }
+  .ventriloc-tab.active { border-bottom: 2px solid var(--color-ember-orange, #f97316) !important; font-weight: 600; }
+  
   .tab-content { display: none; }
   .tab-content.active { display: block; }
-  
-  .ventriloc-modal {
-    margin: auto;
-    border: 1px solid var(--color-graphite);
-    background: var(--color-canvas-white);
-    padding: 40px;
-    width: 90%;
-    max-width: 440px;
-    border-radius: 6px 0px 0px 0px;
-    box-shadow: none;
-    box-sizing: border-box;
-  }
-  .ventriloc-modal::backdrop {
-    background: rgba(32, 32, 32, 0.5); 
-    backdrop-filter: blur(2px);
-  }
-  .ventriloc-modal input, .ventriloc-modal select {
-    width: 100%; box-sizing: border-box; margin-top: 6px;
-  }
+  .ventriloc-modal { margin: auto; border: 1px solid var(--color-graphite); background: var(--color-canvas-white); padding: 40px; width: 90%; max-width: 440px; border-radius: 6px 0px 0px 0px; box-shadow: none; box-sizing: border-box; }
+  .ventriloc-modal::backdrop { background: rgba(32, 32, 32, 0.5); backdrop-filter: blur(2px); }
+  .ventriloc-modal input, .ventriloc-modal select { width: 100%; box-sizing: border-box; margin-top: 6px; }
   .action-group { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
   .finance-table { width: 100%; table-layout: fixed; }
   .finance-table th, .finance-table td { padding: 14px 16px; vertical-align: middle; }
@@ -77,21 +44,19 @@
   </div>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 60px;">
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px;">
   <div class="data-card">
     <h3 style="font-size: 18px; color: var(--color-graphite); margin-bottom: 8px;">A Receber</h3>
     <div style="font-family: var(--font-polysans); font-size: 40px; letter-spacing: -0.8px; color: var(--color-brass);">
       {{ format_currency(total_receber) }}
     </div>
   </div>
-  
   <div class="data-card">
     <h3 style="font-size: 18px; color: var(--color-graphite); margin-bottom: 8px;">A Pagar</h3>
     <div style="font-family: var(--font-polysans); font-size: 40px; letter-spacing: -0.8px; color: var(--color-graphite);">
       {{ format_currency(total_pagar) }}
     </div>
   </div>
-
   <div class="data-card" style="border-top: 2px solid var(--color-ember-orange);">
     <h3 style="font-size: 18px; color: var(--color-graphite); margin-bottom: 8px;">Saldo do Dia</h3>
     <div style="font-family: var(--font-polysans); font-size: 40px; letter-spacing: -0.8px; color: var(--color-graphite);">
@@ -100,148 +65,169 @@
   </div>
 </div>
 
+<!-- Barra de Pesquisa Global -->
+<form method="GET" action="" style="margin-bottom: 25px;">
+  <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
+      <input type="text" name="q" class="form-control" style="flex-grow: 1;" placeholder="Pesquisar contas, nf-e..." value="{{ request.args.get('q', '') }}">
+      <button type="submit" class="btn btn-primary" style="white-space: nowrap;">Pesquisar</button>
+      {% if request.args.get('q') %}
+          <a href="{{ request.path }}" class="btn" style="display: flex; align-items: center; background-color: #6c757d; color: white; text-decoration: none; padding: 0 15px; border-radius: 4px; white-space: nowrap;">Limpar</a>
+      {% endif %}
+  </div>
+</form>
+
 <div class="ventriloc-tabs">
   <button class="ventriloc-tab active" onclick="openTab('tab-todas', this)">Todas as Movimentações</button>
   <button class="ventriloc-tab" onclick="openTab('tab-receber', this)">Contas a Receber</button>
   <button class="ventriloc-tab" onclick="openTab('tab-pagar', this)">Contas a Pagar</button>
+  <button class="ventriloc-tab" onclick="openTab('tab-nfe', this)">NF-e (Peças/Produtos)</button>
+  <button class="ventriloc-tab" onclick="openTab('tab-nfse', this)">NFS-e (Serviços)</button>
 </div>
 
 {% macro finance_table(groups, filter_type, tab_id) %}
 <div class="table-card tab-content {% if tab_id == 'tab-todas' %}active{% endif %}" id="{{ tab_id }}">
-  <table class="table finance-table">
-    <thead>
-      <tr>
-        <th>Vencimento</th>
-        <th>Descrição</th>
-        <th>Tipo</th>
-        <th>Valor Total</th>
-        <th>Status</th>
-        <th style="text-align: right;">Ações</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for group in groups %}
-      {% if filter_type == 'TODAS' or group.entry_type == filter_type %}
-      <tr>
-        <td>{{ group.first_due_date|date_br if group.first_due_date else '-' }}</td>
-        <td>
-          <strong style="color: var(--color-graphite); font-weight: 500;">{{ group.descricao }}</strong>
-          {% if group.categoria %}<br><span class="muted" style="font-size: 13px;">{{ group.categoria }}</span>{% endif %}
-        </td>
-        <td>
-          {% if group.entry_type == 'RECEBER' %}
-            <span style="color: var(--color-brass);">Receita</span>
-          {% else %}
-            <span style="color: var(--color-steel);">Despesa</span>
-          {% endif %}
-        </td>
-        <td style="font-family: var(--font-polysans); color: var(--color-graphite);">{{ group.summary_value }}</td>
-        <td>
-          <span class="status-badge status-{{ group.status_slug }}">
-            <span class="status-dot"></span>{{ group.status_label|replace('_', ' ') }}
-          </span>
-          {% if group.is_grouped %}
-            <div class="muted" style="font-size: 12px; margin-top: 4px;">{{ group.entry_count }} parcelas</div>
-          {% endif %}
-        </td>
-        <td style="text-align: right;">
-          <div class="action-group">
-            <details class="finance-menu">
-              <summary>Ações</summary>
-              <div class="finance-menu-panel">
-            {% set xml_import = xml_imports_by_id.get(group.reference_id) if group.reference_type == 'XML_NFE' else none %}
-            {% if xml_import %}
-              <a class="button secondary" href="{{ url_for('web.finance_xml_preview', xml_id=xml_import.id) }}">Ver nota completa</a>
-              <a class="button secondary" href="{{ url_for('web.finance_xml_export', xml_id=xml_import.id) }}">Baixar XML</a>
-              <a class="button success" href="{{ url_for('web.fiscal_parts_invoice_new', xml_import_id=xml_import.id, finalidade=4) }}">Preparar devolução da compra</a>
-              <div class="menu-separator"></div>
-            {% endif %}
-            {% set work_order = work_orders_by_id.get(group.reference_id) if group.reference_type == 'OS' else none %}
-            {% if work_order %}
-              {% if work_order.items|selectattr('item_type', 'equalto', 'SERVICO')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=work_order.id, tipo='NFSE') }}" title="Lançar NFS-e dos serviços">Emitir NFS-e de serviços</a>{% endif %}
-              {% if work_order.items|selectattr('item_type', 'equalto', 'PECA')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=work_order.id, tipo='NFE') }}" title="Lançar NF-e das peças">Emitir NF-e de peças</a>{% endif %}
-            {% endif %}
-            {% if group.status_label in ['PENDENTE', 'PARCIAL'] %}
-               {% if not group.is_grouped %}
-                 <button type="button" class="button secondary" onclick="document.getElementById('modal-liquidar-{{ tab_id }}-{{ loop.index }}').showModal()" style="height: 32px; padding: 0 12px; font-size: 13px;">Liquidar</button>
-                 
-                 <dialog id="modal-liquidar-{{ tab_id }}-{{ loop.index }}" class="ventriloc-modal" style="text-align: left;">
+  
+  <!-- CORREÇÃO DE ESCOPO DO JINJA: namespace garante que a variável funcione corretamente -->
+  {% set ns = namespace(has_items=false) %}
+  {% for group in groups %}
+    {% if filter_type == 'TODAS' or group.entry_type == filter_type %}
+      {% set ns.has_items = true %}
+    {% endif %}
+  {% endfor %}
+
+  {% if ns.has_items %}
+    <table class="table finance-table">
+      <thead>
+        <tr>
+          <th>Vencimento</th>
+          <th>Descrição</th>
+          <th>Tipo</th>
+          <th>Valor Total</th>
+          <th>Status</th>
+          <th style="text-align: right;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in groups %}
+        {% if filter_type == 'TODAS' or group.entry_type == filter_type %}
+        <tr>
+          <td>{{ group.first_due_date|date_br if group.first_due_date else '-' }}</td>
+          <td>
+            <strong style="color: var(--color-graphite); font-weight: 500;">{{ group.descricao }}</strong>
+            {% if group.categoria %}<br><span class="muted" style="font-size: 13px;">{{ group.categoria }}</span>{% endif %}
+          </td>
+          <td>
+            {% if group.entry_type == 'RECEBER' %}<span style="color: var(--color-brass);">Receita</span>
+            {% else %}<span style="color: var(--color-steel);">Despesa</span>{% endif %}
+          </td>
+          <td style="font-family: var(--font-polysans); color: var(--color-graphite);">{{ group.summary_value }}</td>
+          <td>
+            <span class="status-badge status-{{ group.status_slug }}"><span class="status-dot"></span>{{ group.status_label|replace('_', ' ') }}</span>
+            {% if group.is_grouped %}<div class="muted" style="font-size: 12px; margin-top: 4px;">{{ group.entry_count }} parcelas</div>{% endif %}
+          </td>
+          <td style="text-align: right;">
+            <div class="action-group">
+              <details class="finance-menu">
+                <summary>Ações</summary>
+                <div class="finance-menu-panel">
+              {% set xml_import = xml_imports_by_id.get(group.reference_id) if group.reference_type == 'XML_NFE' else none %}
+              {% if xml_import %}
+                <a class="button secondary" href="{{ url_for('web.finance_xml_preview', xml_id=xml_import.id) }}">Ver nota completa</a>
+                <a class="button secondary" href="{{ url_for('web.finance_xml_export', xml_id=xml_import.id) }}">Baixar XML</a>
+                <a class="button success" href="{{ url_for('web.fiscal_parts_invoice_new', xml_import_id=xml_import.id, finalidade=4) }}">Preparar devolução da compra</a>
+                <div class="menu-separator"></div>
+              {% endif %}
+              {% set work_order = work_orders_by_id.get(group.reference_id) if group.reference_type == 'OS' else none %}
+              {% if work_order %}
+                {% if work_order.items|selectattr('item_type', 'equalto', 'SERVICO')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=work_order.id, tipo='NFSE') }}">Emitir NFS-e de serviços</a>{% endif %}
+                {% if work_order.items|selectattr('item_type', 'equalto', 'PECA')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=work_order.id, tipo='NFE') }}">Emitir NF-e de peças</a>{% endif %}
+              {% endif %}
+              {% if group.status_label in ['PENDENTE', 'PARCIAL'] %}
+                 {% if not group.is_grouped %}
+                   <button type="button" class="button secondary" onclick="document.getElementById('modal-liquidar-{{ tab_id }}-{{ loop.index }}').showModal()" style="height: 32px; padding: 0 12px; font-size: 13px;">Liquidar</button>
+                   <dialog id="modal-liquidar-{{ tab_id }}-{{ loop.index }}" class="ventriloc-modal" style="text-align: left;">
+                     <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
+                       <h3 style="margin: 0;">Liquidar Lançamento</h3>
+                       <button type="button" onclick="this.closest('dialog').close()" style="background: transparent; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                     </div>
+                     <form method="post" action="{{ url_for('web.finance_settle', entry_id=group.entries[0].id) }}">
+                       <label style="margin-bottom: 16px; font-size: 13px;">Conta Bancária
+                         <select name="bank_account_id" required>
+                            <option value="">Selecione a conta...</option>
+                            {% for account in bank_accounts %}
+                            <option value="{{ account.id }}">{{ account.nome }}</option>
+                            {% endfor %}
+                         </select>
+                       </label>
+                       <label style="margin-bottom: 24px; font-size: 13px;">Data da Baixa
+                         <input type="date" name="payment_receipt_at" value="{{ iso_today() }}" required>
+                       </label>
+                       <div style="display: flex; gap: 12px;">
+                         <button type="submit" style="flex: 1;">Confirmar Baixa</button>
+                         <button type="button" class="button secondary" onclick="this.closest('dialog').close()" style="flex: 1;">Cancelar</button>
+                       </div>
+                     </form>
+                   </dialog>
+                 {% else %}
+                   <span class="muted" style="font-size: 13px;">Parcelado</span>
+                 {% endif %}
+              {% else %}
+                 {% if not group.is_grouped %}
+                 <button type="button" class="button secondary" onclick="document.getElementById('modal-estornar-{{ tab_id }}-{{ loop.index }}').showModal()" style="height: 32px; padding: 0 12px; font-size: 13px; color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Estornar</button>
+                 <dialog id="modal-estornar-{{ tab_id }}-{{ loop.index }}" class="ventriloc-modal" style="text-align: left;">
                    <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
-                     <h3 style="margin: 0;">Liquidar Lançamento</h3>
-                     <button type="button" onclick="this.closest('dialog').close()" style="background: transparent; border: none; font-size: 24px; cursor: pointer; color: var(--color-graphite);">&times;</button>
+                     <h3 style="margin: 0;">Confirmar Estorno</h3>
+                     <button type="button" onclick="this.closest('dialog').close()" style="background: transparent; border: none; font-size: 24px; cursor: pointer;">&times;</button>
                    </div>
-                   <form method="post" action="{{ url_for('web.finance_settle', entry_id=group.entries[0].id) }}">
-                     <label style="margin-bottom: 16px; font-size: 13px;">Conta Bancária
-                       <select name="bank_account_id" required>
-                          <option value="">Selecione a conta...</option>
-                          {% for account in bank_accounts %}
-                          <option value="{{ account.id }}">{{ account.nome }}</option>
-                          {% endfor %}
-                       </select>
-                     </label>
-                     <label style="margin-bottom: 24px; font-size: 13px;">Data da Baixa
-                       <input type="date" name="payment_receipt_at" value="{{ iso_today() }}" required>
-                     </label>
+                   <p class="muted" style="margin-bottom: 24px; font-size: 14px;">Deseja estornar este lançamento? O valor será revertido da conta.</p>
+                   <form method="post" action="{{ url_for('web.finance_revert', entry_id=group.entries[0].id) }}">
                      <div style="display: flex; gap: 12px;">
-                       <button type="submit" style="flex: 1;">Confirmar Baixa</button>
+                       <button type="submit" style="flex: 1; background: var(--color-ember-orange); border-color: var(--color-ember-orange);">Sim, Estornar</button>
                        <button type="button" class="button secondary" onclick="this.closest('dialog').close()" style="flex: 1;">Cancelar</button>
                      </div>
                    </form>
                  </dialog>
-               {% else %}
-                 <span class="muted" style="font-size: 13px;">Parcelado</span>
-               {% endif %}
-            {% else %}
-               {% if not group.is_grouped %}
-               <button type="button" class="button secondary" onclick="document.getElementById('modal-estornar-{{ tab_id }}-{{ loop.index }}').showModal()" style="height: 32px; padding: 0 12px; font-size: 13px; color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Estornar</button>
-               
-               <dialog id="modal-estornar-{{ tab_id }}-{{ loop.index }}" class="ventriloc-modal" style="text-align: left;">
-                 <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
-                   <h3 style="margin: 0;">Confirmar Estorno</h3>
-                   <button type="button" onclick="this.closest('dialog').close()" style="background: transparent; border: none; font-size: 24px; cursor: pointer; color: var(--color-graphite);">&times;</button>
-                 </div>
-                 <p class="muted" style="margin-bottom: 24px; font-size: 14px;">Deseja estornar este lançamento? O valor será revertido do saldo da conta bancária.</p>
-                 <form method="post" action="{{ url_for('web.finance_revert', entry_id=group.entries[0].id) }}">
-                   <div style="display: flex; gap: 12px;">
-                     <button type="submit" style="flex: 1; background: var(--color-ember-orange); border-color: var(--color-ember-orange);">Sim, Estornar</button>
-                     <button type="button" class="button secondary" onclick="this.closest('dialog').close()" style="flex: 1;">Cancelar</button>
-                   </div>
-                 </form>
-               </dialog>
-               {% else %}
-                 <span class="muted" style="font-size: 13px;">Liquidado</span>
-               {% endif %}
-            {% endif %}
+                 {% else %}
+                   <span class="muted" style="font-size: 13px;">Liquidado</span>
+                 {% endif %}
+              {% endif %}
 
-            {% if not group.is_grouped %}
-            <button type="button" class="button secondary" onclick="document.getElementById('modal-excluir-{{ tab_id }}-{{ loop.index }}').showModal()" style="height: 32px; padding: 0 10px; font-size: 13px; color: var(--color-slate); border-color: var(--color-mist);" title="Excluir">✕</button>
-            
-            <dialog id="modal-excluir-{{ tab_id }}-{{ loop.index }}" class="ventriloc-modal" style="text-align: left;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
-                <h3 style="margin: 0;">Excluir Lançamento</h3>
-                <button type="button" onclick="this.closest('dialog').close()" style="background: transparent; border: none; font-size: 24px; cursor: pointer; color: var(--color-graphite);">&times;</button>
-              </div>
-              <p class="muted" style="margin-bottom: 24px; font-size: 14px;">Tem certeza que deseja apagar permanentemente este registro financeiro?</p>
-              <form method="post" action="{{ url_for('web.finance_delete', entry_id=group.entries[0].id) }}">
-                <div style="display: flex; gap: 12px;">
-                  <button type="submit" style="flex: 1; background: var(--color-graphite);">Excluir</button>
-                  <button type="button" class="button secondary" onclick="this.closest('dialog').close()" style="flex: 1;">Cancelar</button>
+              {% if not group.is_grouped %}
+              <button type="button" class="button secondary" onclick="document.getElementById('modal-excluir-{{ tab_id }}-{{ loop.index }}').showModal()" style="height: 32px; padding: 0 10px; font-size: 13px;">✕</button>
+              <dialog id="modal-excluir-{{ tab_id }}-{{ loop.index }}" class="ventriloc-modal" style="text-align: left;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
+                  <h3 style="margin: 0;">Excluir Lançamento</h3>
+                  <button type="button" onclick="this.closest('dialog').close()" style="background: transparent; border: none; font-size: 24px; cursor: pointer;">&times;</button>
                 </div>
-              </form>
-            </dialog>
-            {% endif %}
-              </div>
-            </details>
-          </div>
-        </td>
-      </tr>
-      {% endif %}
-      {% else %}
-      <tr><td colspan="6" class="muted">Nenhum registro financeiro encontrado nesta categoria.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% if tab_id == 'tab-todas' %}{% include '_pagination.html' %}{% endif %}
+                <form method="post" action="{{ url_for('web.finance_delete', entry_id=group.entries[0].id) }}">
+                  <div style="display: flex; gap: 12px;">
+                    <button type="submit" style="flex: 1; background: var(--color-graphite);">Excluir</button>
+                    <button type="button" class="button secondary" onclick="this.closest('dialog').close()" style="flex: 1;">Cancelar</button>
+                  </div>
+                </form>
+              </dialog>
+              {% endif %}
+                </div>
+              </details>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if tab_id == 'tab-todas' %}{% include '_pagination.html' ignore missing %}{% endif %}
+  
+  {% else %}
+    <div style="background-color: #f8f9fa; border-radius: 8px; text-align: center; padding: 60px 20px; margin-top: 20px; border: 1px dashed #dee2e6;">
+        <i class="fas fa-search" style="font-size: 48px; color: #adb5bd; margin-bottom: 20px;"></i>
+        <h4 style="color: #495057; font-weight: bold;">Nenhum lançamento encontrado</h4>
+        <p style="color: #6c757d; max-width: 400px; margin: 0 auto 20px auto;">Não encontramos nenhum registro financeiro para exibir aqui.</p>
+        {% if request.args.get('q') %}
+        <a href="{{ request.path }}" class="btn btn-outline-primary"><i class="fas fa-times"></i> Limpar Pesquisa</a>
+        {% endif %}
+    </div>
+  {% endif %}
 </div>
 {% endmacro %}
 
@@ -249,12 +235,108 @@
 {{ finance_table(entry_groups, 'RECEBER', 'tab-receber') }}
 {{ finance_table(entry_groups, 'PAGAR', 'tab-pagar') }}
 
+<!-- ABA NF-E -->
+<div class="table-card tab-content" id="tab-nfe">
+  {% if nfe_docs %}
+  <table class="table finance-table">
+    <thead>
+      <tr>
+        <th>Origem</th>
+        <th>Tipo</th>
+        <th>Status</th>
+        <th>Chave</th>
+        <th style="text-align: right;">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for document in nfe_docs %}
+      <tr>
+        <td>{{ document.work_order.numero if document.work_order else 'NF-e de peças' }}</td>
+        <td>{{ document.document_type }}</td>
+        <td><span style="{% if document.status not in ['AUTORIZADO', 'PROCESSANDO_AUTORIZACAO', 'PRONTO_PARA_ENVIO', 'ENVIADO'] %}color: #dc3545; font-weight: bold;{% endif %}">{{ document.status }}</span></td>
+        <td>{{ document.access_key or '-' }}</td>
+        <td>
+          <div class="actions" style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+            {% if document.status not in ['AUTORIZADO', 'PROCESSANDO_AUTORIZACAO', 'ENVIADO', 'CANCELADO'] %}
+              <form method="post" action="{{ url_for('web.fiscal_document_issue', document_id=document.id) }}"><button class="small success" type="submit" style="background: #212529; color: white;">Emitir</button></form>
+            {% else %}
+              <form method="post" action="{{ url_for('web.fiscal_document_consult', document_id=document.id) }}"><button class="small secondary" type="submit">Consultar</button></form>
+            {% endif %}
+            {% if document.xml_content %}
+              <a class="button small secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">XML</a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div style="background-color: #f8f9fa; border-radius: 8px; text-align: center; padding: 60px 20px; margin-top: 20px; border: 1px dashed #dee2e6;">
+        <i class="fas fa-file-invoice" style="font-size: 48px; color: #adb5bd; margin-bottom: 20px;"></i>
+        <h4 style="color: #495057; font-weight: bold;">Nenhuma NF-e encontrada</h4>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ABA NFS-E -->
+<div class="table-card tab-content" id="tab-nfse">
+  {% if nfse_docs %}
+  <table class="table finance-table">
+    <thead>
+      <tr>
+        <th>Origem</th>
+        <th>Tipo</th>
+        <th>Status</th>
+        <th>Chave/Referência</th>
+        <th style="text-align: right;">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for document in nfse_docs %}
+      <tr>
+        <td>{{ document.work_order.numero if document.work_order else 'NFS-e avulsa' }}</td>
+        <td>{{ document.document_type }}</td>
+        <td><span style="{% if document.status not in ['AUTORIZADO', 'PROCESSANDO_AUTORIZACAO', 'PRONTO_PARA_ENVIO', 'ENVIADO'] %}color: #dc3545; font-weight: bold;{% endif %}">{{ document.status }}</span></td>
+        <td>{{ document.access_key or document.external_id or '-' }}</td>
+        <td>
+          <div class="actions" style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+            {% if document.status not in ['AUTORIZADO', 'PROCESSANDO_AUTORIZACAO', 'ENVIADO', 'CANCELADO'] %}
+              <form method="post" action="{{ url_for('web.fiscal_document_issue', document_id=document.id) }}"><button class="small success" type="submit" style="background: #212529; color: white;">Emitir</button></form>
+            {% else %}
+              <form method="post" action="{{ url_for('web.fiscal_document_consult', document_id=document.id) }}"><button class="small secondary" type="submit">Consultar</button></form>
+            {% endif %}
+            {% if document.xml_content %}
+              <a class="button small secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">XML</a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div style="background-color: #f8f9fa; border-radius: 8px; text-align: center; padding: 60px 20px; margin-top: 20px; border: 1px dashed #dee2e6;">
+        <i class="fas fa-file-invoice" style="font-size: 48px; color: #adb5bd; margin-bottom: 20px;"></i>
+        <h4 style="color: #495057; font-weight: bold;">Nenhuma NFS-e encontrada</h4>
+    </div>
+  {% endif %}
+</div>
+
 <script>
 function openTab(tabId, element) {
   document.querySelectorAll('.tab-content').forEach(tab => { tab.classList.remove('active'); });
   document.querySelectorAll('.ventriloc-tab').forEach(btn => { btn.classList.remove('active'); });
   document.getElementById(tabId).classList.add('active');
   element.classList.add('active');
+  if(window.history.pushState) { window.history.pushState(null, null, '#' + tabId.replace('tab-', '')); }
 }
+document.addEventListener("DOMContentLoaded", function() {
+    if(window.location.hash) {
+        var hash = window.location.hash.substring(1);
+        var btn = document.querySelector(`button[onclick*="'tab-${hash}'"]`);
+        if(btn) { btn.click(); }
+    }
+});
 </script>
 {% endblock %}

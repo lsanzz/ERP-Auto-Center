@@ -10,6 +10,7 @@ from urllib import request as urlrequest
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from xml.sax.saxutils import escape
+import re
 
 from .models import BankAccount, Client, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, Product, WorkOrder, db
 from .services import next_number
@@ -123,6 +124,7 @@ def build_work_order_invoice_payload(order: WorkOrder, config: FiscalApiConfig |
         'customer': {
             'nome': order.client_nome or (client.nome if client else None),
             'documento': client.cpf_cnpj if client else None,
+            'inscricao_estadual': getattr(client, 'inscricao_estadual', None) if client else None,
             'email': client.email if client else None,
             'telefone': client.telefone if client else None,
             'endereco': client.endereco if client else None,
@@ -321,16 +323,60 @@ def _focus_url(config: FiscalApiConfig, path: str, params: dict[str, str] | None
 def _digits(value: str | None) -> str:
     return ''.join(ch for ch in str(value or '') if ch.isdigit())
 
-
 def _split_address(address: str | None) -> dict[str, str | None]:
-    if not address:
-        return {'logradouro': None, 'numero': None, 'bairro': None}
-    parts = [part.strip() for part in address.split(',') if part.strip()]
-    return {
-        'logradouro': parts[0] if parts else address,
-        'numero': parts[1] if len(parts) > 1 else 'S/N',
-        'bairro': parts[2] if len(parts) > 2 else None,
+    # Valores padrão para não dar erro na Sefaz se faltar algo
+    result = {
+        'logradouro': address or 'Não informado',
+        'numero': 'S/N',
+        'bairro': 'Centro',
+        'municipio': 'Campinas', # Cidade da oficina como fallback
+        'uf': 'SP',              # UF da oficina como fallback
+        'cep': None
     }
+    if not address:
+        return result
+        
+    # Extrair CEP
+    cep_match = re.search(r'CEP:\s*([\d\.-]+)', address, re.IGNORECASE)
+    if cep_match:
+        result['cep'] = re.sub(r'\D', '', cep_match.group(1))
+        address = address.replace(cep_match.group(0), '').strip()
+        
+    # Tentar quebrar pelo formato importado (Rua Num - Bairro - Cidade/UF)
+    parts_dash = [p.strip() for p in address.split('-') if p.strip()]
+    if len(parts_dash) >= 2:
+        last_part = parts_dash[-1]
+        if '/' in last_part:
+            c_u = last_part.split('/')
+            if len(c_u) == 2:
+                result['municipio'] = c_u[0].strip()
+                result['uf'] = c_u[1].strip().upper()
+                parts_dash.pop()
+                
+        if len(parts_dash) >= 2:
+            result['bairro'] = parts_dash[-1]
+            parts_dash.pop()
+            
+        rest = " - ".join(parts_dash)
+        
+        num_match = re.search(r'\s+(\d+[a-zA-Z]*)$', rest)
+        if num_match:
+            result['numero'] = num_match.group(1)
+            result['logradouro'] = rest.replace(num_match.group(0), '').strip()
+        else:
+            result['logradouro'] = rest
+    else:
+        # Fallback para caso você digite manualmente com vírgulas
+        parts_comma = [p.strip() for p in address.split(',') if p.strip()]
+        if len(parts_comma) >= 2:
+            result['logradouro'] = parts_comma[0]
+            result['numero'] = parts_comma[1]
+            if len(parts_comma) >= 3:
+                result['bairro'] = parts_comma[2]
+            if len(parts_comma) >= 4:
+                result['municipio'] = parts_comma[3]
+                
+    return result
 
 
 def _nfse_nature_code(value: str | None) -> str:
@@ -374,9 +420,14 @@ def build_focus_nfe_payload(document: FiscalDocument) -> dict[str, Any]:
     services = payload.get('items', {}).get('services') or []
     settings = get_system_settings()
     fiscal_config = FiscalApiConfig.query.order_by(FiscalApiConfig.id.asc()).first()
+    
     issuer_document = _digits((fiscal_config.company_document if fiscal_config else None) or settings.company_document)
     issuer_state_registration = (fiscal_config.state_registration if fiscal_config else None) or None
     customer_document = _digits(customer.get('documento'))
+    
+    customer_ie = customer.get('inscricao_estadual')
+    clean_ie = re.sub(r'[^0-9A-Za-z]', '', str(customer_ie)).upper() if customer_ie else None
+    
     customer_address = _split_address(customer.get('endereco'))
     company_address = _split_address(settings.address)
     issue_date = _focus_iso_datetime(invoice.get('data_emissao') or work_order.get('data_entrada') or date.today().isoformat())
@@ -386,6 +437,7 @@ def build_focus_nfe_payload(document: FiscalDocument) -> dict[str, Any]:
         'data_emissao': issue_date,
         'cnpj_emitente': issuer_document or None,
         'inscricao_estadual_emitente': issuer_state_registration,
+        'inscricao_estadual_destinatario': clean_ie,
         'data_entrada_saida': _focus_iso_datetime(invoice.get('data_saida')),
         'tipo_documento': int(invoice.get('tipo_documento') or 1),
         'local_destino': int(invoice.get('destino_operacao') or 1),
@@ -395,6 +447,9 @@ def build_focus_nfe_payload(document: FiscalDocument) -> dict[str, Any]:
         'logradouro_destinatario': customer_address['logradouro'],
         'numero_destinatario': customer_address['numero'],
         'bairro_destinatario': customer_address['bairro'],
+        'municipio_destinatario': customer_address['municipio'],
+        'uf_destinatario': customer_address['uf'],
+        'cep_destinatario': customer_address['cep'] or '00000000',
         'valor_frete': invoice.get('valor_frete') or 0,
         'valor_seguro': invoice.get('valor_seguro') or 0,
         'valor_desconto': invoice.get('valor_desconto') or 0,
@@ -530,6 +585,7 @@ def create_parts_fiscal_document(form, config: FiscalApiConfig | None = None) ->
         'customer': {
             'nome': (form.get('cliente_nome') or '').strip(),
             'documento': (form.get('cliente_documento') or '').strip(),
+            'inscricao_estadual': (form.get('cliente_ie') or '').strip(),
             'telefone': (form.get('cliente_telefone') or '').strip(),
             'endereco': (form.get('cliente_endereco') or '').strip(),
         },

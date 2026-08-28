@@ -28,6 +28,30 @@
 </div>
 {% if low_stock_count %}<div class="flash warning" style="margin-bottom:24px;">{{ low_stock_count }} peça(s) estão no estoque mínimo ou abaixo dele.</div>{% endif %}
 <div class="table-card">
+<form method="GET" action="" style="margin-bottom: 25px;">
+    <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
+        
+        <!-- Campo de Texto -->
+        <input type="text" name="q" class="form-control" 
+               style="flex-grow: 1;" 
+               placeholder="Pesquisar..." 
+               value="{{ request.args.get('q', '') }}">
+        
+        <!-- Botão Pesquisar -->
+        <button type="submit" class="btn btn-primary" style="white-space: nowrap;">
+            Pesquisar
+        </button>
+        
+        <!-- Botão Limpar -->
+        {% if request.args.get('q') %}
+            <a href="{{ request.path }}" class="btn" 
+               style="display: flex; align-items: center; background-color: #6c757d; color: white; text-decoration: none; padding: 0 15px; border-radius: 4px; white-space: nowrap;">
+                Limpar
+            </a>
+        {% endif %}
+        
+    </div>
+</form>
   <table class="table">
     <thead><tr><th>Código</th><th>Nome</th><th>Categoria</th><th>Estoque</th><th>Venda</th><th>Ativa</th><th style="text-align:right;">Ações</th></tr></thead>
     <tbody>

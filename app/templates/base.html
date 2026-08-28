@@ -352,6 +352,270 @@
   <a class="plate-float-button" href="{{ url_for('web.plate_lookup_page') }}" title="Consultar placa">
     <span aria-hidden="true">⌕</span> Consultar placa
   </a>
+  <!-- ================= LOADER DO SISTEMA ================= -->
+<style>
+  /* Overlay que cobre a tela toda */
+  #global-loader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(3px);
+    z-index: 999999; /* Fica por cima de tudo */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.3s ease;
+  }
+
+  /* CSS do Carrinho (Adaptado para não conflitar com o Bootstrap) */
+  .car-loader { display: flex; justify-content: center; align-items: center; }
+  .car-svg-container { overflow: visible; }
+  .road { stroke: #d0d0d0; stroke-width: 2.5; stroke-linecap: round; }
+  .road-lines { stroke: #666; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 10 18; animation: roadMove 0.8s linear infinite; }
+  .car { animation: carMove 1.8s ease-in-out infinite; }
+  .car-body { fill: none; stroke: #4f8cff; stroke-width: 2.5; stroke-linejoin: round; }
+  .window { fill: #d0d0d0; stroke: #4f8cff; stroke-width: 1.5; }
+  .light { fill: #4f8cff; animation: lightBlink 1s ease-in-out infinite; }
+  .wheel { fill: #666; stroke: #4f8cff; stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: wheelSpin 0.6s linear infinite; }
+  .hub { fill: #d0d0d0; stroke: none; }
+  .speed-lines { stroke: #4f8cff; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 8 12; animation: speedMove 0.7s linear infinite; }
+  @keyframes roadMove { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -28; } }
+  @keyframes carMove { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5px); } }
+  @keyframes wheelSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes lightBlink { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+  @keyframes speedMove { from { stroke-dashoffset: 0; opacity: 0.3; } to { stroke-dashoffset: -20; opacity: 1; } }
+</style>
+
+<div id="global-loader-overlay">
+  <div class="car-loader">
+    <svg class="car-svg-container" width="120" height="80" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path class="road" d="M8 64H112"></path>
+      <g class="road-lines">
+        <path d="M10 64H28"></path><path d="M38 64H56"></path><path d="M66 64H84"></path><path d="M94 64H110"></path>
+      </g>
+      <g class="car">
+        <path class="car-body" d="M24 52L29 36C30 33 32 31 35 31H69C72 31 75 33 77 36L84 52H91C94 52 96 54 96 57V60H20V57C20 54 22 52 24 52Z"></path>
+        <path class="window" d="M36 34H49V45H31L34 36C34.5 34.8 35 34 36 34Z"></path>
+        <path class="window" d="M52 34H68C70 34 71 35 72 37L76 45H52V34Z"></path>
+        <rect class="light" x="84" y="48" width="6" height="4" rx="1"></rect>
+        <g class="wheel wheel-left"><circle cx="34" cy="57" r="7"></circle><circle class="hub" cx="34" cy="57" r="2.5"></circle></g>
+        <g class="wheel wheel-right"><circle cx="78" cy="57" r="7"></circle><circle class="hub" cx="78" cy="57" r="2.5"></circle></g>
+      </g>
+      <g class="speed-lines">
+        <path d="M8 36H20"></path><path d="M4 44H16"></path><path d="M10 52H18"></path>
+      </g>
+    </svg>
+  </div>
+</div>
+
+<script>
+  // Oculta o loader quando a página termina de carregar
+  window.addEventListener('load', function() {
+    const loader = document.getElementById('global-loader-overlay');
+    loader.style.opacity = '0';
+    setTimeout(() => loader.style.display = 'none', 300);
+  });
+
+  // Mostra o loader ao enviar formulários (como a barra de pesquisa)
+  document.addEventListener('submit', function() {
+    const loader = document.getElementById('global-loader-overlay');
+    loader.style.display = 'flex';
+    // Pequeno atraso para o display:flex renderizar antes da opacidade
+    setTimeout(() => loader.style.opacity = '1', 10);
+  });
+
+  // Mostra o loader ao clicar em links do menu/sistema
+  document.addEventListener('click', function(e) {
+    const link = e.target.closest('a');
+    // Ignora links que abrem nova guia, links de âncora (#) ou botões sem href
+    if (link && link.href && !link.href.includes('#') && link.target !== '_blank' && !link.hasAttribute('download')) {
+      const loader = document.getElementById('global-loader-overlay');
+      loader.style.display = 'flex';
+      setTimeout(() => loader.style.opacity = '1', 10);
+    }
+  });
+</script>
+<!-- ================= FIM DO LOADER ================= -->
+<!-- ================= AUTOCOMPLETE DARK PERSONALIZADO ================= -->
+<style>
+    /* Desativa a borda de foco azul padrão do navegador para ficar mais clean */
+    input[name="q"]:focus {
+        box-shadow: none !important;
+        border-color: var(--color-graphite, #333) !important;
+    }
+
+    /* O wrapper que segura a barra e o menu juntos */
+    .ventriloc-autocomplete-wrapper {
+        position: relative;
+        flex-grow: 1;
+        width: 100%;
+    }
+
+    /* O balão escuro (Dropdown) */
+    .ventriloc-autocomplete-dropdown {
+        position: absolute;
+        top: calc(100% + 12px);
+        left: 0;
+        min-width: 250px;
+        background-color: #1e1e1e; /* Cor escura elegante baseada na sua imagem */
+        color: #ffffff;
+        border-radius: 6px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        z-index: 1000;
+        display: none; /* Controlado pelo JS */
+        flex-direction: column;
+        border: 1px solid #333;
+    }
+
+    /* A setinha (caret) apontando para a barra de pesquisa */
+    .ventriloc-autocomplete-dropdown::before {
+        content: "";
+        position: absolute;
+        top: -6px;
+        left: 24px;
+        border-width: 0 6px 6px 6px;
+        border-style: solid;
+        border-color: transparent transparent #1e1e1e transparent;
+        z-index: 2;
+    }
+    .ventriloc-autocomplete-dropdown::after {
+        content: "";
+        position: absolute;
+        top: -7px;
+        left: 23px;
+        border-width: 0 7px 7px 7px;
+        border-style: solid;
+        border-color: transparent transparent #333 transparent;
+        z-index: 1;
+    }
+
+    /* Os itens clicáveis de dentro do balão */
+    .ventriloc-autocomplete-item {
+        padding: 12px 18px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: background 0.2s ease;
+    }
+    
+    .ventriloc-autocomplete-item:hover {
+        background-color: #2c2c2c;
+    }
+    
+    .ventriloc-autocomplete-item:first-child {
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+    }
+    
+    .ventriloc-autocomplete-item:last-child {
+        border-bottom-left-radius: 6px;
+        border-bottom-right-radius: 6px;
+    }
+
+    /* O texto destacado que está sendo digitado */
+    .autocomplete-highlight {
+        color: #e0aa3e; /* Cor ambar/dourada para destacar bem no fundo escuro */
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Procura TODAS as barras de pesquisa (input com nome "q") nas telas
+    const searchInputs = document.querySelectorAll('input[name="q"]');
+    const storageKey = 'erp_oficina_historico_pesquisa';
+
+    function getRecent() {
+        return JSON.parse(localStorage.getItem(storageKey) || '[]');
+    }
+
+    function saveRecent(term) {
+        if(!term) return;
+        let recent = getRecent();
+        recent = recent.filter(t => t !== term); // Remove se já existir (para não duplicar)
+        recent.unshift(term); // Coloca no topo
+        if(recent.length > 5) recent.pop(); // Guarda apenas as 5 últimas buscas
+        localStorage.setItem(storageKey, JSON.stringify(recent));
+    }
+
+    searchInputs.forEach(input => {
+        // Desativa aquele histórico branco padrão e feio do navegador
+        input.setAttribute('autocomplete', 'off');
+
+        // Cria a estrutura do dropdown ao redor do input
+        const wrapper = document.createElement('div');
+        wrapper.className = 'ventriloc-autocomplete-wrapper';
+        
+        input.parentNode.insertBefore(wrapper, input);
+        wrapper.appendChild(input);
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'ventriloc-autocomplete-dropdown';
+        wrapper.appendChild(dropdown);
+
+        // Salva a pesquisa no histórico quando o usuário dá "Enter" ou clica no botão
+        const form = input.closest('form');
+        if (form) {
+            form.addEventListener('submit', () => {
+                saveRecent(input.value.trim());
+            });
+        }
+
+        // Lógica de desenhar as opções escurecidas
+        function renderDropdown() {
+            const val = input.value.trim();
+            const recent = getRecent();
+            dropdown.innerHTML = ''; 
+
+            let hasItems = false;
+
+            if (val) {
+                // Modo 1: Usuário está digitando (Igual à imagem enviada)
+                const div = document.createElement('div');
+                div.className = 'ventriloc-autocomplete-item';
+                div.innerHTML = `<span class="autocomplete-highlight">${val}</span>`;
+                div.onclick = () => { if(form) form.submit(); };
+                dropdown.appendChild(div);
+                hasItems = true;
+            } else if (recent.length > 0) {
+                // Modo 2: Input vazio, mostra histórico
+                const title = document.createElement('div');
+                title.style.cssText = 'padding: 12px 18px 4px; font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 1px; pointer-events: none;';
+                title.innerText = 'Buscas Recentes';
+                dropdown.appendChild(title);
+
+                recent.forEach(term => {
+                    const div = document.createElement('div');
+                    div.className = 'ventriloc-autocomplete-item';
+                    div.innerHTML = `<i class="fas fa-history" style="opacity:0.4; margin-right:8px; font-size:12px;"></i> ${term}`;
+                    div.onclick = () => { 
+                        input.value = term; 
+                        if(form) form.submit(); 
+                    };
+                    dropdown.appendChild(div);
+                });
+                hasItems = true;
+            }
+
+            dropdown.style.display = hasItems ? 'flex' : 'none';
+        }
+
+        // Gatilhos para aparecer e desaparecer
+        input.addEventListener('input', renderDropdown);
+        input.addEventListener('focus', renderDropdown);
+
+        // Esconde se o usuário clicar fora da barra
+        document.addEventListener('click', (e) => {
+            if(!wrapper.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
+<!-- ================= FIM DO AUTOCOMPLETE ================= -->
   {% endif %}
 </body>
 </html>

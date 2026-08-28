@@ -84,8 +84,9 @@ class Client(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = 'clients'
 
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(160), nullable=False)
+    nome = db.Column(db.String(160), index=True, nullable=False)
     cpf_cnpj = db.Column(db.String(20))
+    inscricao_estadual = db.Column(db.String(40))
     telefone = db.Column(db.String(30))
     email = db.Column(db.String(120))
     endereco = db.Column(db.String(255))
@@ -122,7 +123,53 @@ class Product(db.Model, TimestampMixin, SerializableMixin):
     estoque_minimo = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     ativo = db.Column(db.Boolean, default=True, nullable=False)
 
+class Supplier(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'suppliers'
 
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(160), nullable=False) # Nome Fantasia ou Nome
+    razao_social = db.Column(db.String(160))
+    cnpj_cpf = db.Column(db.String(20))
+    inscricao_estadual = db.Column(db.String(40))
+    telefone = db.Column(db.String(30))
+    email = db.Column(db.String(120))
+    endereco = db.Column(db.String(255))
+    observacoes = db.Column(db.Text)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+    stock_entries = db.relationship('StockEntry', back_populates='supplier')
+
+
+class StockEntry(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'stock_entries'
+
+    id = db.Column(db.Integer, primary_key=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=False)
+    numero_nota = db.Column(db.String(50))
+    data_emissao = db.Column(db.Date, nullable=False, default=date.today)
+    data_entrada = db.Column(db.Date, nullable=False, default=date.today)
+    transportadora = db.Column(db.String(120))
+    valor_frete = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    valor_total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    status = db.Column(db.String(30), default='CONCLUIDA', nullable=False)
+    observacoes = db.Column(db.Text)
+
+    supplier = db.relationship('Supplier', back_populates='stock_entries')
+    items = db.relationship('StockEntryItem', back_populates='stock_entry', cascade='all, delete-orphan', order_by='StockEntryItem.id')
+
+
+class StockEntryItem(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'stock_entry_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    stock_entry_id = db.Column(db.Integer, db.ForeignKey('stock_entries.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    quantidade = db.Column(db.Numeric(12, 2), nullable=False, default=1)
+    custo_unitario = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    total_item = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+
+    stock_entry = db.relationship('StockEntry', back_populates='items')
+    product = db.relationship('Product')
 
 
 class BankAccount(db.Model, TimestampMixin, SerializableMixin):
@@ -266,8 +313,8 @@ class WorkOrder(db.Model, TimestampMixin, SerializableMixin):
     budget_id = db.Column(db.Integer, db.ForeignKey('budgets.id'))
     payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_methods.id'))
     numero = db.Column(db.String(20), unique=True, nullable=False)
-    status = db.Column(db.String(30), nullable=False, default='ABERTA')
-    data_entrada = db.Column(db.Date, nullable=False, default=date.today)
+    status = db.Column(db.String(30), index=True, nullable=False, default='ABERTA')
+    data_entrada = db.Column(db.Date, index=True, nullable=False, default=date.today)
     data_saida = db.Column(db.Date)
     placa = db.Column(db.String(10))
     veiculo_descricao = db.Column(db.String(160))
@@ -340,13 +387,13 @@ class FinancialEntry(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = 'financial_entries'
 
     id = db.Column(db.Integer, primary_key=True)
-    entry_type = db.Column(db.String(20), nullable=False)
+    entry_type = db.Column(db.String(20), index=True, nullable=False)
     descricao = db.Column(db.String(255), nullable=False)
     categoria = db.Column(db.String(80))
     valor = db.Column(db.Numeric(12, 2), nullable=False)
-    vencimento = db.Column(db.Date, nullable=False)
+    vencimento = db.Column(db.Date, index=True, nullable=False)
     payment_receipt_at = db.Column(db.Date)
-    status = db.Column(db.String(20), nullable=False, default='PENDENTE')
+    status = db.Column(db.String(20), index=True, nullable=False, default='PENDENTE')
     payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_methods.id'))
     installment_number = db.Column(db.Integer, nullable=False, default=1)
     installment_total = db.Column(db.Integer, nullable=False, default=1)

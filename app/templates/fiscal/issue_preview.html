@@ -29,7 +29,7 @@
   <section class="card section-card fiscal-section">
     <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 1</span><h3>Dados da nota</h3></div><span class="fiscal-reference">NF {{ document.numero if document and document.numero else '-' }}</span></div>
     <div class="fiscal-main-fields">
-      <label class="field-wide">Natureza da operação<input name="natureza_operacao" value="{{ natureza }}" required></label>
+      <label class="field-wide">Natureza da operação<input name="natureza_operacao" list="lista-cfop" value="{{ natureza }}" required></label>
       <label>Finalidade<select name="finalidade_emissao">
         <option value="1" {% if finalidade == '1' %}selected{% endif %}>NF-e normal</option>
         <option value="2" {% if finalidade == '2' %}selected{% endif %}>Complementar</option>
@@ -72,8 +72,8 @@
             <td><input name="item_ipi_percent" value="{{ item.ipi_percent or '0' }}" inputmode="decimal"></td>
             <td><input name="item_icms_percent" value="{{ item.icms_percent or '0' }}" inputmode="decimal"></td>
             <td><input value="{{ format_currency(item.valor_unitario) }}" readonly></td>
-            <td><input name="item_cfop" value="{{ item.cfop or '5102' }}" required></td>
-            <td><input name="item_ncm" value="{{ item.ncm or '' }}" placeholder="NCM" required></td>
+            <td><input name="item_cfop" list="lista-cfop" value="{{ item.cfop or '5102' }}" required></td>
+            <input type="text" name="ncm" list="lista-ncm" class="form-control" value="{{ product.ncm if product else '' }}">
             <td><input value="{{ format_currency(item.total) }}" readonly></td>
           </tr>
           {% else %}<tr><td colspan="9">Nenhum item encontrado na O.S.</td></tr>{% endfor %}
@@ -160,4 +160,99 @@
 {% if document and document.xml_content %}
 <div class="actions fiscal-document-actions"><a class="button secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">Baixar XML atual</a></div>
 {% endif %}
+<!-- Lista Fixa de CFOPs (Sefaz) -->
+<datalist id="lista-cfop">
+    <!-- Entradas -->
+    <option value="1102">1102 - Compra para comercialização (Dentro do Estado)</option>
+    <option value="1403">1403 - Compra para comercialização sujeita a ST</option>
+    <option value="2102">2102 - Compra para comercialização (Fora do Estado)</option>
+    <option value="2403">2403 - Compra para comercialização sujeita a ST (Fora do Estado)</option>
+    
+    <!-- Saídas (Vendas) -->
+    <option value="5102">5102 - Venda de mercadoria de terceiros</option>
+    <option value="5405">5405 - Venda de mercadoria sujeita a ST</option>
+    <option value="6102">6102 - Venda de mercadoria (Interestadual)</option>
+    <option value="6404">6404 - Venda de mercadoria sujeita a ST (Interestadual)</option>
+    
+    <!-- Devoluções e Garantias -->
+    <option value="5202">5202 - Devolução de compra para comercialização</option>
+    <option value="5411">5411 - Devolução de compra sujeita a ST</option>
+    <option value="6202">6202 - Devolução de compra (Interestadual)</option>
+    <option value="6411">6411 - Devolução de compra sujeita a ST (Interestadual)</option>
+    <option value="5556">5556 - Devolução de material de uso ou consumo</option>
+    
+    <!-- Consertos e Outros -->
+    <option value="5915">5915 - Remessa para conserto ou reparo</option>
+    <option value="5916">5916 - Retorno de mercadoria recebida para conserto</option>
+    <option value="5949">5949 - Outra saída (não especificada)</option>
+</datalist>
+
+<!-- Lista Fixa de NCMs Específicos para Auto Center (Siscomex) -->
+<datalist id="lista-ncm">
+    <option value="27101932">27101932 - Óleos lubrificantes</option>
+    <option value="34029090">34029090 - Limpa Ar Condicionado / Produtos de limpeza</option>
+    <option value="40103100">40103100 - Correias de transmissão (Alternador, etc)</option>
+    <option value="40111000">40111000 - Pneus novos para automóveis</option>
+    <option value="40169990">40169990 - Buchas, coxins e peças de borracha</option>
+    <option value="73181500">73181500 - Parafusos, pinos ou pernos</option>
+    <option value="73261900">73261900 - Abraçadeiras de aço/ferro</option>
+    <option value="84212300">84212300 - Filtros de Óleo e Combustível</option>
+    <option value="84213990">84213990 - Filtros de Ar Condicionado / Cabine</option>
+    <option value="84219999">84219999 - Filtros de Ar do Motor</option>
+    <option value="84818021">84818021 - Válvulas termostáticas</option>
+    <option value="84821090">84821090 - Rolamentos de esferas</option>
+    <option value="84835090">84835090 - Tensores e Polias (Kit Correia Dentada)</option>
+    <option value="85111000">85111000 - Velas de ignição</option>
+    <option value="85369090">85369090 - Terminais e conectores elétricos</option>
+    <option value="85443000">85443000 - Jogos de cabos de velas</option>
+    <option value="87083019">87083019 - Pastilhas e Sapatas de Freio</option>
+    <option value="87083090">87083090 - Discos, tambores e cilindros de freio</option>
+    <option value="87087090">87087090 - Cubos de roda</option>
+    <option value="87088000">87088000 - Amortecedores, molas e bieletas</option>
+    <option value="87089490">87089490 - Terminais e caixas de direção</option>
+    <option value="87089990">87089990 - Bandejas, pivôs, suportes e outras peças</option>
+</datalist>
+<!-- Lista Fixa de Natureza da Operação -->
+<datalist id="lista-natureza">
+    <option value="Venda de mercadoria">Venda de mercadoria</option>
+    <option value="Venda de peças">Venda de peças</option>
+    <option value="Devolução de compra">Devolução de compra</option>
+    <option value="Devolução de venda">Devolução de venda</option>
+    <option value="Remessa para conserto">Remessa para conserto</option>
+    <option value="Retorno de conserto">Retorno de conserto</option>
+    <option value="Outras saídas">Outras saídas</option>
+</datalist>
+<script>
+document.addEventListener('change', function(event) {
+    const listaCfop = document.getElementById('lista-cfop');
+    if (!listaCfop) return;
+
+    // CASO 1: Se você alterou o CFOP lá embaixo na tabela de peças
+    if (event.target && event.target.name === 'item_cfop') {
+        const cfopDigitado = event.target.value;
+        const campoNatureza = document.querySelector('input[name="natureza_operacao"]');
+        
+        if (campoNatureza) {
+            const opcaoSelecionada = Array.from(listaCfop.options).find(opt => opt.value === cfopDigitado);
+            if (opcaoSelecionada) {
+                // Pega o texto e tira o número (ex: "Devolução de compra...")
+                const descricaoLimpa = opcaoSelecionada.text.split(' - ').pop();
+                campoNatureza.value = descricaoLimpa;
+            }
+        }
+    }
+
+    // CASO 2: Se você selecionou o número direto no campo Natureza da Operação
+    if (event.target && event.target.name === 'natureza_operacao') {
+        const valorDigitado = event.target.value;
+        const opcaoSelecionada = Array.from(listaCfop.options).find(opt => opt.value === valorDigitado);
+        
+        if (opcaoSelecionada) {
+            // Substitui o número 5411 pelo texto da descrição!
+            const descricaoLimpa = opcaoSelecionada.text.split(' - ').pop();
+            event.target.value = descricaoLimpa;
+        }
+    }
+});
+</script>
 {% endblock %}

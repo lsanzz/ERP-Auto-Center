@@ -49,18 +49,83 @@ def lookup_cnpj(document: str) -> dict:
     if len(cnpj) != 14:
         raise ValueError('Informe um CNPJ com 14 dígitos.')
 
-    urls = [
-        f'https://brasilapi.com.br/api/cnpj/v1/{cnpj}',
-        f'https://publica.cnpj.ws/cnpj/{cnpj}',
-        f'https://receitaws.com.br/v1/cnpj/{cnpj}',
+    # Sua chave da nova API CNPJA
+    api_key = "c2f2b42a-bad4-45f6-91d1-8ae087216728-5005e48c-8077-4db9-92b2-efc80c9401c4"
+
+    # Lista de endpoints, priorizando a CNPJA
+    endpoints = [
+        (f'https://cnpja.com/api/open?cnpj={cnpj}', {'Authorization': api_key}),
+        (f'https://brasilapi.com.br/api/cnpj/v1/{cnpj}', {}),
+        (f'https://publica.cnpj.ws/cnpj/{cnpj}', {}),
+        (f'https://receitaws.com.br/v1/cnpj/{cnpj}', {}),
     ]
+
     last_error = None
-    for url in urls:
+    for url, extra_headers in endpoints:
         try:
-            payload = _read_json(url)
+            payload = _read_json(url, headers=extra_headers)
+            
+            # 1. Tratamento para a nova API (CNPJA)
+            if 'company' in payload or 'taxId' in payload:
+                company = payload.get('company') or {}
+                address = payload.get('address') or {}
+                
+                # Formata o telefone a partir do array 'phones'
+                telefone = ''
+                phones = payload.get('phones') or []
+                if phones:
+                    telefone = f"({phones[0].get('area', '')}) {phones[0].get('number', '')}"
+                
+                # Pega o primeiro email do array 'emails'
+                email = ''
+                emails = payload.get('emails') or []
+                if emails:
+                    email = emails[0].get('address') or ''
+                    
+                # Extrai a Inscrição Estadual procurando pela primeira ativa
+                inscricao_estadual = ''
+                registrations = payload.get('registrations') or []
+                for reg in registrations:
+                    if reg.get('number'):
+                        inscricao_estadual = reg.get('number')
+                        if reg.get('enabled'):
+                            break
+
+                endereco = _build_address({
+                    'logradouro': address.get('street'),
+                    'numero': address.get('number'),
+                    'complemento': address.get('details'),
+                    'bairro': address.get('district'),
+                    'municipio': address.get('city'),
+                    'uf': address.get('state'),
+                    'cep': address.get('zip'),
+                })
+
+                return {
+                    'cpf_cnpj': cnpj,
+                    'nome': company.get('name') or payload.get('alias') or '',
+                    'nome_fantasia': payload.get('alias') or '',
+                    'telefone': telefone.strip(),
+                    'email': email,
+                    'endereco': endereco,
+                    'situacao': payload.get('status', {}).get('text') or 'ATIVA',
+                    'atividade_principal': payload.get('mainActivity', {}).get('text') or '',
+                    'inscricao_estadual': inscricao_estadual
+                }
+
+            # 2. Tratamento para as APIs antigas (Contingência)
             if 'estabelecimento' in payload:
                 estabelecimento = payload.get('estabelecimento') or {}
                 telefone = estabelecimento.get('telefone1') or estabelecimento.get('telefone2') or ''
+                
+                inscricao_estadual = ''
+                inscricoes = estabelecimento.get('inscricoes_estaduais') or []
+                for ie in inscricoes:
+                    if ie.get('inscricao_estadual'):
+                        inscricao_estadual = ie.get('inscricao_estadual')
+                        if ie.get('ativo'):
+                            break
+
                 endereco = _build_address({
                     'logradouro': estabelecimento.get('logradouro'),
                     'numero': estabelecimento.get('numero'),
@@ -79,6 +144,7 @@ def lookup_cnpj(document: str) -> dict:
                     'endereco': endereco,
                     'situacao': (estabelecimento.get('situacao_cadastral') or 'ATIVA'),
                     'atividade_principal': ((estabelecimento.get('atividade_principal') or {}).get('descricao') or ''),
+                    'inscricao_estadual': inscricao_estadual
                 }
 
             if payload.get('status') == 'ERROR':
@@ -101,6 +167,7 @@ def lookup_cnpj(document: str) -> dict:
                 'endereco': _build_address(payload),
                 'situacao': payload.get('descricao_situacao_cadastral') or payload.get('situacao') or payload.get('situacao_cadastral') or '',
                 'atividade_principal': atividade_principal,
+                'inscricao_estadual': payload.get('inscricao_estadual') or payload.get('ie') or ''
             }
         except HTTPError as exc:
             last_error = exc

@@ -12,6 +12,7 @@
           <button type="button" class="secondary" id="buscar-documento">Buscar dados</button>
         </div>
       </label>
+      <label>Inscrição Estadual (IE)<input type="text" name="inscricao_estadual" value="{{ client.inscricao_estadual if client else '' }}" placeholder="Apenas números ou ISENTO"></label>
       <label>Telefone<input id="telefone" type="text" name="telefone" value="{{ client.telefone if client else '' }}"></label>
       <label>E-mail<input id="email" type="email" name="email" value="{{ client.email if client else '' }}"></label>
     </div>

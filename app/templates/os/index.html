@@ -80,60 +80,99 @@
 
   <div class="card" style="padding:20px 16px 16px; background:var(--color-fog); margin-bottom:0;">
     <div class="os-table-shell">
-      <table class="table os-table">
-        <thead><tr><th>O.S.</th><th>Cliente</th><th>Responsável</th><th>Veículo</th><th>Status</th><th>Pagamento</th><th>Total</th><th style="text-align:right;">Ações</th></tr></thead>
-        <tbody>
-          {% for order in orders %}
-          {% set receivables = receivables_by_order.get(order.id, []) if receivables_by_order is defined else [] %}
-          {% set has_receivables = receivables|length > 0 %}
-          {% set all_received = has_receivables and (receivables|selectattr('status', 'equalto', 'RECEBIDO')|list|length == receivables|length) %}
-          <tr>
-            <td><a class="os-number" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">{{ order.numero }}</a><span class="muted small" style="display:block; margin-top:5px;">{{ order.data_entrada|date_br }}</span></td>
-            <td class="os-client"><strong>{{ order.client_nome or (order.client.nome if order.client else '-') }}</strong><span>{{ order.placa or 'Sem placa' }}{% if order.veiculo_descricao %} · {{ order.veiculo_descricao }}{% endif %}</span></td>
-            <td>{{ order.employee.nome if order.employee else '-' }}</td>
-            <td>{{ order.veiculo_descricao or '-' }}{% if order.placa %}<span class="muted small" style="display:block;">{{ order.placa }}</span>{% endif %}</td>
-            <td><span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span>{% if has_receivables %}<span class="os-finance-note muted small">{{ 'Recebido' if all_received else 'Conta pendente' }}</span>{% endif %}</td>
-            <td class="os-payment">{{ order.payment_method.nome if order.payment_method else 'Não definido' }}{% if order.installment_count and order.installment_count > 1 %}<span class="muted small" style="display:block;">{{ order.installment_count }} parcelas</span>{% endif %}</td>
-            <td class="os-total">{{ format_currency(order.total_geral) }}</td>
-            <td>
-              <div class="os-actions">
-                <a class="button secondary" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">Abrir</a>
-                <details class="os-menu">
-                  <summary>Ações</summary>
-                  <div class="os-menu-panel">
-                    <form method="post" action="{{ url_for('web.work_orders_copy', work_order_id=order.id) }}" onsubmit="return confirm('Criar uma nova O.S. copiando os dados desta ordem?');"><button type="submit" class="button secondary">Copiar ordem</button></form>
-                    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir ordem</a>
-                    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0, recibo=1) }}" target="_blank">Imprimir recibo completo</a>
-                    <button type="button" class="button secondary" onclick="document.getElementById('status-modal-{{ order.id }}').showModal()">Alterar status</button>
-                    {% if current_user().role == 'ADMINISTRADOR' %}
-                    <div class="os-menu-separator"></div>
-                    {% if order.items|selectattr('item_type', 'equalto', 'SERVICO')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFSE') }}">Emitir NFS-e de serviços</a>{% endif %}
-                    {% if order.items|selectattr('item_type', 'equalto', 'PECA')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFE') }}">Emitir NF-e de peças</a>{% endif %}
-                    {% if order.status in ['FINALIZADA', 'ENTREGUE'] and not order.estoque_baixado %}<form method="post" action="{{ url_for('web.work_orders_launch_stock', work_order_id=order.id) }}" onsubmit="return confirm('Lançar as peças desta O.S. no estoque?');"><button type="submit" class="button secondary">Lançar estoque</button></form>{% elif order.estoque_baixado %}<span class="muted small" style="padding:10px 12px;">Estoque já lançado</span>{% endif %}
-                    {% if order.status in ['FINALIZADA', 'ENTREGUE'] %}
-                    {% if not has_receivables %}<form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><button type="submit" class="button secondary">Lançar contas</button></form>{% else %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Ver contas</a>{% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary os-menu-danger">Estornar contas</button></form>{% endif %}{% endif %}
-                    {% endif %}
-                    {% endif %}
-                    <div class="os-menu-separator"></div>
-                    <a class="button secondary" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar ordem</a>
-                  </div>
-                </details>
-              </div>
-              <dialog id="status-modal-{{ order.id }}" class="status-dialog">
-                <div class="status-dialog-header"><h3>Alterar situação</h3><button type="button" class="status-dialog-close" onclick="this.closest('dialog').close()">×</button></div>
-                <form method="post" action="{{ url_for('web.work_orders_change_status', work_order_id=order.id) }}">
-                  <div class="form-grid-2"><label>Nova situação<select name="status" required>{% for status in statuses %}<option value="{{ status }}" {% if status == order.status %}selected{% endif %}>{{ status|replace('_', ' ') }}</option>{% endfor %}</select></label><label>Data de saída<input type="date" name="data_saida" value="{{ order.data_saida.isoformat() if order.data_saida else '' }}"></label></div>
-                  <label>Observação<textarea name="observation" placeholder="Descreva o motivo ou detalhe da alteração"></textarea></label>
-                  <div class="actions"><button type="submit">Salvar situação</button><button type="button" class="button secondary" onclick="this.closest('dialog').close()">Cancelar</button></div>
-                </form>
-                <div style="margin-top:28px; overflow:auto;"><table class="table"><thead><tr><th>Data</th><th>Observação</th><th>Situação</th><th>Usuário</th></tr></thead><tbody>{% for history in order.status_history %}<tr><td>{{ history.changed_at|datetime_br }}</td><td>{{ history.observation or '-' }}</td><td>{{ history.status|replace('_', ' ') }}</td><td>{{ history.user.nome if history.user else '-' }}</td></tr>{% else %}<tr><td colspan="4" class="muted">Nenhuma alteração registrada.</td></tr>{% endfor %}</tbody></table></div>
-              </dialog>
-            </td>
-          </tr>
-          {% else %}<tr><td colspan="8" style="text-align:center; padding:48px;">Nenhuma O.S. cadastrada.</td></tr>{% endfor %}
-        </tbody>
-      </table>
-      {% include '_pagination.html' %}
+      <form method="GET" action="" style="margin-bottom: 25px;">
+        <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
+          
+          <!-- Campo de Texto -->
+          <input type="text" name="q" class="form-control" 
+                style="flex-grow: 1;" 
+                placeholder="Pesquisar..." 
+                value="{{ request.args.get('q', '') }}">
+          
+          <!-- Botão Pesquisar -->
+          <button type="submit" class="btn btn-primary" style="white-space: nowrap;">
+              Pesquisar
+          </button>
+          
+          <!-- Botão Limpar -->
+          {% if request.args.get('q') %}
+              <a href="{{ request.path }}" class="btn" 
+                style="display: flex; align-items: center; background-color: #6c757d; color: white; text-decoration: none; padding: 0 15px; border-radius: 4px; white-space: nowrap;">
+                  Limpar
+              </a>
+          {% endif %}
+          
+        </div>
+      </form>
+
+      {% if orders %}
+        <table class="table os-table">
+          <thead><tr><th>O.S.</th><th>Cliente</th><th>Responsável</th><th>Veículo</th><th>Status</th><th>Pagamento</th><th>Total</th><th style="text-align:right;">Ações</th></tr></thead>
+          <tbody>
+            {% for order in orders %}
+            {% set receivables = receivables_by_order.get(order.id, []) if receivables_by_order is defined else [] %}
+            {% set has_receivables = receivables|length > 0 %}
+            {% set all_received = has_receivables and (receivables|selectattr('status', 'equalto', 'RECEBIDO')|list|length == receivables|length) %}
+            <tr>
+              <td><a class="os-number" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">{{ order.numero }}</a><span class="muted small" style="display:block; margin-top:5px;">{{ order.data_entrada|date_br }}</span></td>
+              <td class="os-client"><strong>{{ order.client_nome or (order.client.nome if order.client else '-') }}</strong><span>{{ order.placa or 'Sem placa' }}{% if order.veiculo_descricao %} · {{ order.veiculo_descricao }}{% endif %}</span></td>
+              <td>{{ order.employee.nome if order.employee else '-' }}</td>
+              <td>{{ order.veiculo_descricao or '-' }}{% if order.placa %}<span class="muted small" style="display:block;">{{ order.placa }}</span>{% endif %}</td>
+              <td><span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span>{% if has_receivables %}<span class="os-finance-note muted small">{{ 'Recebido' if all_received else 'Conta pendente' }}</span>{% endif %}</td>
+              <td class="os-payment">{{ order.payment_method.nome if order.payment_method else 'Não definido' }}{% if order.installment_count and order.installment_count > 1 %}<span class="muted small" style="display:block;">{{ order.installment_count }} parcelas</span>{% endif %}</td>
+              <td class="os-total">{{ format_currency(order.total_geral) }}</td>
+              <td>
+                <div class="os-actions">
+                  <a class="button secondary" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">Abrir</a>
+                  <details class="os-menu">
+                    <summary>Ações</summary>
+                    <div class="os-menu-panel">
+                      <form method="post" action="{{ url_for('web.work_orders_copy', work_order_id=order.id) }}" onsubmit="return confirm('Criar uma nova O.S. copiando os dados desta ordem?');"><button type="submit" class="button secondary">Copiar ordem</button></form>
+                      <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir ordem</a>
+                      <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0, recibo=1) }}" target="_blank">Imprimir recibo completo</a>
+                      <button type="button" class="button secondary" onclick="document.getElementById('status-modal-{{ order.id }}').showModal()">Alterar status</button>
+                      {% if current_user().role == 'ADMINISTRADOR' %}
+                      <div class="os-menu-separator"></div>
+                      {% if order.items|selectattr('item_type', 'equalto', 'SERVICO')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFSE') }}">Emitir NFS-e de serviços</a>{% endif %}
+                      {% if order.items|selectattr('item_type', 'equalto', 'PECA')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFE') }}">Emitir NF-e de peças</a>{% endif %}
+                      {% if order.status in ['FINALIZADA', 'ENTREGUE'] and not order.estoque_baixado %}<form method="post" action="{{ url_for('web.work_orders_launch_stock', work_order_id=order.id) }}" onsubmit="return confirm('Lançar as peças desta O.S. no estoque?');"><button type="submit" class="button secondary">Lançar estoque</button></form>{% elif order.estoque_baixado %}<span class="muted small" style="padding:10px 12px;">Estoque já lançado</span>{% endif %}
+                      {% if order.status in ['FINALIZADA', 'ENTREGUE'] %}
+                      {% if not has_receivables %}<form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><button type="submit" class="button secondary">Lançar contas</button></form>{% else %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Ver contas</a>{% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary os-menu-danger">Estornar contas</button></form>{% endif %}{% endif %}
+                      {% endif %}
+                      {% endif %}
+                      <div class="os-menu-separator"></div>
+                      <a class="button secondary" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar ordem</a>
+                    </div>
+                  </details>
+                </div>
+                <dialog id="status-modal-{{ order.id }}" class="status-dialog">
+                  <div class="status-dialog-header"><h3>Alterar situação</h3><button type="button" class="status-dialog-close" onclick="this.closest('dialog').close()">×</button></div>
+                  <form method="post" action="{{ url_for('web.work_orders_change_status', work_order_id=order.id) }}">
+                    <div class="form-grid-2"><label>Nova situação<select name="status" required>{% for status in statuses %}<option value="{{ status }}" {% if status == order.status %}selected{% endif %}>{{ status|replace('_', ' ') }}</option>{% endfor %}</select></label><label>Data de saída<input type="date" name="data_saida" value="{{ order.data_saida.isoformat() if order.data_saida else '' }}"></label></div>
+                    <label>Observação<textarea name="observation" placeholder="Descreva o motivo ou detalhe da alteração"></textarea></label>
+                    <div class="actions"><button type="submit">Salvar situação</button><button type="button" class="button secondary" onclick="this.closest('dialog').close()">Cancelar</button></div>
+                  </form>
+                  <div style="margin-top:28px; overflow:auto;"><table class="table"><thead><tr><th>Data</th><th>Observação</th><th>Situação</th><th>Usuário</th></tr></thead><tbody>{% for history in order.status_history %}<tr><td>{{ history.changed_at|datetime_br }}</td><td>{{ history.observation or '-' }}</td><td>{{ history.status|replace('_', ' ') }}</td><td>{{ history.user.nome if history.user else '-' }}</td></tr>{% else %}<tr><td colspan="4" class="muted">Nenhuma alteração registrada.</td></tr>{% endfor %}</tbody></table></div>
+                </dialog>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% include '_pagination.html' %}
+      {% else %}
+        <!-- SE NÃO ACHOU NADA, MOSTRA A TELA VAZIA -->
+        <div style="background-color: #f8f9fa; border-radius: 8px; text-align: center; padding: 60px 20px; margin-top: 20px; border: 1px dashed #dee2e6;">
+            <i class="fas fa-search" style="font-size: 48px; color: #adb5bd; margin-bottom: 20px;"></i>
+            <h4 style="color: #495057; font-weight: bold;">Nenhum resultado encontrado</h4>
+            <p style="color: #6c757d; max-width: 400px; margin: 0 auto 20px auto;">
+                Não encontramos nenhum registro correspondente ao termo <strong>"{{ request.args.get('q') }}"</strong>. Verifique se você digitou corretamente.
+            </p>
+            <a href="{{ request.path }}" class="btn btn-outline-primary">
+                <i class="fas fa-times"></i> Limpar Pesquisa
+            </a>
+        </div>
+      {% endif %}
     </div>
   </div>
 </div>
