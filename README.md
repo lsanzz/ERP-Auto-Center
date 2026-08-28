@@ -59,25 +59,6 @@ A plataforma reúne em um único ambiente o gerenciamento de clientes, ordens de
 - Organização de documentos fiscais
 - Integração com Focus NFe para emissão e importação de NF-e
 
-## Configuração da Focus NFe
-
-A integração fiscal fica salva no banco pela tela **Fiscal** após a primeira configuração. Para não depender de preenchimento manual em nenhuma instalação, também é possível configurar pelo `.env`:
-
-```env
-FOCUS_NFE_TOKEN=seu_token_focus
-FOCUS_NFE_ENVIRONMENT=HOMOLOGACAO
-FOCUS_NFE_BASE_URL=
-FOCUS_NFE_COMPANY_NAME=Razao Social Ltda
-FOCUS_NFE_COMPANY_DOCUMENT=00000000000000
-FOCUS_NFE_STATE_REGISTRATION=
-FOCUS_NFE_MUNICIPAL_REGISTRATION=
-FOCUS_NFE_TAX_REGIME=
-FOCUS_NFE_DEFAULT_NATURE=Venda
-FOCUS_NFE_WEBHOOK_URL=
-```
-
-Se `FOCUS_NFE_BASE_URL` ficar vazio, o sistema usa automaticamente `https://homologacao.focusnfe.com.br` em homologação e `https://api.focusnfe.com.br` em produção.
-
 ### 📊 Dashboard
 
 - Visão geral da operação
