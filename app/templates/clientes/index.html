@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="eyebrow">Catálogo</span>
+    <h2 class="display">Clientes</h2>
+  </div>
+  <a class="button" href="{{ url_for('web.clients_new') }}">Novo Cliente</a>
+</div>
+
+<div class="table-card">
+  <!-- Barra de Pesquisa Alinhada -->
+  <form method="GET" action="" style="margin-bottom: 25px;">
+      <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
+          
+          <input type="text" name="q" class="form-control" 
+                 style="flex-grow: 1;" 
+                 placeholder="Pesquisar por nome, CPF ou CNPJ..." 
+                 value="{{ request.args.get('q', '') }}">
+          
+          <button type="submit" class="btn btn-primary" style="white-space: nowrap;">
+              Pesquisar
+          </button>
+          
+          {% if request.args.get('q') %}
+              <a href="{{ request.path }}" class="btn" 
+                 style="display: flex; align-items: center; background-color: #6c757d; color: white; text-decoration: none; padding: 0 15px; border-radius: 4px; white-space: nowrap;">
+                  Limpar
+              </a>
+          {% endif %}
+          
+      </div>
+  </form>
+
+  {% if clientes %} 
+    <!-- SE ACHOU ALGUMA COISA, MOSTRA A TABELA ORIGINAL -->
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Documento</th>
+          <th>Telefone</th>
+          <th>E-mail</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for client in clientes %}
+        <tr>
+          <td><strong style="color: var(--color-graphite); font-weight: 500;">{{ client.nome }}</strong></td>
+          <td>{{ client.cpf_cnpj or '-' }}</td>
+          <td>{{ client.telefone or '-' }}</td>
+          <td>{{ client.email or '-' }}</td>
+          <td>
+            <div style="display: flex; gap: 10px;">
+              <a class="button secondary" href="{{ url_for('web.clients_edit', client_id=client.id) }}">Editar</a>
+              {% if current_user().role == 'ADMINISTRADOR' %}
+              <form method="post" action="{{ url_for('web.clients_delete', client_id=client.id) }}" onsubmit="return confirm('Excluir este cliente do sistema?');">
+                <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    
+    {% if pagination %}
+      {% include '_pagination.html' %}
+    {% endif %}
+
+  {% else %} 
+    <!-- SE NÃO ACHOU NADA, MOSTRA A TELA VAZIA -->
+    <div style="background-color: #f8f9fa; border-radius: 8px; text-align: center; padding: 60px 20px; margin-top: 20px; border: 1px dashed #dee2e6;">
+        <i class="fas fa-search" style="font-size: 48px; color: #adb5bd; margin-bottom: 20px;"></i>
+        <h4 style="color: #495057; font-weight: bold;">Nenhum resultado encontrado</h4>
+        <p style="color: #6c757d; max-width: 400px; margin: 0 auto 20px auto;">
+            Não encontramos nenhum registro correspondente ao termo <strong>"{{ request.args.get('q') }}"</strong>. Verifique se você digitou corretamente.
+        </p>
+        <a href="{{ request.path }}" class="btn btn-outline-primary">
+            <i class="fas fa-times"></i> Limpar Pesquisa
+        </a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

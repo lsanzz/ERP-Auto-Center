@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="eyebrow">Financeiro</span>
+    <h2>Novo Lançamento</h2>
+  </div>
+</div>
+
+<div class="card asymmetric">
+  <form method="post" action="{{ url_for('web.finance_new') }}">
+    
+    <h3 style="margin-bottom: 24px;">Dados do Lançamento</h3>
+    <div class="form-grid-3">
+      <label>Tipo de Operação
+        <select name="entry_type" required>
+          <option value="RECEBER">Receita (A Receber)</option>
+          <option value="PAGAR">Despesa (A Pagar)</option>
+        </select>
+      </label>
+      
+      <label style="grid-column: span 2;">Descrição
+        <input type="text" name="descricao" placeholder="Ex.: Conta de Luz, Aluguel..." required>
+      </label>
+
+      <label>Valor
+        <input type="number" step="0.01" min="0" name="valor" placeholder="0.00" required>
+      </label>
+
+      <label>Vencimento
+        <input type="date" name="vencimento" required>
+      </label>
+
+      <label>Status Atual
+        <select name="status">
+          <option value="PENDENTE">Pendente</option>
+          <option value="RECEBIDO">Liquidado / Recebido</option>
+        </select>
+      </label>
+      
+      <label style="grid-column: span 3;">Categoria
+        <input type="text" name="categoria" placeholder="Ex.: Custos Fixos, Fornecedores">
+      </label>
+    </div>
+
+    <!-- Divisor editorial (Sem linhas visíveis fortes, usamos borda na cor Mist) -->
+    <div style="margin-top: 60px; padding-top: 60px; border-top: 1px solid var(--color-mist);">
+      <h3 style="margin-bottom: 24px;">Detalhes do Pagamento e Parcelamento</h3>
+      
+      <div class="form-grid-3">
+        <label>Conta Bancária
+          <select name="bank_account_id">
+            <option value="">Nenhuma / Padrão</option>
+            {% for account in bank_accounts %}
+            <option value="{{ account.id }}">{{ account.nome }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        
+        <label>Meio de Pagamento
+          <select name="payment_method_id">
+            <option value="">Selecione (Opcional)</option>
+            {% for method in payment_methods %}
+            <option value="{{ method.id }}">{{ method.nome }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label>Quantidade de parcelas
+          <input type="number" name="installment_count" min="1" value="1">
+        </label>
+      </div>
+    </div>
+
+    <div class="actions" style="margin-top: 60px; display: flex; gap: 20px;">
+      <button type="submit">Salvar Lançamento</button>
+      <a class="button secondary" href="{{ url_for('web.finance_index') }}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

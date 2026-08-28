@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div><h2>Orçamentos</h2><p class="muted">Atendimento comercial e aprovação.</p></div>
+  <a class="button" href="{{ url_for('web.budgets_new') }}">Novo orçamento</a>
+</div>
+<div class="table-card">
+<form method="GET" action="" style="margin-bottom: 25px;">
+    <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
+        
+        <!-- Campo de Texto -->
+        <input type="text" name="q" class="form-control" 
+               style="flex-grow: 1;" 
+               placeholder="Pesquisar..." 
+               value="{{ request.args.get('q', '') }}">
+        
+        <!-- Botão Pesquisar -->
+        <button type="submit" class="btn btn-primary" style="white-space: nowrap;">
+            Pesquisar
+        </button>
+        
+        <!-- Botão Limpar -->
+        {% if request.args.get('q') %}
+            <a href="{{ request.path }}" class="btn" 
+               style="display: flex; align-items: center; background-color: #6c757d; color: white; text-decoration: none; padding: 0 15px; border-radius: 4px; white-space: nowrap;">
+                Limpar
+            </a>
+        {% endif %}
+        
+    </div>
+</form>
+  <table class="table">
+    <thead><tr><th>Número</th><th>Cliente</th><th>Veículo</th><th>Status</th><th>Total</th><th>Validade</th><th></th></tr></thead>
+    <tbody>
+      {% for budget in budgets %}
+      <tr>
+        <td><a href="{{ url_for('web.budgets_show', budget_id=budget.id) }}">{{ budget.numero }}</a></td>
+        <td>{{ budget.client.nome }}</td>
+        <td>{{ budget.placa or '-' }}{% if budget.veiculo_descricao %} · {{ budget.veiculo_descricao }}{% endif %}</td>
+        <td>{{ budget.status }}</td>
+        <td>{{ format_currency(budget.total) }}</td>
+        <td>{{ budget.validade|date_br }}</td>
+        <td><a class="button secondary" href="{{ url_for('web.budgets_edit', budget_id=budget.id) }}">Editar</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">Nenhum orçamento cadastrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include '_pagination.html' %}
+</div>
+{% endblock %}

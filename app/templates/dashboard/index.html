@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="eyebrow">Visão Geral</span>
+    <h2 class="display">Olá, {{ current_user().nome.split()[0] if current_user() else 'Mecânico' }}.</h2>
+    <p class="muted" style="margin-top: 12px;">Acompanhe os serviços em andamento e os indicadores da oficina.</p>
+  </div>
+</div>
+
+<!-- Top Metrics: Ventriloc Data Dashboard Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 80px;">
+  
+  <div class="data-card">
+    <h3 style="font-size: 18px; color: var(--color-graphite); margin-bottom: 8px;">O.S. Abertas</h3>
+    <div style="font-family: var(--font-polysans); font-size: 66px; line-height: 0.91; letter-spacing: -1.32px; color: var(--color-graphite);">
+      {{ data.os_abertas }}
+    </div>
+  </div>
+
+  <div class="data-card">
+    <h3 style="font-size: 18px; color: var(--color-graphite); margin-bottom: 8px;">Em Andamento</h3>
+    <div style="font-family: var(--font-polysans); font-size: 66px; line-height: 0.91; letter-spacing: -1.32px; color: var(--color-brass);">
+      {{ data.os_andamento }}
+    </div>
+  </div>
+
+  {% if current_user().role == 'ADMINISTRADOR' %}
+  <!-- Card financeiro recebe um sutil filete laranja no topo -->
+  <div class="data-card" style="border-top: 2px solid var(--color-ember-orange);">
+    <h3 style="font-size: 18px; color: var(--color-graphite); margin-bottom: 8px;">Faturamento Hoje</h3>
+    <div style="font-family: var(--font-polysans); font-size: 40px; line-height: 1.2; letter-spacing: -0.8px; color: var(--color-graphite); margin-top: 24px;">
+      {{ format_currency(data.faturamento_dia) }}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Colunas Inferiores -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start;">
+  
+  <!-- Lado Esquerdo: Serviços Mais Realizados -->
+  <div style="padding-top: 70px;"> <!-- Adicionado padding-top para alinhar com o card direito -->
+    <h3 style="margin-bottom: 24px; font-size: 18px;">Serviços mais realizados</h3>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Serviço</th>
+          <th style="text-align: right;">Quantidade</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for servico in data.services_rank %}
+        <tr>
+          <td><strong style="color: var(--color-graphite); font-weight: 500;">{{ servico.descricao }}</strong></td>
+          <td style="text-align: right; font-family: var(--font-polysans); font-size: 18px; color: var(--color-graphite);">
+            {{ servico.quantidade|int }}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="2" class="muted">Nenhum serviço realizado ainda.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+<!-- Lado Direito: Resumo de Contas (Apenas Admin) -->
+  {% if current_user().role == 'ADMINISTRADOR' %}
+  
+  <style>
+    /* Estilos do Modal Ventriloc */
+    .ventriloc-modal {
+      margin: auto;
+      border: 1px solid var(--color-graphite);
+      background: var(--color-canvas-white);
+      padding: 40px;
+      width: 90%;
+      max-width: 500px; /* Aumentado para dar mais respiro */
+      border-radius: 6px 0px 0px 0px; 
+      box-shadow: none;
+      box-sizing: border-box;
+    }
+    .ventriloc-modal::backdrop {
+      background: rgba(32, 32, 32, 0.5); 
+      backdrop-filter: blur(2px);
+    }
+    .ventriloc-modal .dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .ventriloc-modal .dialog-close {
+      background: transparent;
+      border: none;
+      color: var(--color-graphite);
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      height: auto;
+    }
+    .ventriloc-modal .dialog-close:hover {
+      color: var(--color-ember-orange);
+      background: transparent;
+      border-color: transparent;
+    }
+    
+    /* REGRA VITAL: Trava o tamanho dos inputs para não quebrarem o grid */
+    .ventriloc-modal input {
+      width: 100%;
+      box-sizing: border-box;
+      min-width: 0; /* Permite que o input encolha dentro das colunas */
+      margin-top: 6px;
+    }
+  </style>
+
+  <div class="card asymmetric" style="margin-bottom: 0;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px;">
+      <h3 style="margin: 0;">Saldos e Contas</h3>
+      <!-- Botão Adicionar Conta -->
+      <button type="button" class="button secondary" onclick="document.getElementById('modal-nova-conta').showModal()" style="height: 32px; padding: 0 12px; font-size: 13px;">+ Nova</button>
+      
+      <!-- Modal Nova Conta -->
+      <dialog id="modal-nova-conta" class="ventriloc-modal">
+        <div class="dialog-header">
+          <h3 style="margin: 0;">Nova Conta</h3>
+          <button type="button" class="dialog-close" onclick="this.closest('dialog').close()">&times;</button>
+        </div>
+        <form method="post" action="{{ url_for('web.bank_accounts_new') }}">
+          <label style="margin-bottom: 12px; font-size: 13px;">Nome da Conta <input type="text" name="nome" required placeholder="Caixa, Inter..."></label>
+          <label style="margin-bottom: 12px; font-size: 13px;">Banco <input type="text" name="banco"></label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+            <label style="font-size: 13px;">Agência <input type="text" name="agencia"></label>
+            <label style="font-size: 13px;">Conta <input type="text" name="conta"></label>
+          </div>
+          <label style="margin-bottom: 12px; font-size: 13px;">Saldo Inicial <input type="number" step="0.01" name="saldo_inicial" required></label>
+          <div class="actions" style="margin-top: 32px; gap: 16px;">
+            <button type="submit" style="flex: 1;">Salvar Conta</button>
+            <button type="button" class="button secondary" onclick="this.closest('dialog').close()" style="flex: 1;">Cancelar</button>
+          </div>
+        </form>
+      </dialog>
+    </div>
+    
+    <div style="margin-bottom: 40px;">
+      <span class="muted">Saldo total em contas</span>
+      <div style="font-family: var(--font-polysans); font-size: 40px; letter-spacing: -0.8px; color: var(--color-graphite); margin-top: 8px;">
+        {{ format_currency(data.bank_accounts_total) }}
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      {% for account in data.bank_accounts %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--color-mist);">
+        <div>
+          <strong style="color: var(--color-graphite); font-weight: 500; display: block;">{{ account.nome }}</strong>
+          <span class="muted" style="font-size: 13px;">{{ account.banco or 'Outros' }} {% if account.agencia or account.conta %} (Ag: {{ account.agencia|default('-') }} / Cc: {{ account.conta|default('-') }}){% endif %}</span>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="font-family: var(--font-polysans); color: var(--color-graphite); font-size: 18px; text-align: right;">
+            {{ format_currency(account.saldo_atual) }}
+          </div>
+          
+          <!-- Botão Editar Aciona o Modal -->
+          <button type="button" class="button secondary" onclick="document.getElementById('modal-editar-conta-{{ account.id }}').showModal()" style="height: 32px; padding: 0 12px; font-size: 13px; border: none; background: transparent;">Editar</button>
+
+          <!-- Modal Editar Conta (Único para cada conta no loop) -->
+          <dialog id="modal-editar-conta-{{ account.id }}" class="ventriloc-modal">
+            <div class="dialog-header">
+              <h3 style="margin: 0;">Editar Conta</h3>
+              <button type="button" class="dialog-close" onclick="this.closest('dialog').close()">&times;</button>
+            </div>
+            <form method="post" action="{{ url_for('web.bank_accounts_edit', account_id=account.id) }}">
+               <label style="margin-bottom: 12px; font-size: 13px;">Nome <input type="text" name="nome" value="{{ account.nome }}" required></label>
+               <label style="margin-bottom: 12px; font-size: 13px;">Banco <input type="text" name="banco" value="{{ account.banco or '' }}"></label>
+               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+                 <label style="font-size: 13px;">Agência <input type="text" name="agencia" value="{{ account.agencia or '' }}"></label>
+                 <label style="font-size: 13px;">Conta <input type="text" name="conta" value="{{ account.conta or '' }}"></label>
+               </div>
+               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+                 <label style="font-size: 13px;">Saldo Inic. <input type="number" step="0.01" name="saldo_inicial" value="{{ account.saldo_inicial }}" required></label>
+                 <label style="font-size: 13px;">Saldo Atual <input type="number" step="0.01" name="saldo_atual" value="{{ account.saldo_atual }}" required></label>
+               </div>
+               <div class="actions" style="margin-top: 32px; gap: 16px;">
+                 <button type="submit" style="flex: 1;">Atualizar</button>
+                 <button type="button" class="button secondary" onclick="this.closest('dialog').close()" style="flex: 1;">Cancelar</button>
+               </div>
+            </form>
+            <!-- Formulário separado para exclusão -->
+            <form method="post" action="{{ url_for('web.bank_accounts_delete', account_id=account.id) }}" style="margin-top: 16px;" onsubmit="return confirm('Tem certeza que deseja excluir esta conta bancária?');">
+               <button type="submit" class="button secondary" style="width: 100%; color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir Conta</button>
+            </form>
+          </dialog>
+        </div>
+
+      </div>
+      {% else %}
+      <p class="muted">Nenhuma conta bancária ativa.</p>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

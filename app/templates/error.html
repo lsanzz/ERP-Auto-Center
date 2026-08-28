@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <h2>Erro {{ code }}</h2>
+  <p>{{ message }}</p>
+  <a class="button" href="{{ url_for('web.dashboard') }}">Voltar ao painel</a>
+</div>
+{% endblock %}

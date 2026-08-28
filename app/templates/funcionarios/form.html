@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>{{ 'Editar funcionário' if employee else 'Novo funcionário' }}</h2></div></div>
+<div class="card">
+  <form method="post">
+    <div class="form-grid-2">
+      <label>Nome<input type="text" name="nome" value="{{ employee.nome if employee else '' }}" required></label>
+      <label>Função<input type="text" name="funcao" value="{{ employee.funcao if employee else '' }}" required></label>
+      <label>Telefone<input type="text" name="telefone" value="{{ employee.telefone if employee else '' }}"></label>
+      <label>E-mail<input type="email" name="email" value="{{ employee.email if employee else '' }}"></label>
+    </div>
+    <label>Observações<textarea name="observacoes">{{ employee.observacoes if employee else '' }}</textarea></label>
+    <label class="checkbox"><input type="checkbox" name="ativo" {% if not employee or employee.ativo %}checked{% endif %}>Ativo</label>
+    <div class="actions"><button type="submit">Salvar</button><a class="button secondary" href="{{ url_for('web.employees_index') }}">Cancelar</a></div>
+  </form>
+</div>
+{% endblock %}

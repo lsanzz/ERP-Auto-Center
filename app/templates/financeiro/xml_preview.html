@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>Pré-visualização da NF-e XML</h2><p class="muted">Confira exatamente quais dados serão importados e qual lançamento financeiro será criado.</p></div></div>
+<div class="grid grid-2">
+  <div class="card section-card">
+    <h3>Resumo da nota</h3>
+    <div class="kv"><strong>Chave de acesso</strong><span>{{ parsed.chave_acesso }}</span></div>
+    <div class="kv"><strong>Número / série</strong><span>{{ parsed.numero }}/{{ parsed.serie }}</span></div>
+    <div class="kv"><strong>Emitente</strong><span>{{ parsed.emitente_nome }}{% if parsed.emitente_cnpj %} · {{ parsed.emitente_cnpj }}{% endif %}</span></div>
+    <div class="kv"><strong>Destinatário</strong><span>{{ parsed.destinatario_nome }}{% if parsed.destinatario_cnpj %} · {{ parsed.destinatario_cnpj }}{% endif %}</span></div>
+    <div class="kv"><strong>Emissão</strong><span>{{ parsed.issued_at|date_br if parsed.issued_at else '-' }}</span></div>
+    <div class="kv"><strong>Total</strong><span>{{ format_currency(parsed.total_nota) }}</span></div>
+    <div class="kv"><strong>Natureza</strong><span>{{ parsed.natureza_operacao or '-' }}</span></div>
+    {% if existing %}<div class="flash warning">Este XML já foi importado anteriormente como registro #{{ existing.id }}.</div>{% endif %}
+  </div>
+  <div class="card section-card">
+    <h3>O que será gerado ao confirmar</h3>
+    <ul class="bullet-list">
+      <li>Cadastro/atualização do fornecedor pelo CNPJ do emitente</li>
+      <li>Registro interno da NF-e com todos os itens e o XML bruto</li>
+      <li>Conta a pagar no financeiro vinculada ao XML</li>
+    </ul>
+    <form method="post" action="{{ url_for('web.finance_import_xml_confirm') }}">
+      <input type="hidden" name="raw_xml_b64" value="{{ raw_xml_b64 }}">
+      <button type="submit" {% if existing %}disabled{% endif %}>Confirmar importação</button>
+      <a class="button secondary" href="{{ url_for('web.finance_index') }}">Cancelar</a>
+    </form>
+  </div>
+</div>
+<div class="table-card section-card" style="margin-top:18px;">
+  <h3>Itens que serão importados</h3>
+  <table class="table"><thead><tr><th>Código</th><th>Descrição</th><th>Qtd.</th><th>Valor un.</th><th>Total</th></tr></thead><tbody>
+    {% for item in parsed.itens %}
+      <tr><td>{{ item.codigo }}</td><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ format_currency(item.valor_unitario) }}</td><td>{{ format_currency(item.valor_total) }}</td></tr>
+    {% else %}
+      <tr><td colspan="5">Nenhum item encontrado no XML.</td></tr>
+    {% endfor %}
+  </tbody></table>
+</div>
+{% endblock %}

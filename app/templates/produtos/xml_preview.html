@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="eyebrow">ARQUIVO NF-E</span>
+    <h2>Importar nota fiscal de entrada</h2>
+    <p class="muted">Revise os dados da NF-e e cadastre o estoque/preços antes de salvar.</p>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('web.products_import_xml_confirm') }}">
+    <input type="hidden" name="raw_xml_b64" value="{{ raw_xml_b64 }}">
+
+  <!-- 1. Informações da NF-e -->
+  <div class="card section-card">
+    <h3>Informações da NF-e</h3>
+    <div class="form-grid-4">
+      <div class="kv"><strong>Natureza da Operação</strong><span>{{ parsed.natureza_operacao }}</span></div>
+      <div class="kv"><strong>Série / NF</strong><span>{{ parsed.serie }} / {{ parsed.numero }}</span></div>
+      <div class="kv"><strong>Data emissão</strong><span>{{ parsed.issued_at|date_br if parsed.issued_at else '-' }}</span></div>
+      <div class="kv"><strong>Chave de acesso</strong><span style="font-size: 0.8em; word-break: break-all;">{{ parsed.chave_acesso }}</span></div>
+    </div>
+  </div>
+
+  <!-- 2. Dados do Emitente -->
+  <div class="card section-card" style="margin-top: 18px;">
+    <h3>Dados do emitente</h3>
+    <div class="form-grid-4">
+      <div class="kv"><strong>Razão social</strong><span>{{ parsed.emitente_nome }}</span></div>
+      <div class="kv"><strong>Nome fantasia</strong><span>{{ parsed.emitente_fantasia }}</span></div>
+      <div class="kv"><strong>CNPJ / CPF</strong><span>{{ parsed.emitente_cnpj }}</span></div>
+      <div class="kv"><strong>Inscrição estadual</strong><span>{{ parsed.emitente_ie }}</span></div>
+      <div class="kv"><strong>Endereço</strong><span>{{ parsed.emitente_endereco }}</span></div>
+      <div class="kv"><strong>Bairro</strong><span>{{ parsed.emitente_bairro }}</span></div>
+      <div class="kv"><strong>CEP</strong><span>{{ parsed.emitente_cep }}</span></div>
+      <div class="kv"><strong>Cidade / Estado</strong><span>{{ parsed.emitente_cidade }}</span></div>
+      <div class="kv"><strong>Telefone</strong><span>{{ parsed.emitente_telefone or '-' }}</span></div>
+      <div class="kv"><strong>Fornecedor cadastrado?</strong><span>{{ parsed.fornecedor_cadastrado }}</span></div>
+    </div>
+  </div>
+
+  <!-- 3. Produtos (Cards estilo Vhsys) -->
+  <h3 style="margin-top: 24px; margin-bottom: 12px;">Produtos</h3>
+  {% for item in parsed.itens %}
+  <div class="card subcard" style="margin-bottom: 12px; border-left: 4px solid var(--primary-color);">
+    <div class="form-grid-4">
+      <div class="kv"><strong>Código</strong><span>{{ item.codigo }}</span></div>
+      <div class="kv" style="grid-column: span 2;"><strong>Descrição do produto</strong>
+        <input type="text" name="nome[]" value="{{ item.nome_sugerido }}" style="width: 100%; margin-top: 4px;" required>
+      </div>
+      <div class="kv"><strong>NCM / CFOP</strong><span>{{ item.ncm }} / {{ item.cfop }}</span></div>
+      
+      <div class="kv"><strong>Unidade</strong>
+        <input type="text" name="unidade[]" value="{{ item.unidade }}" style="width: 100%; margin-top: 4px;" required>
+      </div>
+      <div class="kv"><strong>Quantidade</strong><span>{{ item.quantidade }}</span></div>
+      <div class="kv"><strong>Valor unitário</strong><span>{{ format_currency(item.valor_unitario) }}</span></div>
+      <div class="kv"><strong>Valor total</strong><span>{{ format_currency(item.valor_total) }}</span></div>
+    </div>
+    
+    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 12px 0;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+      <div>
+        {% if item.exists %}
+          <span class="status-badge status-entregue"><span class="status-dot"></span>Produto já cadastrado (Atualizar Custo/Preço)</span>
+          <input type="hidden" name="importar[]" value="{{ item.codigo }}">
+        {% else %}
+          <label class="checkbox" style="color: var(--danger-color); font-weight: 500;">
+            <input type="checkbox" name="importar[]" value="{{ item.codigo }}" checked>
+            Este produto não possui cadastro, deseja cadastrá-lo?
+          </label>
+        {% endif %}
+        <input type="hidden" name="codigo[]" value="{{ item.codigo }}">
+        <!-- O custo unitário é mantido escondido para processamento no backend -->
+        <input type="hidden" class="custo-base" name="custo[]" value="{{ item.valor_unitario }}">
+      </div>
+      
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <label style="display: flex; flex-direction: column; width: 100px;">
+          <span style="font-size: 0.85em; font-weight: 600;">Margem (%)</span>
+          <input type="number" step="0.01" class="margem-input" value="{{ '%.2f'|format(item.margem_sugerida) }}">
+        </label>
+        <label style="display: flex; flex-direction: column; width: 140px;">
+          <span style="font-size: 0.85em; font-weight: 600;">Valor venda (R$)</span>
+          <input type="number" step="0.01" name="preco_venda[]" class="venda-input" value="{{ '%.2f'|format(item.preco_venda_sugerido) }}" required>
+        </label>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card"><p class="muted">Nenhum item válido encontrado no XML.</p></div>
+  {% endfor %}
+
+  <!-- 4. Totais -->
+  <div class="card section-card" style="margin-top: 18px;">
+    <h3>Totais</h3>
+    <div class="grid grid-4">
+      <div class="stat"><span>Total dos produtos</span><strong>{{ format_currency(parsed.total_produtos) }}</strong></div>
+      <div class="stat"><span>Valor do Frete</span><strong>{{ format_currency(parsed.total_frete) }}</strong></div>
+      <div class="stat"><span>Desconto</span><strong>{{ format_currency(parsed.total_desconto) }}</strong></div>
+      <div class="stat"><span>Valor do IPI</span><strong>{{ format_currency(parsed.total_ipi) }}</strong></div>
+      <div class="stat accent-red" style="grid-column: span 4;"><span>Total da nota</span><strong>{{ format_currency(parsed.total_nota) }}</strong></div>
+    </div>
+  </div>
+
+  <!-- 5. Faturas -->
+<div class="card section-card" style="margin-top: 18px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; flex-wrap: wrap; gap: 12px;">
+      <h3 style="margin: 0;">Faturas / Duplicatas</h3>
+      
+      <!-- Novo Input de Vencimento -->
+      <label style="display: flex; flex-direction: column; width: 240px;">
+        <span style="font-size: 0.85em; font-weight: 600;">Data de Vencimento (Opcional)</span>
+        <input type="date" name="vencimento_padrao" style="padding: 8px; margin-top: 4px; border: 1px solid var(--border-color); border-radius: 4px;">
+        <span class="muted small" style="font-weight: normal; margin-top: 4px; line-height: 1.2;">Define ou substitui o vencimento padrão da NF-e no financeiro.</span>
+      </label>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Duplicata</th>
+          <th>Vencimento do XML</th>
+          <th>Valor (R$)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fatura in parsed.faturas %}
+        <tr>
+          <td>{{ fatura.numero }}</td>
+          <td>{{ fatura.vencimento|date_br if fatura.vencimento else '-' }}</td>
+          <td>{{ format_currency(fatura.valor) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">Nenhuma fatura encontrada. O lançamento terá a data do XML ou a data informada acima.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted small" style="margin-top: 8px;">Atenção: A integração financeira desta nota deve ser confirmada ao clicar em "Confirmar Entrada".</p>
+  </div>
+
+  <div class="actions" style="margin-top: 24px; margin-bottom: 40px;">
+    <button type="submit" class="success" style="padding: 12px 24px; font-size: 1.1em;">Confirmar Entrada de Mercadoria</button>
+    <a class="button secondary" href="{{ url_for('web.products_index') }}">Cancelar</a>
+  </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Script para calcular a Margem e Valor de Venda dinamicamente
+  document.querySelectorAll('.subcard').forEach(card => {
+    const custoInput = card.querySelector('.custo-base');
+    const margemInput = card.querySelector('.margem-input');
+    const vendaInput = card.querySelector('.venda-input');
+
+    if (!custoInput || !margemInput || !vendaInput) return;
+
+    const custo = parseFloat(custoInput.value) || 0;
+
+    // Se o usuário altera a margem, atualiza o valor de venda
+    margemInput.addEventListener('input', () => {
+      const margem = parseFloat(margemInput.value) || 0;
+      const novoVenda = custo + (custo * margem / 100);
+      vendaInput.value = novoVenda.toFixed(2);
+    });
+
+    // Se o usuário altera o valor de venda, atualiza a margem percentual
+    vendaInput.addEventListener('input', () => {
+      const venda = parseFloat(vendaInput.value) || 0;
+      if (custo > 0) {
+        const novaMargem = ((venda - custo) / custo) * 100;
+        margemInput.value = novaMargem.toFixed(2);
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header" style="margin-bottom: 16px;">
+  <div><h2>Financeiro</h2><p class="muted">Gestão de contas, pagamentos e importações.</p></div>
+  <div class="actions" style="display: flex; gap: 8px;">
+     <a class="button secondary" href="{{ url_for('web.finance_index') }}">Lançamentos</a>
+     <a class="button secondary" href="{{ url_for('web.finance_new') }}">Novo Lançamento</a>
+     <a class="button" href="{{ url_for('web.finance_imports') }}">Importações XML/JSON</a>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-top:18px;">
+  <div class="card">
+    <h3>Importar NF-e XML Avulsa</h3>
+    <p class="muted small">Lança despesas diretamente no financeiro sem movimentar os produtos do estoque. <strong>Para comprar peças, utilize <a href="{{ url_for('web.products_index') }}">Peças &gt; Importar XML</a>.</strong></p>
+    <form method="post" action="{{ url_for('web.finance_import_xml_preview') }}" enctype="multipart/form-data" style="margin-top: 18px;">
+      <div class="form-grid-2">
+        <label>Arquivo XML <input type="file" name="xml_file" accept=".xml" required></label>
+      </div>
+      <button type="submit">Pré-visualizar XML</button>
+    </form>
+  </div>
+  
+  <div class="card">
+    <h3>Migração de outro sistema</h3>
+    <p class="muted small">Importe o arquivo JSON do seu sistema antigo (Work Orders, Contas, etc).</p>
+    <form method="post" action="{{ url_for('web.finance_import_other_system_preview') }}" enctype="multipart/form-data" style="margin-top: 18px;">
+      <div class="form-grid-2">
+        <label>Arquivo JSON <input type="file" name="system_file" accept=".json" required></label>
+      </div>
+      <button type="submit">Pré-visualizar Migração</button>
+    </form>
+  </div>
+</div>
+
+<div class="table-card section-card" style="margin-top: 18px;">
+  <h4>Últimos XMLs Importados</h4>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>NF-e</th>
+        <th>Fornecedor / Emitente</th>
+        <th>Total da Nota</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for xml in xml_imports %}
+      <tr>
+        <td>{{ xml.numero }}/{{ xml.serie }}</td>
+        <td>{{ xml.emitente_nome }}</td>
+        <td>{{ format_currency(xml.total_nota) }}</td>
+        <td>
+          <div class="actions" style="margin-top:0;">
+            <a class="button small secondary" href="{{ url_for('web.finance_xml_preview', xml_id=xml.id) }}">Ver nota completa</a>
+            <a class="button small" href="{{ url_for('web.finance_xml_export', xml_id=xml.id) }}">Baixar XML</a>
+            <a class="button small success" href="{{ url_for('web.fiscal_parts_invoice_new', xml_import_id=xml.id, finalidade=4) }}">Devolver compra</a>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4">Nenhum XML importado ainda.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% set pagination = xml_imports_pagination %}{% include '_pagination.html' %}
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .stock-low { color:#c2410c; }.stock-ok { color:#15803d; }
+  .product-actions { display:flex; justify-content:flex-end; position:relative; }
+  .product-menu { position:relative; }
+  .product-menu summary { list-style:none; cursor:pointer; height:36px; padding:0 13px; display:flex; align-items:center; gap:7px; border:1px solid var(--color-graphite); background:var(--color-graphite); color:#fff; font-size:13px; }
+  .product-menu summary::-webkit-details-marker { display:none; }.product-menu summary::after { content:'⌄'; font-size:16px; }
+  .product-menu-panel { position:absolute; right:0; top:calc(100% + 8px); z-index:30; min-width:230px; padding:8px; display:grid; gap:4px; background:#fff; border:1px solid var(--color-mist); border-radius:10px; box-shadow:0 16px 34px rgba(32,32,32,.16); }
+  .product-menu-panel a { width:100%; height:38px; justify-content:flex-start; padding:0 12px; font-size:13px; background:transparent; border:0; color:var(--color-graphite)!important; }
+  .product-menu-panel a:hover { background:var(--color-fog); border-color:transparent; }
+</style>
+<div class="page-header">
+  <div>
+    <h2>Peças</h2>
+    <p class="muted">Catálogo de peças, saldo atual e alertas de reposição.</p>
+  </div>
+  
+  {% if current_user().role == 'ADMINISTRADOR' %}
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <form method="post" action="{{ url_for('web.products_import_xml_preview') }}" enctype="multipart/form-data" style="display: flex; gap: 5px; align-items: center; margin: 0;">
+      <input type="file" name="xml_file" accept=".xml" required style="font-size: 0.9em; padding: 5px;">
+      <button type="submit" class="button secondary">Revisar e Importar XML</button>
+    </form>
+    <a class="button" href="{{ url_for('web.products_new') }}">Nova peça</a>
+  </div>
+  {% endif %}
+</div>
+{% if low_stock_count %}<div class="flash warning" style="margin-bottom:24px;">{{ low_stock_count }} peça(s) estão no estoque mínimo ou abaixo dele.</div>{% endif %}
+<div class="table-card">
+<form method="GET" action="" style="margin-bottom: 25px;">
+    <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
+        
+        <!-- Campo de Texto -->
+        <input type="text" name="q" class="form-control" 
+               style="flex-grow: 1;" 
+               placeholder="Pesquisar..." 
+               value="{{ request.args.get('q', '') }}">
+        
+        <!-- Botão Pesquisar -->
+        <button type="submit" class="btn btn-primary" style="white-space: nowrap;">
+            Pesquisar
+        </button>
+        
+        <!-- Botão Limpar -->
+        {% if request.args.get('q') %}
+            <a href="{{ request.path }}" class="btn" 
+               style="display: flex; align-items: center; background-color: #6c757d; color: white; text-decoration: none; padding: 0 15px; border-radius: 4px; white-space: nowrap;">
+                Limpar
+            </a>
+        {% endif %}
+        
+    </div>
+</form>
+  <table class="table">
+    <thead><tr><th>Código</th><th>Nome</th><th>Categoria</th><th>Estoque</th><th>Venda</th><th>Ativa</th><th style="text-align:right;">Ações</th></tr></thead>
+    <tbody>
+      {% for product in products %}
+      <tr>
+        <td>{{ product.codigo }}</td>
+        <td>{{ product.nome }}</td>
+        <td>{{ product.categoria or '-' }}</td>
+        <td><strong class="{{ 'stock-low' if product.estoque_minimo > 0 and product.estoque_atual <= product.estoque_minimo else 'stock-ok' }}">{{ product.estoque_atual|int }}</strong><span class="muted small"> / mín. {{ product.estoque_minimo|int }}</span></td>
+        <td>{{ format_currency(product.preco_venda) }}</td>
+        <td>{{ 'Sim' if product.ativo else 'Não' }}</td>
+        <td>{% if current_user().role == 'ADMINISTRADOR' %}<div class="product-actions"><a class="button secondary" href="{{ url_for('web.products_edit', product_id=product.id) }}">Editar peça</a></div>{% else %}-{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">Nenhuma peça cadastrada.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include '_pagination.html' %}
+</div>
+{% endblock %}
