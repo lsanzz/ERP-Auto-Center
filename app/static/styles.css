@@ -174,11 +174,20 @@ button.full, .full { width: 100%; }
 .inline-form { display: flex; gap: 8px; align-items: center; }
 .login-body {
   min-height: 100vh; display: grid; place-items: center;
-  background: radial-gradient(circle at top, rgba(197,22,34,.28), #111117 60%);
+  background:
+    radial-gradient(circle at top left, rgba(197, 22, 34, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(255, 77, 87, 0.10), transparent 22%),
+    linear-gradient(180deg, #121317 0%, #0b0c0f 100%);
 }
 .login-card {
-  width: min(420px, calc(100vw - 32px)); background: rgba(21,23,29,0.96); color: var(--text);
-  border-radius: 22px; padding: 30px; box-shadow: var(--shadow); border: 1px solid var(--line);
+  width: min(420px, calc(100vw - 32px));
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 34px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+  color: var(--text);
 }
 .login-card h1 { margin-top: 0; }
 .login-help { margin-top: 14px; display: grid; gap: 4px; color: var(--muted); }
