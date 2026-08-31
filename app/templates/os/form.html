@@ -12,8 +12,8 @@
     left: 0;
     right: 0;
     z-index: 999;
-    background: linear-gradient(180deg, rgba(18,18,20,0.98), rgba(30,30,34,0.96));
-    border: 1px solid rgba(255,255,255,0.12);
+    background: #ffffff;
+    border: 1px solid var(--color-mist);
     border-radius: 12px;
     box-shadow: 0 12px 30px rgba(0,0,0,0.4);
     max-height: 220px;
@@ -23,21 +23,47 @@
   .custom-suggestion-item {
     padding: 10px 14px;
     font-size: 13px;
-    color: var(--text);
+    color: var(--color-graphite);
     cursor: pointer;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid var(--color-mist);
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
   .custom-suggestion-item:hover {
-    background: rgba(197, 22, 34, 0.2);
-    color: #fff;
+    background: var(--color-sand);
+    color: var(--color-graphite);
   }
   .custom-suggestion-item span.price {
     font-family: var(--font-polysans);
-    color: #ff8b92;
+    color: var(--color-graphite);
     font-size: 12px;
+  }
+
+  .item-row input[type="text"],
+  .item-row input[type="number"] {
+    width: 100%;
+    border: 1px solid var(--color-mist);
+    border-radius: 6px;
+    padding: 8px 12px;
+    background: #ffffff;
+    font-size: 14px;
+    color: var(--color-graphite);
+    transition: all 0.2s;
+  }
+  .item-row input[type="text"]:focus,
+  .item-row input[type="number"]:focus {
+    border-color: var(--color-ember-orange);
+    box-shadow: 0 0 0 3px rgba(197, 22, 34, 0.1);
+    outline: none;
+  }
+  .item-row input.item-total-price {
+    font-family: var(--font-polysans);
+    color: var(--color-ember-orange);
+    background: var(--color-canvas-white);
+  }
+  .item-row input.catalog-name {
+    text-transform: uppercase;
   }
 </style>
 
@@ -126,13 +152,13 @@
             <tr class="item-row" data-item-type="SERVICO">
               <td>
                 <div class="custom-autocomplete-wrapper">
-                  <input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent; text-transform: uppercase;" class="catalog-name" type="text" name="servico_descricao[]" value="{{ row.descricao }}" autocomplete="off" required>
+                  <input class="catalog-name" type="text" name="servico_descricao[]" value="{{ row.descricao }}" autocomplete="off" required>
                   <div class="custom-suggestions-box"></div>
                 </div>
               </td>
-              <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent;" class="item-qty" type="number" step="0.01" min="0.01" name="servico_quantidade[]" value="{{ row.quantidade }}"></td>
-              <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent;" class="item-unit-price" type="number" step="0.01" min="0" name="servico_valor_unitario[]" value="{{ row.valor_unitario }}"></td>
-              <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent; font-family: var(--font-polysans); color: var(--color-ember-orange);" class="item-total-price" type="number" step="0.01" min="0" name="servico_total[]" value="{{ row.total }}"></td>
+              <td><input class="item-qty" type="number" step="0.01" min="0.01" name="servico_quantidade[]" value="{{ row.quantidade }}"></td>
+              <td><input class="item-unit-price" type="number" step="0.01" min="0" name="servico_valor_unitario[]" value="{{ row.valor_unitario }}"></td>
+              <td><input class="item-total-price" type="number" step="0.01" min="0" name="servico_total[]" value="{{ row.total }}"></td>
               <td><button type="button" class="secondary remove-item-row" style="height: 30px; padding: 0 10px; font-size: 12px; border: none;">X</button></td>
             </tr>
             {% endfor %}
@@ -161,13 +187,13 @@
             <tr class="item-row" data-item-type="PECA">
               <td>
                 <div class="custom-autocomplete-wrapper">
-                  <input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent; text-transform: uppercase;" class="catalog-name" type="text" name="peca_descricao[]" value="{{ row.descricao }}" autocomplete="off" required>
+                  <input class="catalog-name" type="text" name="peca_descricao[]" value="{{ row.descricao }}" autocomplete="off" required>
                   <div class="custom-suggestions-box"></div>
                 </div>
               </td>
-              <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent;" class="item-qty" type="number" step="0.01" min="0.01" name="peca_quantidade[]" value="{{ row.quantidade }}"></td>
-              <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent;" class="item-unit-price" type="number" step="0.01" min="0" name="peca_valor_unitario[]" value="{{ row.valor_unitario }}"></td>
-              <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent; font-family: var(--font-polysans); color: var(--color-ember-orange);" class="item-total-price" type="number" step="0.01" min="0" name="peca_total[]" value="{{ row.total }}"></td>
+              <td><input class="item-qty" type="number" step="0.01" min="0.01" name="peca_quantidade[]" value="{{ row.quantidade }}"></td>
+              <td><input class="item-unit-price" type="number" step="0.01" min="0" name="peca_valor_unitario[]" value="{{ row.valor_unitario }}"></td>
+              <td><input class="item-total-price" type="number" step="0.01" min="0" name="peca_total[]" value="{{ row.total }}"></td>
               <td><button type="button" class="secondary remove-item-row" style="height: 30px; padding: 0 10px; font-size: 12px; border: none;">X</button></td>
             </tr>
             {% endfor %}
@@ -240,13 +266,13 @@
   <tr class="item-row" data-item-type="SERVICO">
     <td>
       <div class="custom-autocomplete-wrapper">
-        <input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent; text-transform: uppercase;" class="catalog-name" type="text" name="servico_descricao[]" autocomplete="off" required>
+        <input class="catalog-name" type="text" name="servico_descricao[]" autocomplete="off" required>
         <div class="custom-suggestions-box"></div>
       </div>
     </td>
-    <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent;" class="item-qty" type="number" step="0.01" min="0.01" name="servico_quantidade[]" value="1.00"></td>
-    <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent;" class="item-unit-price" type="number" step="0.01" min="0" name="servico_valor_unitario[]" value="0.00"></td>
-    <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent; font-family: var(--font-polysans); color: var(--color-ember-orange);" class="item-total-price" type="number" step="0.01" min="0" name="servico_total[]" value="0.00"></td>
+    <td><input class="item-qty" type="number" step="0.01" min="0.01" name="servico_quantidade[]" value="1.00"></td>
+    <td><input class="item-unit-price" type="number" step="0.01" min="0" name="servico_valor_unitario[]" value="0.00"></td>
+    <td><input class="item-total-price" type="number" step="0.01" min="0" name="servico_total[]" value="0.00"></td>
     <td><button type="button" class="secondary remove-item-row" style="height: 30px; padding: 0 10px; font-size: 12px; border: none;">X</button></td>
   </tr>
 </template>
@@ -255,13 +281,13 @@
   <tr class="item-row" data-item-type="PECA">
     <td>
       <div class="custom-autocomplete-wrapper">
-        <input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent; text-transform: uppercase;" class="catalog-name" type="text" name="peca_descricao[]" autocomplete="off" required>
+        <input class="catalog-name" type="text" name="peca_descricao[]" autocomplete="off" required>
         <div class="custom-suggestions-box"></div>
       </div>
     </td>
-    <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent;" class="item-qty" type="number" step="0.01" min="0.01" name="peca_quantidade[]" value="1.00"></td>
-    <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent;" class="item-unit-price" type="number" step="0.01" min="0" name="peca_valor_unitario[]" value="0.00"></td>
-    <td><input style="width: 100%; border: 1px solid transparent; border-bottom: 1px solid var(--color-mist); background: transparent; font-family: var(--font-polysans); color: var(--color-ember-orange);" class="item-total-price" type="number" step="0.01" min="0" name="peca_total[]" value="0.00"></td>
+    <td><input class="item-qty" type="number" step="0.01" min="0.01" name="peca_quantidade[]" value="1.00"></td>
+    <td><input class="item-unit-price" type="number" step="0.01" min="0" name="peca_valor_unitario[]" value="0.00"></td>
+    <td><input class="item-total-price" type="number" step="0.01" min="0" name="peca_total[]" value="0.00"></td>
     <td><button type="button" class="secondary remove-item-row" style="height: 30px; padding: 0 10px; font-size: 12px; border: none;">X</button></td>
   </tr>
 </template>
