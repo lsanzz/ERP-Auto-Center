@@ -332,7 +332,7 @@ def clients_index():
         )
     
     clientes = query.order_by(Client.nome).limit(100).all()
-    return render_template('clientes.html', clientes=clientes)
+    return render_template('clientes/index.html', clientes=clientes)
 
 
 @web_bp.get('/api/cep/<cep>')

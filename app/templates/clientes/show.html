@@ -27,7 +27,7 @@
   <table class="table">
     <thead><tr><th>O.S.</th><th>Veículo</th><th>Status</th><th>Entrada</th><th>Total</th></tr></thead>
     <tbody>
-      {% for order in history %}
+      {% for order in history.work_orders %}
       <tr>
         <td><a href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">{{ order.numero }}</a></td>
         <td>{{ order.placa or '-' }}{% if order.veiculo_descricao %} · {{ order.veiculo_descricao }}{% endif %}</td>
