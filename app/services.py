@@ -455,3 +455,95 @@ def dashboard_data(user_role: str = 'ADMINISTRADOR') -> dict:
         'bank_accounts_total': bank_accounts_total if user_role == 'ADMINISTRADOR' else None,
         'services_rank': services_rank(),
     }
+
+
+def daily_cash_summary() -> dict:
+    today = date.today()
+    recebidos = Decimal('0')
+    pagos = Decimal('0')
+    entries = FinancialEntry.query.filter(FinancialEntry.payment_receipt_at == today).all()
+    for entry in entries:
+        if entry.entry_type == 'RECEBER' and entry.status == 'RECEBIDO':
+            recebidos += parse_decimal(entry.valor)
+        if entry.entry_type == 'PAGAR' and entry.status == 'PAGO':
+            pagos += parse_decimal(entry.valor)
+    return {'recebidos': recebidos, 'pagos': pagos, 'saldo': recebidos - pagos}
+
+
+def create_financial_entries(
+    entry_type: str,
+    descricao: str,
+    categoria: str | None,
+    valor_total,
+    vencimento,
+    status: str = 'PENDENTE',
+    payment_method_id: int | None = None,
+    bank_account_id: int | None = None,
+    reference_type: str | None = None,
+    reference_id: int | None = None,
+    installment_count: int = 1,
+    payment_receipt_at=None,
+) -> list[FinancialEntry]:
+    due_date = parse_date(vencimento) or date.today()
+    installment_count = max(int(installment_count or 1), 1)
+    values = split_installments(valor_total, installment_count)
+    entries: list[FinancialEntry] = []
+    normalized_status = status or 'PENDENTE'
+    for number, value in enumerate(values, start=1):
+        label = descricao
+        if installment_count > 1:
+            label = f'{descricao} ({number}/{installment_count})'
+        entry = FinancialEntry(
+            entry_type=entry_type,
+            descricao=label,
+            categoria=categoria,
+            valor=value,
+            vencimento=add_months(due_date, number - 1),
+            status=normalized_status,
+            payment_method_id=payment_method_id,
+            bank_account_id=bank_account_id,
+            installment_number=number,
+            installment_total=installment_count,
+            reference_type=reference_type,
+            reference_id=reference_id,
+        )
+        db.session.add(entry)
+        entries.append(entry)
+
+    db.session.flush()
+    if normalized_status in {'RECEBIDO', 'PAGO'}:
+        for entry in entries:
+            settle_financial_entry(entry, payment_method_id=payment_method_id, payment_receipt_at=payment_receipt_at or entry.vencimento, bank_account_id=bank_account_id)
+    return entries
+
+
+def dashboard_data(user_role: str = 'ADMINISTRADOR') -> dict:
+    closed_statuses = ['FINALIZADA', 'ENTREGUE', 'CANCELADA']
+    os_abertas = WorkOrder.query.filter(~WorkOrder.status.in_(closed_statuses)).count()
+    os_andamento = WorkOrder.query.filter(WorkOrder.status == 'EM_ANDAMENTO').count()
+
+    faturamento_dia = Decimal('0')
+    if user_role == 'ADMINISTRADOR':
+        entries = FinancialEntry.query.filter(
+            FinancialEntry.entry_type == 'RECEBER',
+            FinancialEntry.status == 'RECEBIDO',
+            FinancialEntry.payment_receipt_at == date.today(),
+        ).all()
+        for entry in entries:
+            faturamento_dia += parse_decimal(entry.valor)
+
+    bank_accounts = []
+    bank_accounts_total = None
+    if user_role == 'ADMINISTRADOR':
+        bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all()
+        bank_accounts_total = sum(parse_decimal(account.saldo_atual) for account in bank_accounts)
+
+    return {
+        'os_abertas': os_abertas,
+        'os_andamento': os_andamento,
+        'faturamento_dia': faturamento_dia if user_role == 'ADMINISTRADOR' else None,
+        'caixa_diario': daily_cash_summary() if user_role == 'ADMINISTRADOR' else None,
+        'bank_accounts': bank_accounts if user_role == 'ADMINISTRADOR' else [],
+        'bank_accounts_total': bank_accounts_total if user_role == 'ADMINISTRADOR' else None,
+        'services_rank': services_rank(),
+    }
