@@ -2336,7 +2336,15 @@ def reports_index():
     # Filtros
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
-    status_filter = request.args.get('status', 'FINALIZADAS')
+    date_type = request.args.get('date_type', 'data_entrada')
+    client_id = request.args.get('client_id')
+    employee_id = request.args.get('employee_id')
+    placa = request.args.get('placa', '').strip()
+    status_filter = request.args.getlist('status')
+    if not status_filter:
+        status_filter = ['FINALIZADA', 'ENTREGUE']
+    show_items = request.args.get('show_items', 'both')
+    is_faturada = request.args.get('is_faturada', '')
     
     today = date.today()
     if not start_date_str:
@@ -2349,50 +2357,88 @@ def reports_index():
     else:
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         
-    query = WorkOrder.query.filter(WorkOrder.data_entrada >= start_date, WorkOrder.data_entrada <= end_date)
+    query = WorkOrder.query
     
-    if status_filter == 'FINALIZADAS':
-        query = query.filter(WorkOrder.status.in_(['FINALIZADA', 'ENTREGUE']))
-    elif status_filter == 'ABERTAS':
-        query = query.filter(WorkOrder.status.in_(['ABERTA', 'EM ANDAMENTO', 'AGUARDANDO PEÇA']))
+    if date_type == 'data_saida':
+        query = query.filter(WorkOrder.data_saida >= start_date, WorkOrder.data_saida <= end_date)
+    else:
+        query = query.filter(WorkOrder.data_entrada >= start_date, WorkOrder.data_entrada <= end_date)
         
-    orders = query.order_by(WorkOrder.data_entrada.desc()).all()
+    if client_id:
+        query = query.filter(WorkOrder.client_id == client_id)
+    if employee_id:
+        query = query.filter(WorkOrder.employee_id == employee_id)
+    if placa:
+        query = query.filter(WorkOrder.placa.ilike(f'%{placa}%'))
+    if status_filter and 'TODOS' not in status_filter:
+        query = query.filter(WorkOrder.status.in_(status_filter))
+        
+    orders_raw = query.order_by(WorkOrder.data_entrada.desc()).all()
     
-    # Aggregation
+    # Process orders based on show_items and faturada
+    orders = []
     total_servicos = Decimal('0')
     total_pecas = Decimal('0')
+    total_desconto = Decimal('0')
     total_geral = Decimal('0')
     
-    item_stats = {}
-    
-    for order in orders:
-        total_servicos += order.total_servicos
-        total_pecas += order.total_pecas
-        total_geral += order.total_geral
-        
+    for order in orders_raw:
+        has_payments = len(order.payments) > 0
+        if is_faturada == 'S' and not has_payments:
+            continue
+        if is_faturada == 'N' and has_payments:
+            continue
+            
+        filtered_items = []
         for item in order.items:
-            key = (item.item_type, item.descricao)
-            if key not in item_stats:
-                item_stats[key] = {'qtd': Decimal('0'), 'total': Decimal('0')}
-            item_stats[key]['qtd'] += item.quantidade
-            item_stats[key]['total'] += item.total
-
-    items_list = []
-    for k, v in item_stats.items():
-        items_list.append({'tipo': k[0], 'descricao': k[1], 'qtd': v['qtd'], 'total': v['total']})
+            if show_items == 'pecas' and item.item_type != 'peca':
+                continue
+            if show_items == 'servicos' and item.item_type != 'servico':
+                continue
+            filtered_items.append(item)
+            
+        if show_items != 'both' and not filtered_items and len(order.items) > 0:
+            continue
+            
+        order.filtered_items = filtered_items
         
-    items_list.sort(key=lambda x: x['total'], reverse=True)
+        o_servicos = sum([i.total for i in filtered_items if i.item_type == 'servico'])
+        o_pecas = sum([i.total for i in filtered_items if i.item_type == 'peca'])
+        o_desconto = sum([i.desconto for i in filtered_items])
+        o_total = o_servicos + o_pecas
+        
+        order.calc_servicos = o_servicos
+        order.calc_pecas = o_pecas
+        order.calc_desconto = o_desconto
+        order.calc_total = o_total
+        
+        total_servicos += o_servicos
+        total_pecas += o_pecas
+        total_desconto += o_desconto
+        total_geral += o_total
+        
+        orders.append(order)
+        
+    clients = Client.query.order_by(Client.nome).all()
+    employees = Employee.query.order_by(Employee.nome).all()
         
     return render_template('relatorios/index.html',
                            orders=orders,
                            start_date=start_date,
                            end_date=end_date,
+                           date_type=date_type,
                            status_filter=status_filter,
+                           client_id=int(client_id) if client_id else '',
+                           employee_id=int(employee_id) if employee_id else '',
+                           placa=placa,
+                           show_items=show_items,
+                           is_faturada=is_faturada,
                            total_servicos=total_servicos,
                            total_pecas=total_pecas,
+                           total_desconto=total_desconto,
                            total_geral=total_geral,
-                           items_list=items_list,
-                           clients=Client.query.order_by(Client.nome).all())
+                           clients=clients,
+                           employees=employees).all())
 
 
 
