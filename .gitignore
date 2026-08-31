@@ -1,27 +1,56 @@
-# ambiente
+# ── Ambiente ──────────────────────────────────────────────
 .env
 *.env
+.env.*
 
-# python
+# ── Python ────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 venv/
 .venv/
+*.egg-info/
+dist/
+build/
 
-# banco / backup
+# ── Banco / Backups ───────────────────────────────────────
 *.backup
 *.db
 dump_*.sql
 backup_*.sql
+setup_postgres.sql
 
-# sistema
+# ── Sistema Flask ─────────────────────────────────────────
 instance/
 
-# artefatos gerados
-api-1.json
+# ── Exportações de dados (HTML/CSV de ERP externo) ────────
+*-[0-9]*.html
+*_[0-9]*.html
+*_[0-9]*.csv
+Clientes*.html
+Clientes*.csv
+ContasPag*.html
+ContasRec*.html
+Entrada*.html
+NotasVenda*.html
+OrdemServico*.html
+
+# ── PDFs de exemplo / documentos gerados ─────────────────
+sample_*.pdf
+*.pdf
+
+# ── Scripts de utilitário local ───────────────────────────
+export_sqlite_dump.py
+tmp/
+
+# ── Arquivos JSON de API / testes locais ─────────────────
+api-*.json
 scripts/*.json
 scripts/*.csv
-app/__pycache__/
-tests/__pycache__/
+
+# ── IDE / OS ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
