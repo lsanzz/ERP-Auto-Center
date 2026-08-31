@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login · {{ system_settings.company_name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=2">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=3">
   <style>
     /* Forçar estilos do login para ignorar cache antigo do CSS */
     .login-body {
@@ -21,17 +22,27 @@
       padding: 40px !important;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
       color: #17191f !important;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .login-logo {
+      width: 140px;
+      height: auto;
+      margin-bottom: 24px;
     }
     .login-card h1 {
       margin-top: 0;
       color: #17191f !important;
       font-size: 24px;
       text-align: center;
+      margin-bottom: 8px;
     }
     .login-card p {
       color: #64748b !important;
       text-align: center;
       margin-bottom: 24px;
+      width: 100%;
     }
     .login-card label {
       display: grid;
@@ -39,6 +50,11 @@
       color: #475569 !important;
       font-size: 14px;
       font-weight: 500;
+      width: 100%;
+      text-align: left;
+    }
+    .login-card form {
+      width: 100%;
     }
     .login-card input {
       width: 100%;
@@ -50,8 +66,8 @@
       transition: all 0.2s;
     }
     .login-card input:focus {
-      border-color: #f04452 !important;
-      box-shadow: 0 0 0 3px rgba(240,68,82,0.1) !important;
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.1) !important;
       outline: none;
     }
     .login-card button {
@@ -73,12 +89,12 @@
 </head>
 <body class="login-body">
   <div class="login-card">
-    <h1>{{ system_settings.company_name }}</h1>
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ system_settings.company_name }}" class="login-logo">
     <p>Faça login para acessar o sistema.</p>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-        <div class="flash {{ category }}" style="background: #fee2e2; color: #b91c1c; border-color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; text-align: center;">
+        <div class="flash {{ category }}" style="background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; text-align: center; width: 100%;">
           {{ message }}
         </div>
         {% endfor %}
