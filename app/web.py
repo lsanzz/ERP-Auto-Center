@@ -2327,7 +2327,7 @@ def services_delete(service_id):
 
 @web_bp.route('/relatorios')
 @login_required
-@roles_required('ADMINISTRADOR')
+@admin_required
 def reports_index():
     from datetime import datetime, date, timedelta
     from sqlalchemy import func
@@ -2438,7 +2438,7 @@ def employees_delete(employee_id: int):
 
 @web_bp.route('/relatorios/exportar-xml', methods=['GET'])
 @login_required
-@roles_required('ADMINISTRADOR')
+@admin_required
 def reports_export_xml():
     import io
     import zipfile
