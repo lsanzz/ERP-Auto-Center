@@ -4,7 +4,72 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login · {{ system_settings.company_name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=2">
+  <style>
+    /* Forçar estilos do login para ignorar cache antigo do CSS */
+    .login-body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #f6f7f9 !important; /* Fundo claro para combinar com as telas operacionais */
+    }
+    .login-card {
+      width: min(420px, calc(100vw - 32px));
+      background: #ffffff !important;
+      border: 1px solid #e2e8f0 !important;
+      border-radius: 12px !important;
+      padding: 40px !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+      color: #17191f !important;
+    }
+    .login-card h1 {
+      margin-top: 0;
+      color: #17191f !important;
+      font-size: 24px;
+      text-align: center;
+    }
+    .login-card p {
+      color: #64748b !important;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .login-card label {
+      display: grid;
+      gap: 6px;
+      color: #475569 !important;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .login-card input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px !important;
+      border: 1px solid #cbd5e1 !important;
+      background: #ffffff !important;
+      color: #1e293b !important;
+      transition: all 0.2s;
+    }
+    .login-card input:focus {
+      border-color: #f04452 !important;
+      box-shadow: 0 0 0 3px rgba(240,68,82,0.1) !important;
+      outline: none;
+    }
+    .login-card button {
+      width: 100%;
+      margin-top: 12px;
+      padding: 14px !important;
+      border-radius: 8px !important;
+      background: #17191f !important;
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      font-size: 16px !important;
+      border: none !important;
+      cursor: pointer;
+    }
+    .login-card button:hover {
+      background: #2d3748 !important;
+    }
+  </style>
 </head>
 <body class="login-body">
   <div class="login-card">
@@ -13,18 +78,20 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-        <div class="flash {{ category }}">{{ message }}</div>
+        <div class="flash {{ category }}" style="background: #fee2e2; color: #b91c1c; border-color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; text-align: center;">
+          {{ message }}
+        </div>
         {% endfor %}
       {% endif %}
     {% endwith %}
-    <form method="post" class="action-form" style="display: grid; gap: 20px; margin-top: 24px;">
-      <label style="display: grid; gap: 8px; color: var(--muted); font-size: 14px;">Usuário
-        <input type="text" name="username" required>
+    <form method="post" style="display: grid; gap: 16px;">
+      <label>Usuário
+        <input type="text" name="username" required autocomplete="username">
       </label>
-      <label style="display: grid; gap: 8px; color: var(--muted); font-size: 14px;">Senha
-        <input type="password" name="password" required>
+      <label>Senha
+        <input type="password" name="password" required autocomplete="current-password">
       </label>
-      <button type="submit" style="margin-top: 8px; padding: 14px; font-size: 16px; font-weight: 700;">Entrar</button>
+      <button type="submit">Entrar no Sistema</button>
     </form>
   </div>
 </body>
