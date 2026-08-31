@@ -2391,9 +2391,9 @@ def reports_index():
             
         filtered_items = []
         for item in order.items:
-            if show_items == 'pecas' and item.item_type != 'peca':
+            if show_items == 'pecas' and item.item_type != 'PECA':
                 continue
-            if show_items == 'servicos' and item.item_type != 'servico':
+            if show_items == 'servicos' and item.item_type != 'SERVICO':
                 continue
             filtered_items.append(item)
             
@@ -2402,8 +2402,8 @@ def reports_index():
             
         order.filtered_items = filtered_items
         
-        o_servicos = sum([i.total for i in filtered_items if i.item_type == 'servico'])
-        o_pecas = sum([i.total for i in filtered_items if i.item_type == 'peca'])
+        o_servicos = sum([i.total for i in filtered_items if i.item_type == 'SERVICO'])
+        o_pecas = sum([i.total for i in filtered_items if i.item_type == 'PECA'])
         o_desconto = sum([i.desconto for i in filtered_items])
         o_total = o_servicos + o_pecas
         

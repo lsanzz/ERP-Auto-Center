@@ -215,7 +215,7 @@
         <tbody>
           {% for item in os.filtered_items %}
           <tr>
-            <td><span class="status-badge" style="background: var(--color-fog); font-size: 11px; color: var(--color-slate);">{{ 'Peça' if item.item_type == 'peca' else 'Serviço' }}</span></td>
+            <td><span class="status-badge" style="background: var(--color-fog); font-size: 11px; color: var(--color-slate);">{{ 'Peça' if item.item_type == 'PECA' else 'Serviço' }}</span></td>
             <td>{{ item.descricao }}</td>
             <td style="text-align: right;">{{ item.quantidade }}</td>
             <td style="text-align: right;">{{ format_currency(item.valor_unitario) }}</td>
