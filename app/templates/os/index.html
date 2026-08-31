@@ -142,6 +142,11 @@
                       {% endif %}
                       <div class="os-menu-separator"></div>
                       <a class="button secondary" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar ordem</a>
+                      {% if current_user().role == 'ADMINISTRADOR' %}
+                      <form method="post" action="{{ url_for('web.work_orders_delete', work_order_id=order.id) }}" style="margin: 0;" onsubmit="return confirm('Excluir esta Ordem de Serviço do sistema?');">
+                        <button type="submit" class="button secondary os-menu-danger">Excluir</button>
+                      </form>
+                      {% endif %}
                     </div>
                   </details>
                 </div>

@@ -15,8 +15,7 @@
     </form>
     {% endif %}
     <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir O.S.</a>
-    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0, recibo=1) }}" target="_blank">Imprimir recibo completo</a>
-    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}">Baixar PDF</a>
+    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}" download>Baixar PDF</a>
     <a class="button" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar O.S.</a>
   </div>
 </div>
@@ -65,7 +64,22 @@
       <strong style="font-family: var(--font-polysans); font-size: 32px; color: var(--color-ember-orange); letter-spacing: -0.64px;">{{ format_currency(order.total_geral) }}</strong>
     </div>
     
-    {% if order.payment_method %}
+    {% if order.payments and order.payments|length > 0 %}
+    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-mist);">
+      <span class="muted" style="display: block; margin-bottom: 12px;">Formas de pagamento</span>
+      {% for payment in order.payments %}
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+        <strong style="color: var(--color-graphite);">{{ payment.payment_method.nome }}</strong>
+        <div style="text-align: right;">
+          <strong style="color: var(--color-graphite);">{{ format_currency(payment.valor) }}</strong>
+          {% if payment.installment_count and payment.installment_count > 1 %}
+            <span class="muted" style="display: block; font-size: 13px;">({{ payment.installment_count }}x de {{ format_currency((payment.valor / payment.installment_count)) }})</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% elif order.payment_method %}
     <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-mist);">
       <span class="muted" style="display: block; margin-bottom: 4px;">Forma de pagamento</span>
       <strong style="color: var(--color-graphite);">{{ order.payment_method.nome }}</strong>
@@ -87,7 +101,7 @@
       {% if not has_receivables %}
       <form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><button type="submit">Lançar contas</button></form>
       {% else %}
-      <a class="button secondary" href="{{ url_for('web.finance_index') }}">Abrir financeiro</a>
+
       {% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary" style="color:var(--color-ember-orange)!important; border-color:var(--color-ember-orange)!important;">Estornar recebimento</button></form>{% endif %}
       {% endif %}
     </div>

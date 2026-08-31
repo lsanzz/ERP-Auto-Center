@@ -63,7 +63,18 @@
         <td><strong class="{{ 'stock-low' if product.estoque_minimo > 0 and product.estoque_atual <= product.estoque_minimo else 'stock-ok' }}">{{ product.estoque_atual|int }}</strong><span class="muted small"> / mín. {{ product.estoque_minimo|int }}</span></td>
         <td>{{ format_currency(product.preco_venda) }}</td>
         <td>{{ 'Sim' if product.ativo else 'Não' }}</td>
-        <td>{% if current_user().role == 'ADMINISTRADOR' %}<div class="product-actions"><a class="button secondary" href="{{ url_for('web.products_edit', product_id=product.id) }}">Editar peça</a></div>{% else %}-{% endif %}</td>
+        <td>
+          {% if current_user().role == 'ADMINISTRADOR' %}
+          <div class="product-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+            <a class="button secondary" href="{{ url_for('web.products_edit', product_id=product.id) }}">Editar peça</a>
+            <form method="post" action="{{ url_for('web.products_delete', product_id=product.id) }}" style="margin: 0;" onsubmit="return confirm('Inativar esta peça?');">
+              <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
+            </form>
+          </div>
+          {% else %}
+          -
+          {% endif %}
+        </td>
       </tr>
       {% else %}
       <tr><td colspan="7">Nenhuma peça cadastrada.</td></tr>

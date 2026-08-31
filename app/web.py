@@ -880,6 +880,7 @@ def work_orders_new():
             db.session.flush()
             record_work_order_status(order, order.status, current_user().id, 'O.S. cadastrada')
             _sync_work_order_items_from_form(order)
+            _sync_work_order_payments_from_form(order)
             recalculate_work_order_totals(order)
             db.session.commit()
             flash('O.S. cadastrada.', 'success')
@@ -901,6 +902,7 @@ def work_orders_edit(work_order_id: int):
             previous_status = order.status
             _fill_work_order_from_form(order)
             _sync_work_order_items_from_form(order)
+            _sync_work_order_payments_from_form(order)
             if 'status' in request.form and request.form.get('status') in WORK_ORDER_STATUSES:
                 order.status = request.form.get('status')
                 if order.status != previous_status:
@@ -1182,7 +1184,31 @@ def finance_index():
             )
         )
         
-    entries_page = paginate_query(query.order_by(FinancialEntry.vencimento.desc(), FinancialEntry.id.desc()))
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    sort_order = request.args.get('sort_order', 'desc')
+    
+    from datetime import datetime
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            query = query.filter(FinancialEntry.vencimento >= start_date)
+        except ValueError:
+            pass
+            
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            query = query.filter(FinancialEntry.vencimento <= end_date)
+        except ValueError:
+            pass
+            
+    if sort_order == 'asc':
+        query = query.order_by(FinancialEntry.vencimento.asc(), FinancialEntry.id.asc())
+    else:
+        query = query.order_by(FinancialEntry.vencimento.desc(), FinancialEntry.id.desc())
+        
+    entries_page = paginate_query(query)
     entries = entries_page['items']
     
     work_order_ids = {entry.reference_id for entry in entries if entry.reference_type == 'OS' and entry.reference_id}
@@ -2032,7 +2058,7 @@ def _item_rows_for_template(order: WorkOrder | None, prefix: str, item_type: str
         if rows:
             return rows
 
-    return [{'descricao': '', 'quantidade': '1.00', 'valor_unitario': '0.00', 'total': '0.00'}]
+    return []
 
 
 def _extract_work_order_items_from_form(prefix: str, item_type: str) -> list[dict]:
@@ -2062,6 +2088,51 @@ def _extract_work_order_items_from_form(prefix: str, item_type: str) -> list[dic
             }
         )
     return items
+
+
+def _sync_work_order_payments_from_form(order: WorkOrder) -> None:
+    if current_user() and current_user().role != 'ADMINISTRADOR':
+        return
+
+    from .models import WorkOrderPayment, PaymentMethod
+    from .utils import parse_decimal
+    from decimal import Decimal
+    
+    methods = request.form.getlist('payment_method_id[]')
+    values = request.form.getlist('payment_value[]')
+    installments = request.form.getlist('payment_installments[]')
+
+    if methods and len(methods) > 0 and methods[0]:
+        order.payments.clear()
+        
+        for i in range(len(methods)):
+            if not methods[i]:
+                continue
+            method_id = int(methods[i])
+            val = parse_decimal(values[i]) if i < len(values) else Decimal('0')
+            if val <= 0:
+                continue
+                
+            inst = int(installments[i]) if i < len(installments) and installments[i] else 1
+            
+            method = db.session.get(PaymentMethod, method_id)
+            if not method:
+                continue
+            if not method.permite_parcelamento:
+                inst = 1
+            else:
+                max_inst = max(method.parcelas_maximas or 1, 1)
+                inst = min(max(inst, 1), max_inst)
+                
+            payment = WorkOrderPayment(
+                payment_method_id=method_id,
+                valor=val,
+                installment_count=inst
+            )
+            order.payments.append(payment)
+        
+        order.payment_method_id = None
+        order.installment_count = 1
 
 
 def _sync_work_order_items_from_form(order: WorkOrder) -> None:
@@ -2223,3 +2294,194 @@ def _resolve_item_payload(source) -> tuple[str, int]:
     if not reference_id:
         raise ValueError('Selecione um item do catálogo.')
     return normalized_type, int(reference_id)
+
+
+@web_bp.post('/produtos/<int:product_id>/excluir')
+@login_required
+@admin_required
+def products_delete(product_id):
+    produto = db.session.get(Product, product_id)
+    if not produto:
+        flash('Produto não encontrado.', 'error')
+        return redirect(url_for('web.products_index'))
+    
+    produto.ativo = False
+    db.session.commit()
+    flash('Produto inativado com sucesso.', 'success')
+    return redirect(url_for('web.products_index'))
+
+@web_bp.post('/servicos/<int:service_id>/excluir')
+@login_required
+@admin_required
+def services_delete(service_id):
+    servico = db.session.get(Service, service_id)
+    if not servico:
+        flash('Serviço não encontrado.', 'error')
+        return redirect(url_for('web.services_index'))
+    
+    servico.ativo = False
+    db.session.commit()
+    flash('Serviço inativado com sucesso.', 'success')
+    return redirect(url_for('web.services_index'))
+
+
+@web_bp.route('/relatorios')
+@login_required
+@roles_required('ADMINISTRADOR')
+def reports_index():
+    from datetime import datetime, date, timedelta
+    from sqlalchemy import func
+    from decimal import Decimal
+    
+    # Filtros
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    status_filter = request.args.get('status', 'FINALIZADAS')
+    
+    today = date.today()
+    if not start_date_str:
+        start_date = today.replace(day=1)
+    else:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        
+    if not end_date_str:
+        end_date = today
+    else:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        
+    query = WorkOrder.query.filter(WorkOrder.data_entrada >= start_date, WorkOrder.data_entrada <= end_date)
+    
+    if status_filter == 'FINALIZADAS':
+        query = query.filter(WorkOrder.status.in_(['FINALIZADA', 'ENTREGUE']))
+    elif status_filter == 'ABERTAS':
+        query = query.filter(WorkOrder.status.in_(['ABERTA', 'EM ANDAMENTO', 'AGUARDANDO PEÇA']))
+        
+    orders = query.order_by(WorkOrder.data_entrada.desc()).all()
+    
+    # Aggregation
+    total_servicos = Decimal('0')
+    total_pecas = Decimal('0')
+    total_geral = Decimal('0')
+    
+    item_stats = {}
+    
+    for order in orders:
+        total_servicos += order.total_servicos
+        total_pecas += order.total_pecas
+        total_geral += order.total_geral
+        
+        for item in order.items:
+            key = (item.item_type, item.descricao)
+            if key not in item_stats:
+                item_stats[key] = {'qtd': Decimal('0'), 'total': Decimal('0')}
+            item_stats[key]['qtd'] += item.quantidade
+            item_stats[key]['total'] += item.total
+
+    items_list = []
+    for k, v in item_stats.items():
+        items_list.append({'tipo': k[0], 'descricao': k[1], 'qtd': v['qtd'], 'total': v['total']})
+        
+    items_list.sort(key=lambda x: x['total'], reverse=True)
+        
+    return render_template('relatorios/index.html',
+                           orders=orders,
+                           start_date=start_date,
+                           end_date=end_date,
+                           status_filter=status_filter,
+                           total_servicos=total_servicos,
+                           total_pecas=total_pecas,
+                           total_geral=total_geral,
+                           items_list=items_list,
+                           clients=Client.query.order_by(Client.nome).all())
+
+
+
+@web_bp.post('/configuracoes/usuarios/<int:user_id>/excluir')
+@login_required
+@admin_required
+def settings_users_delete(user_id: int):
+    if user_id == current_user().id:
+        flash('Você não pode excluir a si mesmo.', 'error')
+        return redirect(url_for('web.settings_index') + '#acessos')
+        
+    user = db.session.get(User, user_id)
+    if not user:
+        return redirect(url_for('web.settings_index') + '#acessos')
+        
+    if user.role == 'ADMINISTRADOR' and User.query.filter_by(role='ADMINISTRADOR').count() <= 1:
+        flash('Mantenha pelo menos um administrador no sistema.', 'error')
+        return redirect(url_for('web.settings_index') + '#acessos')
+        
+    db.session.delete(user)
+    db.session.commit()
+    flash('Usuário excluído com sucesso.', 'success')
+    return redirect(url_for('web.settings_index') + '#acessos')
+
+
+@web_bp.post('/funcionarios/<int:employee_id>/excluir')
+@login_required
+@admin_required
+def employees_delete(employee_id: int):
+    employee = db.session.get(Employee, employee_id)
+    if not employee:
+        return redirect(url_for('web.employees_index'))
+        
+    if employee.work_orders:
+        flash('Não é possível excluir o funcionário pois ele possui Ordens de Serviço vinculadas. Considere inativá-lo editando o cadastro.', 'error')
+        return redirect(url_for('web.employees_index'))
+        
+    db.session.delete(employee)
+    db.session.commit()
+    flash('Funcionário excluído.', 'success')
+    return redirect(url_for('web.employees_index'))
+
+
+@web_bp.route('/relatorios/exportar-xml', methods=['GET'])
+@login_required
+@roles_required('ADMINISTRADOR')
+def reports_export_xml():
+    import io
+    import zipfile
+    from datetime import datetime
+    
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    client_id = request.args.get('client_id')
+    
+    if not start_date_str or not end_date_str:
+        flash('Datas inicial e final so obrigatrias para exportar XML.', 'error')
+        return redirect(url_for('web.reports_index'))
+        
+    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    
+    query = FiscalDocument.query.filter(
+        FiscalDocument.xml_content.isnot(None)
+    )
+    
+    if client_id:
+        query = query.join(WorkOrder).filter(WorkOrder.client_id == client_id)
+        
+    docs = query.all()
+    # Ps filtro de data por segurana
+    docs = [d for d in docs if d.created_at and start_date <= d.created_at.date() <= end_date]
+    if not docs:
+        flash('Nenhum XML encontrado para os filtros selecionados.', 'warning')
+        return redirect(url_for('web.reports_index'))
+        
+    memory_file = io.BytesIO()
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for doc in docs:
+            content_bytes = doc.xml_content.encode('utf-8') if isinstance(doc.xml_content, str) else doc.xml_content
+            filename = f'NF_{doc.document_type}_{doc.numero or doc.id}.xml'
+            zf.writestr(filename, content_bytes)
+            
+    memory_file.seek(0)
+    return send_file(
+        memory_file,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f'NotasFiscais_{start_date_str}_ate_{end_date_str}.zip'
+    )
+
+

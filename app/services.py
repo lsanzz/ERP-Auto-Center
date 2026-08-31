@@ -258,20 +258,64 @@ def ensure_work_order_receivables(order: WorkOrder) -> list[FinancialEntry]:
     existing = (FinancialEntry.query.filter_by(reference_type='OS', reference_id=order.id).order_by(FinancialEntry.installment_number.asc(), FinancialEntry.id.asc()).all())
     if existing:
         return existing
-    installments = int(order.installment_count or 1)
-    payment_method = order.payment_method
-    if not payment_method or not payment_method.permite_parcelamento:
-        installments = 1
-        order.installment_count = 1
+        
     entries: list[FinancialEntry] = []
-    installment_values = split_installments(order.total_geral, installments)
-    for number, value in enumerate(installment_values, start=1):
-        description = f'Recebimento referente a {order.numero}'
-        if installments > 1:
-            description += f' ({number}/{installments})'
-        entry = FinancialEntry(entry_type='RECEBER', descricao=description, categoria='Ordens de Serviço', valor=value, vencimento=add_months(date.today(), number - 1), status='PENDENTE', payment_method_id=order.payment_method_id, installment_number=number, installment_total=installments, reference_type='OS', reference_id=order.id)
-        db.session.add(entry)
-        entries.append(entry)
+    
+    if getattr(order, 'payments', None) and len(order.payments) > 0:
+        for payment_idx, payment in enumerate(order.payments):
+            installments = int(payment.installment_count or 1)
+            method = payment.payment_method
+            if not method or not method.permite_parcelamento:
+                installments = 1
+                
+            installment_values = split_installments(payment.valor, installments)
+            for number, value in enumerate(installment_values, start=1):
+                description = f'Recebimento referente a {order.numero} ({method.nome})'
+                if installments > 1:
+                    description += f' ({number}/{installments})'
+                entry = FinancialEntry(
+                    entry_type='RECEBER', 
+                    descricao=description, 
+                    categoria='Ordens de Serviço', 
+                    valor=value, 
+                    vencimento=add_months(date.today(), number - 1), 
+                    status='PENDENTE', 
+                    payment_method_id=payment.payment_method_id, 
+                    installment_number=number, 
+                    installment_total=installments, 
+                    reference_type='OS', 
+                    reference_id=order.id
+                )
+                db.session.add(entry)
+                entries.append(entry)
+    else:
+        installments = int(order.installment_count or 1)
+        payment_method = order.payment_method
+        if not payment_method or not payment_method.permite_parcelamento:
+            installments = 1
+            order.installment_count = 1
+            
+        installment_values = split_installments(order.total_geral, installments)
+        for number, value in enumerate(installment_values, start=1):
+            description = f'Recebimento referente a {order.numero}'
+            if installments > 1:
+                description += f' ({number}/{installments})'
+            entry = FinancialEntry(
+                entry_type='RECEBER', 
+                descricao=description, 
+                categoria='Ordens de Serviço', 
+                valor=value, 
+                vencimento=add_months(date.today(), number - 1), 
+                status='PENDENTE', 
+                payment_method_id=order.payment_method_id, 
+                installment_number=number, 
+                installment_total=installments, 
+                reference_type='OS', 
+                reference_id=order.id
+            )
+            db.session.add(entry)
+            entries.append(entry)
+            
     db.session.flush()
     return entries
 
@@ -435,8 +479,8 @@ def create_financial_entries(entry_type, descricao, categoria, valor_total, venc
 
 def dashboard_data(user_role: str = 'ADMINISTRADOR') -> dict:
     closed_statuses = ['FINALIZADA', 'ENTREGUE', 'CANCELADA']
-    os_abertas = WorkOrder.query.filter(~WorkOrder.status.in_(closed_statuses)).count()
-    os_andamento = WorkOrder.query.filter(WorkOrder.status == 'EM_ANDAMENTO').count()
+    os_abertas = WorkOrder.query.filter(~WorkOrder.status.in_(closed_statuses), WorkOrder.data_entrada == date.today()).count()
+    os_andamento = WorkOrder.query.filter(WorkOrder.status == 'EM_ANDAMENTO', WorkOrder.data_entrada == date.today()).count()
     faturamento_dia = Decimal('0')
     if user_role == 'ADMINISTRADOR':
         entries = FinancialEntry.query.filter(FinancialEntry.entry_type == 'RECEBER', FinancialEntry.status == 'RECEBIDO', FinancialEntry.payment_receipt_at == date.today()).all()

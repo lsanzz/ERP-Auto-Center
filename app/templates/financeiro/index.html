@@ -67,11 +67,23 @@
 
 <!-- Barra de Pesquisa Global -->
 <form method="GET" action="" style="margin-bottom: 25px;">
-  <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
-      <input type="text" name="q" class="form-control" style="flex-grow: 1;" placeholder="Pesquisar contas, nf-e..." value="{{ request.args.get('q', '') }}">
-      <button type="submit" class="btn btn-primary" style="white-space: nowrap;">Pesquisar</button>
-      {% if request.args.get('q') %}
-          <a href="{{ request.path }}" class="btn" style="display: flex; align-items: center; background-color: #6c757d; color: white; text-decoration: none; padding: 0 15px; border-radius: 4px; white-space: nowrap;">Limpar</a>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap; width: 100%;">
+      <input type="text" name="q" class="form-control" style="flex-grow: 1; min-width: 200px;" placeholder="Pesquisar contas, nf-e..." value="{{ request.args.get('q', '') }}">
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <label class="muted" style="font-size: 14px;">De:</label>
+        <input type="date" name="start_date" value="{{ request.args.get('start_date', '') }}" style="padding: 8px; border: 1px solid var(--color-mist); border-radius: 4px;">
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <label class="muted" style="font-size: 14px;">Até:</label>
+        <input type="date" name="end_date" value="{{ request.args.get('end_date', '') }}" style="padding: 8px; border: 1px solid var(--color-mist); border-radius: 4px;">
+      </div>
+      <select name="sort_order" style="padding: 8px; border: 1px solid var(--color-mist); border-radius: 4px;">
+        <option value="desc" {% if request.args.get('sort_order', 'desc') == 'desc' %}selected{% endif %}>Data Maior (Mais recentes)</option>
+        <option value="asc" {% if request.args.get('sort_order') == 'asc' %}selected{% endif %}>Data Menor (Mais antigos)</option>
+      </select>
+      <button type="submit" class="button" style="white-space: nowrap; height: auto;">Filtrar</button>
+      {% if request.args.get('q') or request.args.get('start_date') or request.args.get('end_date') %}
+          <a href="{{ request.path }}" class="button secondary" style="display: flex; align-items: center; white-space: nowrap; height: auto;">Limpar</a>
       {% endif %}
   </div>
 </form>

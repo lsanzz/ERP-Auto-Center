@@ -14,7 +14,7 @@
         <td>{{ employee.funcao }}</td>
         <td>{{ employee.telefone or '-' }}</td>
         <td>{{ employee.email or '-' }}</td>
-        <td><a class="button secondary" href="{{ url_for('web.employees_edit', employee_id=employee.id) }}">Editar</a></td>
+        <td><div class="actions" style="margin: 0; display: flex; gap: 8px;"><a class="button secondary small" href="{{ url_for('web.employees_edit', employee_id=employee.id) }}">Editar</a><form method="post" action="{{ url_for('web.employees_delete', employee_id=employee.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este funcionário?');"><button type="submit" class="button secondary small" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button></form></div></td>
       </tr>
       {% else %}
       <tr><td colspan="5">Nenhum funcionário cadastrado.</td></tr>

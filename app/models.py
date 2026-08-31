@@ -340,6 +340,7 @@ class WorkOrder(db.Model, TimestampMixin, SerializableMixin):
     items = db.relationship('WorkOrderItem', back_populates='work_order', cascade='all, delete-orphan', order_by='WorkOrderItem.id')
     checklist = db.relationship('WorkOrderChecklist', back_populates='work_order', uselist=False, cascade='all, delete-orphan')
     status_history = db.relationship('WorkOrderStatusHistory', back_populates='work_order', cascade='all, delete-orphan', order_by='WorkOrderStatusHistory.changed_at.desc()')
+    payments = db.relationship('WorkOrderPayment', back_populates='work_order', cascade='all, delete-orphan', order_by='WorkOrderPayment.id')
 
 
 class WorkOrderStatusHistory(db.Model, SerializableMixin):
@@ -413,3 +414,17 @@ class FinancialEntry(db.Model, TimestampMixin, SerializableMixin):
     bank_account = db.relationship('BankAccount')
 
     payment_method = db.relationship('PaymentMethod', back_populates='financial_entries')
+
+
+class WorkOrderPayment(db.Model, TimestampMixin, SerializableMixin):
+    __tablename__ = 'work_order_payments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    work_order_id = db.Column(db.Integer, db.ForeignKey('work_orders.id'), nullable=False)
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_methods.id'), nullable=False)
+    valor = db.Column(db.Numeric(12, 2), nullable=False)
+    installment_count = db.Column(db.Integer, nullable=False, default=1)
+
+    work_order = db.relationship('WorkOrder', back_populates='payments')
+    payment_method = db.relationship('PaymentMethod')
+

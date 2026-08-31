@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% block page_title %} | Relatórios{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+  <div>
+    <span class="eyebrow">Gestão</span>
+    <h2 class="display">Relatórios</h2>
+  </div>
+</div>
+
+<!-- Filtros -->
+<div class="card" style="margin-bottom: 40px; padding: 24px; background: var(--color-canvas-white); border: 1px solid var(--color-mist); border-radius: 8px;">
+  <form method="get" action="{{ url_for('web.reports_index') }}" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 200px;">
+      <label class="muted" style="display: block; margin-bottom: 8px;">Data Inicial</label>
+      <input type="date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}" style="width: 100%; padding: 12px; border: 1px solid var(--color-mist); border-radius: 4px; font-family: var(--font-inter);">
+    </div>
+    <div style="flex: 1; min-width: 200px;">
+      <label class="muted" style="display: block; margin-bottom: 8px;">Data Final</label>
+      <input type="date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}" style="width: 100%; padding: 12px; border: 1px solid var(--color-mist); border-radius: 4px; font-family: var(--font-inter);">
+    </div>
+    <div style="flex: 1; min-width: 200px;">
+      <label class="muted" style="display: block; margin-bottom: 8px;">Status O.S.</label>
+      <select name="status" style="width: 100%; padding: 12px; border: 1px solid var(--color-mist); border-radius: 4px; font-family: var(--font-inter);">
+        <option value="FINALIZADAS" {% if status_filter == 'FINALIZADAS' %}selected{% endif %}>Finalizadas / Entregues</option>
+        <option value="ABERTAS" {% if status_filter == 'ABERTAS' %}selected{% endif %}>Em Andamento / Abertas</option>
+        <option value="TODAS" {% if status_filter == 'TODAS' %}selected{% endif %}>Todas</option>
+      </select>
+    </div>
+    <div>
+      <button type="submit" class="button" style="height: 45px;">Filtrar</button>
+    </div>
+  </form>
+</div>
+
+<!-- Cards de Resumo -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 40px;">
+  
+  <div class="card" style="padding: 32px; background: var(--color-graphite); color: white; border-radius: 8px;">
+    <span style="font-family: var(--font-polysans); font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-mist); display: block; margin-bottom: 12px;">Total Faturado</span>
+    <strong style="font-family: var(--font-polysans); font-size: 40px; line-height: 1; letter-spacing: -1px; display: block;">
+      {{ format_currency(total_geral) }}
+    </strong>
+  </div>
+
+  <div class="card" style="padding: 32px; background: var(--color-canvas-white); border: 1px solid var(--color-mist); border-radius: 8px;">
+    <span class="muted" style="font-family: var(--font-polysans); font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 12px;">Total Serviços</span>
+    <strong style="font-family: var(--font-polysans); font-size: 40px; line-height: 1; letter-spacing: -1px; color: var(--color-graphite); display: block;">
+      {{ format_currency(total_servicos) }}
+    </strong>
+  </div>
+
+  <div class="card" style="padding: 32px; background: var(--color-canvas-white); border: 1px solid var(--color-mist); border-radius: 8px;">
+    <span class="muted" style="font-family: var(--font-polysans); font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 12px;">Total Peças</span>
+    <strong style="font-family: var(--font-polysans); font-size: 40px; line-height: 1; letter-spacing: -1px; color: var(--color-graphite); display: block;">
+      {{ format_currency(total_pecas) }}
+    </strong>
+  </div>
+
+</div>
+
+<!-- Exportação de XML -->
+<div class="card" style="margin-bottom: 40px; padding: 24px; background: var(--color-canvas-white); border: 1px solid var(--color-mist); border-radius: 8px;">
+  <div style="margin-bottom: 16px;">
+    <h3 style="font-family: var(--font-polysans); color: var(--color-graphite);">Exportar Notas Fiscais (XML)</h3>
+    <p class="muted" style="margin-top: 4px; font-size: 14px;">Baixe em lote os arquivos XML de notas fiscais aprovadas.</p>
+  </div>
+  <form method="get" action="{{ url_for('web.reports_export_xml') }}" class="no-loader" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 150px;">
+      <label class="muted" style="display: block; margin-bottom: 8px;">Data Inicial</label>
+      <input type="date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}" style="width: 100%; padding: 12px; border: 1px solid var(--color-mist); border-radius: 4px; font-family: var(--font-inter);" required>
+    </div>
+    <div style="flex: 1; min-width: 150px;">
+      <label class="muted" style="display: block; margin-bottom: 8px;">Data Final</label>
+      <input type="date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}" style="width: 100%; padding: 12px; border: 1px solid var(--color-mist); border-radius: 4px; font-family: var(--font-inter);" required>
+    </div>
+    <div style="flex: 2; min-width: 250px;">
+      <label class="muted" style="display: block; margin-bottom: 8px;">Cliente</label>
+      <select name="client_id" style="width: 100%; padding: 12px; border: 1px solid var(--color-mist); border-radius: 4px; font-family: var(--font-inter);">
+        <option value="">Todos os clientes</option>
+        {% for c in clients %}
+        <option value="{{ c.id }}">{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <button type="submit" class="button secondary" style="height: 45px; border: 1px solid var(--color-graphite);">Baixar ZIP</button>
+    </div>
+  </form>
+</div>
+
+<!-- Abas -->
+<div style="margin-bottom: 24px; border-bottom: 1px solid var(--color-mist); display: flex; gap: 32px;">
+  <a href="#" class="tab-link active" data-tab="tab-os" style="padding-bottom: 16px; font-family: var(--font-polysans); color: var(--color-graphite); text-decoration: none; border-bottom: 2px solid var(--color-graphite); font-weight: 500;">Ordens de Serviço ({{ orders|length }})</a>
+  <a href="#" class="tab-link" data-tab="tab-items" style="padding-bottom: 16px; font-family: var(--font-polysans); color: var(--color-slate); text-decoration: none; font-weight: 400;">Serviços e Peças Executadas</a>
+</div>
+
+<!-- Tabela OS -->
+<div id="tab-os" class="tab-content" style="display: block;">
+  <div class="table-card">
+    {% if orders %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+      <thead>
+        <tr>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400;">Data</th>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400;">Nº O.S.</th>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400;">Cliente</th>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400; text-align: right;">Serviços</th>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400; text-align: right;">Peças</th>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400; text-align: right;">Total</th>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400; text-align: center;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for os in orders %}
+        <tr>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog);">{{ os.data_entrada.strftime('%d/%m/%Y') }}</td>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog); font-family: var(--font-polysans); font-weight: 500;">{{ os.numero }}</td>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog);">{{ os.client_nome or (os.client.nome if os.client else '-') }}</td>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog); text-align: right;">{{ format_currency(os.total_servicos) }}</td>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog); text-align: right;">{{ format_currency(os.total_pecas) }}</td>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog); text-align: right; color: var(--color-ember-orange); font-weight: 500;">{{ format_currency(os.total_geral) }}</td>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog); text-align: center;">
+            <a href="{{ url_for('web.work_orders_show', work_order_id=os.id) }}" class="ember-link" style="font-size: 14px;">Visualizar</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding: 40px; text-align: center;">
+      <p class="muted">Nenhuma Ordem de Serviço encontrada para o período selecionado.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Tabela Itens -->
+<div id="tab-items" class="tab-content" style="display: none;">
+  <div class="table-card">
+    {% if items_list %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+      <thead>
+        <tr>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400;">Tipo</th>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400;">Descrição</th>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400; text-align: right;">Qtd</th>
+          <th style="padding: 16px; border-bottom: 1px solid var(--color-mist); font-family: var(--font-polysans); color: var(--color-slate); font-weight: 400; text-align: right;">Faturamento Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items_list %}
+        <tr>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog);">
+            <span class="status-badge" style="background: var(--color-ash); color: var(--color-graphite); font-size: 11px;">{{ item.tipo }}</span>
+          </td>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog); color: var(--color-graphite); font-weight: 500;">{{ item.descricao }}</td>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog); text-align: right;">{{ item.qtd }}</td>
+          <td style="padding: 16px; border-bottom: 1px solid var(--color-fog); text-align: right;">{{ format_currency(item.total) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding: 40px; text-align: center;">
+      <p class="muted">Nenhum serviço ou peça registrado nas ordens selecionadas.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.tab-link').forEach(link => {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    
+    // Reset tabs
+    document.querySelectorAll('.tab-link').forEach(l => {
+      l.classList.remove('active');
+      l.style.borderBottom = 'none';
+      l.style.color = 'var(--color-slate)';
+      l.style.fontWeight = '400';
+    });
+    
+    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    
+    // Activate target
+    e.target.classList.add('active');
+    e.target.style.borderBottom = '2px solid var(--color-graphite)';
+    e.target.style.color = 'var(--color-graphite)';
+    e.target.style.fontWeight = '500';
+    
+    const targetId = e.target.getAttribute('data-tab');
+    document.getElementById(targetId).style.display = 'block';
+  });
+});
+</script>
+{% endblock %}

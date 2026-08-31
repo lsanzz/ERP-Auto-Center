@@ -1,7 +1,15 @@
 {% if pagination and pagination.pages > 1 %}
 <nav class="pagination" aria-label="Paginação">
-  {% if pagination.has_prev %}<a class="button secondary small" href="?page={{ pagination.page - 1 }}">Anterior</a>{% endif %}
+  {% if pagination.has_prev %}
+    {% set prev_args = dict(request.args) %}
+    {% set _ = prev_args.update({'page': pagination.page - 1}) %}
+    <a class="button secondary small" href="{{ url_for(request.endpoint, **prev_args) }}">Anterior</a>
+  {% endif %}
   <span>Página {{ pagination.page }} de {{ pagination.pages }} · {{ pagination.total }} registros</span>
-  {% if pagination.has_next %}<a class="button secondary small" href="?page={{ pagination.page + 1 }}">Próxima</a>{% endif %}
+  {% if pagination.has_next %}
+    {% set next_args = dict(request.args) %}
+    {% set _ = next_args.update({'page': pagination.page + 1}) %}
+    <a class="button secondary small" href="{{ url_for(request.endpoint, **next_args) }}">Próxima</a>
+  {% endif %}
 </nav>
 {% endif %}

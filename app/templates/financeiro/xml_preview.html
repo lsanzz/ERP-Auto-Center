@@ -1,40 +1,73 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block content %}
-<div class="page-header"><div><h2>Pré-visualização da NF-e XML</h2><p class="muted">Confira exatamente quais dados serão importados e qual lançamento financeiro será criado.</p></div></div>
+<style>
+  .xml-page .kv { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .xml-page .kv strong { white-space: nowrap; }
+  .xml-page .kv span { min-width: 0; overflow-wrap: anywhere; }
+  .xml-page .card h3 { margin-bottom: 18px; }
+  @media (max-width: 700px) { .xml-page .kv { grid-template-columns: 1fr; gap: 4px; } }
+</style>
+<div class="xml-page">
+<div class="page-header"><div><h2>Pré-visualização da NF-e XML</h2><p class="muted">Confira todos os detalhes do documento que será importado para o sistema.</p></div></div>
 <div class="grid grid-2">
   <div class="card section-card">
     <h3>Resumo da nota</h3>
-    <div class="kv"><strong>Chave de acesso</strong><span>{{ parsed.chave_acesso }}</span></div>
+    <div class="kv"><strong>Chave</strong><span>{{ parsed.chave_acesso }}</span></div>
     <div class="kv"><strong>Número / série</strong><span>{{ parsed.numero }}/{{ parsed.serie }}</span></div>
-    <div class="kv"><strong>Emitente</strong><span>{{ parsed.emitente_nome }}{% if parsed.emitente_cnpj %} · {{ parsed.emitente_cnpj }}{% endif %}</span></div>
-    <div class="kv"><strong>Destinatário</strong><span>{{ parsed.destinatario_nome }}{% if parsed.destinatario_cnpj %} · {{ parsed.destinatario_cnpj }}{% endif %}</span></div>
-    <div class="kv"><strong>Emissão</strong><span>{{ parsed.issued_at|date_br if parsed.issued_at else '-' }}</span></div>
-    <div class="kv"><strong>Total</strong><span>{{ format_currency(parsed.total_nota) }}</span></div>
     <div class="kv"><strong>Natureza</strong><span>{{ parsed.natureza_operacao or '-' }}</span></div>
-    {% if existing %}<div class="flash warning">Este XML já foi importado anteriormente como registro #{{ existing.id }}.</div>{% endif %}
+    <div class="kv"><strong>Emissão</strong><span>{{ parsed.issued_at|date_br if parsed.issued_at else '-' }}</span></div>
+    <div class="kv"><strong>Emitente</strong><span>{{ parsed.emitente_nome }} · {{ parsed.emitente_cnpj or '-' }}<br>{{ parsed.emitente_endereco }} · {{ parsed.emitente_cidade }}</span></div>
+    <div class="kv"><strong>Destinatário</strong><span>{{ parsed.destinatario_nome }} · {{ parsed.destinatario_cnpj or '-' }}<br>{{ parsed.destinatario_endereco }} · {{ parsed.destinatario_cidade }}</span></div>
+    <div class="kv"><strong>Identificação</strong><span>Modelo {{ parsed.identificacao.modelo or '-' }} · Protocolo {{ parsed.identificacao.protocolo or '-' }}</span></div>
+    {% if existing %}<div class="flash warning" style="margin-top: 15px;">Este XML já foi importado anteriormente como registro #{{ existing.id }}.</div>{% endif %}
   </div>
   <div class="card section-card">
-    <h3>O que será gerado ao confirmar</h3>
-    <ul class="bullet-list">
-      <li>Cadastro/atualização do fornecedor pelo CNPJ do emitente</li>
-      <li>Registro interno da NF-e com todos os itens e o XML bruto</li>
-      <li>Conta a pagar no financeiro vinculada ao XML</li>
-    </ul>
+    <h3>Ação requerida</h3>
+    <p style="margin-bottom: 15px;">O sistema criará o vínculo com o fornecedor e salvará este documento bruto. A nota será listada nas suas Importações para que você possa converter as peças para o seu estoque posteriormente.</p>
     <form method="post" action="{{ url_for('web.finance_import_xml_confirm') }}">
       <input type="hidden" name="raw_xml_b64" value="{{ raw_xml_b64 }}">
-      <button type="submit" {% if existing %}disabled{% endif %}>Confirmar importação</button>
+      <button type="submit" class="button success" {% if existing %}disabled{% endif %}>Confirmar importação</button>
       <a class="button secondary" href="{{ url_for('web.finance_index') }}">Cancelar</a>
     </form>
+    <h3 style="margin-top: 25px;">Totais da nota</h3>
+    {% for label, key in [('Produtos','valor_produtos'),('Frete','valor_frete'),('Desconto','valor_desconto'),('ICMS','valor_icms'),('IPI','valor_ipi'),('PIS','valor_pis'),('COFINS','valor_cofins'),('Total da nota','valor_nota')] %}
+    <div class="kv"><strong>{{ label }}</strong><span>{{ format_currency(parsed.totais[key]) if parsed.totais else '-' }}</span></div>
+    {% endfor %}
   </div>
 </div>
 <div class="table-card section-card" style="margin-top:18px;">
-  <h3>Itens que serão importados</h3>
-  <table class="table"><thead><tr><th>Código</th><th>Descrição</th><th>Qtd.</th><th>Valor un.</th><th>Total</th></tr></thead><tbody>
+  <h3>Itens da nota</h3>
+  <div style="overflow-x: auto;">
+  <table class="table" style="min-width: 860px;"><thead><tr><th>#</th><th>Código</th><th>Descrição</th><th>NCM/CFOP</th><th>Qtd.</th><th>Un.</th><th>Valor un.</th><th>Total</th></tr></thead><tbody>
     {% for item in parsed.itens %}
-      <tr><td>{{ item.codigo }}</td><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ format_currency(item.valor_unitario) }}</td><td>{{ format_currency(item.valor_total) }}</td></tr>
+      <tr><td>{{ item.numero_item or loop.index }}</td><td>{{ item.codigo or '-' }}</td><td>{{ item.descricao }}</td><td>{{ item.ncm or '-' }} / {{ item.cfop or '-' }}</td><td>{{ item.quantidade }}</td><td>{{ item.unidade }}</td><td>{{ format_currency(item.valor_unitario) }}</td><td>{{ format_currency(item.valor_total) }}</td></tr>
     {% else %}
-      <tr><td colspan="5">Nenhum item encontrado no XML.</td></tr>
+      <tr><td colspan="8">Nenhum item registrado.</td></tr>
     {% endfor %}
   </tbody></table>
+  </div>
+</div>
+<div class="grid grid-2" style="margin-top:18px;">
+  <div class="card section-card"><h3>Transporte</h3><p>{{ parsed.transporte.transportadora if parsed.transporte else 'Sem transportadora informada.' }}</p>
+    {% if parsed.transporte %}
+    <div class="kv"><strong>Frete</strong><span>{{ parsed.transporte.modalidade_frete or '-' }}</span></div>
+    <div class="kv"><strong>Veículo</strong><span>{{ parsed.transporte.placa or '-' }} / {{ parsed.transporte.uf or '-' }}</span></div>
+    <div class="kv"><strong>Volumes</strong><span>{{ parsed.transporte.quantidade_volumes or '-' }} {{ parsed.transporte.especie or '' }}</span></div>
+    {% endif %}
+  </div>
+  <div class="card section-card"><h3>Pagamentos</h3>
+    {% if parsed.pagamentos %}
+    {% for pagamento in parsed.pagamentos %}
+    <div class="kv"><strong>{{ pagamento.descricao_meio or pagamento.meio }}</strong><span>{{ format_currency(pagamento.valor) }}</span></div>
+    {% else %}
+    <p>Sem pagamento informado no XML.</p>
+    {% endfor %}
+    {% else %}
+    <p>Sem informações estruturadas de pagamento.</p>
+    {% endif %}
+    <h3 style="margin-top:20px;">Informações complementares</h3>
+    <p>{{ parsed.informacoes_complementares or 'Sem informações complementares.' }}</p>
+  </div>
+</div>
 </div>
 {% endblock %}

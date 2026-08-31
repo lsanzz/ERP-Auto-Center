@@ -29,7 +29,12 @@
         <td>{{ 'Sim' if service.ativo else 'Não' }}</td>
         <td>
           {% if current_user().role == 'ADMINISTRADOR' %}
-          <a class="button secondary" href="{{ url_for('web.services_edit', service_id=service.id) }}">Editar</a>
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <a class="button secondary" href="{{ url_for('web.services_edit', service_id=service.id) }}">Editar</a>
+            <form method="post" action="{{ url_for('web.services_delete', service_id=service.id) }}" style="margin: 0;" onsubmit="return confirm('Inativar este serviço?');">
+              <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
+            </form>
+          </div>
           {% endif %}
         </td>
       </tr>

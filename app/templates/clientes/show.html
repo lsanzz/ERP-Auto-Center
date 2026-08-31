@@ -2,7 +2,12 @@
 {% block content %}
 <div class="page-header">
   <div><h2>{{ client.nome }}</h2><p class="muted">Ficha do cliente e histórico de atendimento.</p></div>
-  <div class="actions">
+  <div class="actions" style="display: flex; gap: 10px;">
+    {% if current_user().role == 'ADMINISTRADOR' %}
+    <form method="post" action="{{ url_for('web.clients_delete', client_id=client.id) }}" style="margin: 0;" onsubmit="return confirm('Excluir este cliente do sistema?');">
+      <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
+    </form>
+    {% endif %}
     <a class="button secondary" href="{{ url_for('web.clients_edit', client_id=client.id) }}">Editar</a>
     <a class="button secondary" href="{{ url_for('web.clients_index') }}">Voltar</a>
   </div>
