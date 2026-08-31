@@ -4,6 +4,7 @@ from datetime import date
 from functools import wraps
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy.orm.exc import StaleDataError
 
 from .auth import current_user, login_user, logout_user
 from .cnpj import is_cnpj, is_cpf, lookup_cnpj, lookup_cpf
@@ -18,6 +19,7 @@ from .services import (
     change_work_order_status,
     create_work_order_from_budget,
     dashboard_data,
+    deduct_work_order_stock,
     finalize_work_order,
     next_number,
     record_work_order_status,
@@ -26,6 +28,7 @@ from .services import (
     replace_work_order_items,
     settle_financial_entry,
     split_installments,
+    update_work_order_receivables,
 )
 from .utils import parse_date, parse_decimal
 from .settings import budget_default_date, get_system_settings
@@ -33,7 +36,17 @@ from .vehicles import lookup_plate
 from .xml_import import parse_nfe_xml
 
 
-api_bp = Blueprint('api', __name__)
+api_bp = Blueprint("api", __name__)
+
+
+@api_bp.errorhandler(StaleDataError)
+def handle_stale_data(exc):
+    """HTTP 409 quando dois usuarios tentam salvar o mesmo registro simultaneamente."""
+    db.session.rollback()
+    return jsonify({
+        "error": "Os dados foram alterados por outro usuario. Recarregue a pagina e tente novamente.",
+        "code": "CONCURRENT_MODIFICATION",
+    }), 409
 
 
 def as_json(data, status: int = 200):

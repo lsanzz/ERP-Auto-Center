@@ -29,20 +29,24 @@ def _run_schema_updates(app: Flask) -> None:
     if 'work_orders' not in table_names:
         return
 
+    is_pg = db.engine.dialect.name == 'postgresql'
     statements = []
     columns = {column['name'] for column in inspector.get_columns('work_orders')}
     if 'client_nome' not in columns:
         statements.append("ALTER TABLE work_orders ADD COLUMN client_nome VARCHAR(160)")
     if 'emitir_nota' not in columns:
-        if db.engine.dialect.name == 'postgresql':
+        if is_pg:
             statements.append("ALTER TABLE work_orders ADD COLUMN emitir_nota BOOLEAN NOT NULL DEFAULT FALSE")
         else:
             statements.append("ALTER TABLE work_orders ADD COLUMN emitir_nota BOOLEAN NOT NULL DEFAULT 0")
     if 'estoque_baixado' not in columns:
-        if db.engine.dialect.name == 'postgresql':
+        if is_pg:
             statements.append("ALTER TABLE work_orders ADD COLUMN estoque_baixado BOOLEAN NOT NULL DEFAULT FALSE")
         else:
             statements.append("ALTER TABLE work_orders ADD COLUMN estoque_baixado BOOLEAN NOT NULL DEFAULT 0")
+    # Controle otimista de concorrência — detecta edições simultâneas na mesma OS
+    if 'version' not in columns:
+        statements.append("ALTER TABLE work_orders ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
 
     if 'products' in table_names:
         product_columns = {column['name'] for column in inspector.get_columns('products')}
@@ -64,7 +68,7 @@ def _run_schema_updates(app: Flask) -> None:
         fiscal_columns = {column['name']: column for column in inspector.get_columns('fiscal_documents')}
         work_order_column = fiscal_columns.get('work_order_id')
         if work_order_column and not work_order_column.get('nullable', True):
-            if db.engine.dialect.name == 'postgresql':
+            if is_pg:
                 statements.append('ALTER TABLE fiscal_documents ALTER COLUMN work_order_id DROP NOT NULL')
             elif db.engine.dialect.name == 'sqlite':
                 with db.engine.begin() as connection:
@@ -95,6 +99,18 @@ def _run_schema_updates(app: Flask) -> None:
                     connection.exec_driver_sql('DROP TABLE fiscal_documents_old')
                     connection.exec_driver_sql('PRAGMA foreign_keys=ON')
 
+    # Controle otimista — budgets
+    if 'budgets' in table_names:
+        budget_columns = {column['name'] for column in inspector.get_columns('budgets')}
+        if 'version' not in budget_columns:
+            statements.append("ALTER TABLE budgets ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
+
+    # Controle otimista — financial_entries
+    if 'financial_entries' in table_names:
+        fe_columns = {column['name'] for column in inspector.get_columns('financial_entries')}
+        if 'version' not in fe_columns:
+            statements.append("ALTER TABLE financial_entries ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
+
     for sql in statements:
         db.session.execute(text(sql))
     if statements:
@@ -108,13 +124,26 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     database_url = _normalize_database_url(os.getenv('DATABASE_URL'), instance_path)
 
+    is_postgres = database_url.startswith('postgresql')
+
+    engine_options: dict = {
+        'pool_pre_ping': True,  # verifica conexão antes de usar (evita broken pipe)
+    }
+    if is_postgres:
+        # Pool robusto para múltiplos usuários simultâneos
+        engine_options.update({
+            'pool_size': 10,       # conexões permanentes no pool
+            'max_overflow': 20,    # conexões extras permitidas em pico
+            'pool_recycle': 300,   # reciclar a cada 5 min (evita timeout do Render)
+            'pool_timeout': 30,    # timeout ao aguardar conexão disponível
+        })
+
     app.config.update(
         SECRET_KEY=os.getenv('SECRET_KEY', 'erp-auto-center-secret'),
         SQLALCHEMY_DATABASE_URI=database_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        SQLALCHEMY_ENGINE_OPTIONS={
-            'pool_pre_ping': True,
-        },
+        SQLALCHEMY_ECHO=False,  # nunca logar SQL em produção (performance)
+        SQLALCHEMY_ENGINE_OPTIONS=engine_options,
     )
 
     if test_config:

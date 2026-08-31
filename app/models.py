@@ -272,6 +272,7 @@ class Budget(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = 'budgets'
 
     id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.Integer, default=0, nullable=False, server_default='0')
     client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
     numero = db.Column(db.String(20), unique=True, nullable=False)
     status = db.Column(db.String(30), nullable=False, default='ABERTO')
@@ -282,6 +283,8 @@ class Budget(db.Model, TimestampMixin, SerializableMixin):
     total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     observacoes = db.Column(db.Text)
     validade = db.Column(db.Date)
+
+    __mapper_args__ = {'version_id_col': version}
 
     client = db.relationship('Client', back_populates='budgets')
     items = db.relationship('BudgetItem', back_populates='budget', cascade='all, delete-orphan', order_by='BudgetItem.id')
@@ -308,6 +311,7 @@ class WorkOrder(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = 'work_orders'
 
     id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.Integer, default=0, nullable=False, server_default='0')
     client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
     employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'))
     budget_id = db.Column(db.Integer, db.ForeignKey('budgets.id'))
@@ -326,6 +330,8 @@ class WorkOrder(db.Model, TimestampMixin, SerializableMixin):
     total_pecas = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     total_servicos = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     total_geral = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+
+    __mapper_args__ = {'version_id_col': version}
 
     client = db.relationship('Client', back_populates='work_orders')
     employee = db.relationship('Employee', back_populates='work_orders')
@@ -387,6 +393,7 @@ class FinancialEntry(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = 'financial_entries'
 
     id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.Integer, default=0, nullable=False, server_default='0')
     entry_type = db.Column(db.String(20), index=True, nullable=False)
     descricao = db.Column(db.String(255), nullable=False)
     categoria = db.Column(db.String(80))
@@ -400,6 +407,8 @@ class FinancialEntry(db.Model, TimestampMixin, SerializableMixin):
     reference_type = db.Column(db.String(30))
     reference_id = db.Column(db.Integer)
     bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'))
+
+    __mapper_args__ = {'version_id_col': version}
 
     bank_account = db.relationship('BankAccount')
 
