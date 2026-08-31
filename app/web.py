@@ -2438,7 +2438,7 @@ def reports_index():
                            total_desconto=total_desconto,
                            total_geral=total_geral,
                            clients=clients,
-                           employees=employees).all())
+                           employees=employees)
 
 
 
