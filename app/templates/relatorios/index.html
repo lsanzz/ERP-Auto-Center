@@ -106,7 +106,7 @@
       </div>
       <div>
         <label>Status O.S.</label>
-        <select name="status" multiple style="height: 40px;">
+        <select name="status">
           <option value="TODOS" {% if not status_filter or 'TODOS' in status_filter %}selected{% endif %}>Todos os status</option>
           <option value="ABERTA" {% if 'ABERTA' in status_filter %}selected{% endif %}>Aberta</option>
           <option value="EM ANDAMENTO" {% if 'EM ANDAMENTO' in status_filter %}selected{% endif %}>Em Andamento</option>
