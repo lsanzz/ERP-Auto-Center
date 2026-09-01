@@ -41,7 +41,7 @@
   }
 
   .item-row input[type="text"],
-  .item-row input[type="number"] {
+  .item-row input[inputmode="numeric"] {
     width: 100%;
     border: 1px solid var(--color-mist);
     border-radius: 6px;
@@ -52,7 +52,7 @@
     transition: all 0.2s;
   }
   .item-row input[type="text"]:focus,
-  .item-row input[type="number"]:focus {
+  .item-row input[inputmode="numeric"]:focus {
     border-color: var(--color-ember-orange);
     box-shadow: 0 0 0 3px rgba(197, 22, 34, 0.1);
     outline: none;
@@ -156,9 +156,9 @@
                   <div class="custom-suggestions-box"></div>
                 </div>
               </td>
-              <td><input class="item-qty" type="number" step="0.01" min="0.01" name="servico_quantidade[]" value="{{ row.quantidade }}"></td>
-              <td><input class="item-unit-price" type="number" step="0.01" min="0" name="servico_valor_unitario[]" value="{{ row.valor_unitario }}"></td>
-              <td><input class="item-total-price" type="number" step="0.01" min="0" name="servico_total[]" value="{{ row.total }}"></td>
+              <td><input class="item-qty" type="text" inputmode="numeric" name="servico_quantidade[]" value="{{ row.quantidade }}"></td>
+              <td><input class="item-unit-price" type="text" inputmode="numeric" name="servico_valor_unitario[]" value="{{ row.valor_unitario }}"></td>
+              <td><input class="item-total-price" type="text" inputmode="numeric" name="servico_total[]" value="{{ row.total }}"></td>
               <td><button type="button" class="secondary remove-item-row" style="height: 30px; padding: 0 10px; font-size: 12px; border: none;">X</button></td>
             </tr>
             {% endfor %}
@@ -191,9 +191,9 @@
                   <div class="custom-suggestions-box"></div>
                 </div>
               </td>
-              <td><input class="item-qty" type="number" step="0.01" min="0.01" name="peca_quantidade[]" value="{{ row.quantidade }}"></td>
-              <td><input class="item-unit-price" type="number" step="0.01" min="0" name="peca_valor_unitario[]" value="{{ row.valor_unitario }}"></td>
-              <td><input class="item-total-price" type="number" step="0.01" min="0" name="peca_total[]" value="{{ row.total }}"></td>
+              <td><input class="item-qty" type="text" inputmode="numeric" name="peca_quantidade[]" value="{{ row.quantidade }}"></td>
+              <td><input class="item-unit-price" type="text" inputmode="numeric" name="peca_valor_unitario[]" value="{{ row.valor_unitario }}"></td>
+              <td><input class="item-total-price" type="text" inputmode="numeric" name="peca_total[]" value="{{ row.total }}"></td>
               <td><button type="button" class="secondary remove-item-row" style="height: 30px; padding: 0 10px; font-size: 12px; border: none;">X</button></td>
             </tr>
             {% endfor %}
@@ -250,7 +250,7 @@
                 </select>
               </label>
               <label style="margin: 0;">Valor
-                <input type="number" step="0.01" min="0" name="payment_value[]" class="payment-value-input" value="{{ payment.valor }}">
+                <input type="text" inputmode="numeric" name="payment_value[]" class="payment-value-input" value="{{ payment.valor }}">
               </label>
               <label style="margin: 0;">Parcelas
                 <input type="number" name="payment_installments[]" class="payment-installments-input" min="1" max="24" value="{{ payment.installment_count or 1 }}">
@@ -269,7 +269,7 @@
                 </select>
               </label>
               <label style="margin: 0;">Valor
-                <input type="number" step="0.01" min="0" name="payment_value[]" class="payment-value-input" value="0.00">
+                <input type="text" inputmode="numeric" name="payment_value[]" class="payment-value-input" value="0.00">
               </label>
               <label style="margin: 0;">Parcelas
                 <input type="number" name="payment_installments[]" class="payment-installments-input" min="1" max="24" value="1">
@@ -307,9 +307,9 @@
         <div class="custom-suggestions-box"></div>
       </div>
     </td>
-    <td><input class="item-qty" type="number" step="0.01" min="0.01" name="servico_quantidade[]" value="1.00"></td>
-    <td><input class="item-unit-price" type="number" step="0.01" min="0" name="servico_valor_unitario[]" value="0.00"></td>
-    <td><input class="item-total-price" type="number" step="0.01" min="0" name="servico_total[]" value="0.00"></td>
+    <td><input class="item-qty" type="text" inputmode="numeric" name="servico_quantidade[]" value="1.00"></td>
+    <td><input class="item-unit-price" type="text" inputmode="numeric" name="servico_valor_unitario[]" value="0.00"></td>
+    <td><input class="item-total-price" type="text" inputmode="numeric" name="servico_total[]" value="0.00"></td>
     <td><button type="button" class="secondary remove-item-row" style="height: 30px; padding: 0 10px; font-size: 12px; border: none;">X</button></td>
   </tr>
 </template>
@@ -322,9 +322,9 @@
         <div class="custom-suggestions-box"></div>
       </div>
     </td>
-    <td><input class="item-qty" type="number" step="0.01" min="0.01" name="peca_quantidade[]" value="1.00"></td>
-    <td><input class="item-unit-price" type="number" step="0.01" min="0" name="peca_valor_unitario[]" value="0.00"></td>
-    <td><input class="item-total-price" type="number" step="0.01" min="0" name="peca_total[]" value="0.00"></td>
+    <td><input class="item-qty" type="text" inputmode="numeric" name="peca_quantidade[]" value="1.00"></td>
+    <td><input class="item-unit-price" type="text" inputmode="numeric" name="peca_valor_unitario[]" value="0.00"></td>
+    <td><input class="item-total-price" type="text" inputmode="numeric" name="peca_total[]" value="0.00"></td>
     <td><button type="button" class="secondary remove-item-row" style="height: 30px; padding: 0 10px; font-size: 12px; border: none;">X</button></td>
   </tr>
 </template>
@@ -340,7 +340,7 @@
       </select>
     </label>
     <label style="margin: 0;">Valor
-      <input type="number" step="0.01" min="0" name="payment_value[]" class="payment-value-input" value="0.00">
+      <input type="text" inputmode="numeric" name="payment_value[]" class="payment-value-input" value="0.00">
     </label>
     <label style="margin: 0;">Parcelas
       <input type="number" name="payment_installments[]" class="payment-installments-input" min="1" max="24" value="1">
@@ -366,8 +366,59 @@
   const servicesCatalog = JSON.parse(document.getElementById('services-table').dataset.catalog || '{}');
   const productsCatalog = JSON.parse(document.getElementById('parts-table').dataset.catalog || '{}');
 
-  function parseNumber(value) { return Number.parseFloat(value || '0') || 0; }
+  function parseNumber(value) { 
+    if (typeof value === 'string') {
+      value = value.replace(/\./g, '').replace(',', '.');
+    }
+    return Number.parseFloat(value || '0') || 0; 
+  }
   function grandTotalValue() { return parseNumber(document.getElementById('preview-grand-total').dataset.raw || '0'); }
+
+  function applyCurrencyMask(e) {
+    let input = e.target;
+    let val = input.value.replace(/\D/g, '');
+    if (val === '') val = '0';
+    input.value = (parseInt(val, 10) / 100).toFixed(2).replace('.', ',');
+  }
+
+  function applyQtyMask(e) {
+    let input = e.target;
+    let val = input.value.replace(/[^0-9,]/g, '');
+    let parts = val.split(',');
+    if (parts.length > 2) {
+      val = parts[0] + ',' + parts.slice(1).join('');
+    }
+    input.value = val;
+  }
+
+  function initMasks(container = document) {
+    container.querySelectorAll('.item-unit-price, .item-total-price, .payment-value-input').forEach(input => {
+      if (input.value && !input.dataset.masked) {
+        let parsed = parseFloat(input.value.replace(',', '.'));
+        if (!isNaN(parsed)) {
+          input.value = parsed.toFixed(2).replace('.', ',');
+        }
+        input.dataset.masked = '1';
+      }
+      input.removeEventListener('input', applyCurrencyMask);
+      input.addEventListener('input', applyCurrencyMask);
+    });
+    
+    container.querySelectorAll('.item-qty').forEach(input => {
+      if (input.value && !input.dataset.masked) {
+        let parsed = parseFloat(input.value.replace(',', '.'));
+        if (!isNaN(parsed)) {
+          input.value = parsed.toString().replace('.', ',');
+        }
+        input.dataset.masked = '1';
+      }
+      input.removeEventListener('input', applyQtyMask);
+      input.addEventListener('input', applyQtyMask);
+    });
+  }
+
+  // format initial
+  initMasks();
 
   // Força letras maiúsculas em tempo real em todos os inputs de texto e textarea
   document.addEventListener('input', (event) => {
@@ -379,7 +430,8 @@
     }
     const row = event.target.closest('.item-row');
     if (row && (event.target.classList.contains('item-qty') || event.target.classList.contains('item-unit-price'))) {
-      updateRowTotal(row);
+      initMasks(row);
+        updateRowTotal(row);
     }
     if (event.target.classList.contains('item-total-price')) {
       event.target.dataset.manual = '1';
@@ -424,7 +476,8 @@
         const currentSum = Array.from(paymentsContainer.querySelectorAll('.payment-value-input'))
                                 .reduce((acc, el) => acc + parseNumber(el.value), 0);
         const remaining = Math.max(0, grandTotalValue() - currentSum);
-        row.querySelector('.payment-value-input').value = remaining.toFixed(2);
+        row.querySelector('.payment-value-input').value = remaining.toFixed(2).replace('.', ',');
+        initMasks(row);
         
         row.querySelector('.remove-payment-btn').addEventListener('click', () => {
           row.remove();
@@ -479,7 +532,9 @@
     const qty = parseNumber(row.querySelector('.item-qty').value);
     const unit = parseNumber(row.querySelector('.item-unit-price').value);
     const totalInput = row.querySelector('.item-total-price');
-    if (!totalInput.dataset.manual || totalInput.dataset.manual === '0') totalInput.value = (qty * unit).toFixed(2);
+    if (!totalInput.dataset.manual || totalInput.dataset.manual === '0') {
+      totalInput.value = (qty * unit).toFixed(2).replace('.', ',');
+    }
     updateTotals();
   }
 
@@ -512,8 +567,9 @@
           input.value = name.toUpperCase();
           const row = input.closest('.item-row');
           const unitInput = row.querySelector('.item-unit-price');
-          unitInput.value = Number(price).toFixed(2);
-          updateRowTotal(row);
+          unitInput.value = Number(price).toFixed(2).replace('.', ',');
+          initMasks(row);
+        updateRowTotal(row);
           box.style.display = 'none';
         });
         box.appendChild(item);
@@ -540,6 +596,7 @@
       const row = tbody.querySelector('tr:last-child');
       if (row) {
         setupAutocomplete(row.querySelector('.catalog-name'));
+        initMasks(row);
         updateRowTotal(row);
       }
     });
@@ -597,7 +654,8 @@
   }
 
   document.querySelectorAll('.item-row').forEach((row) => {
-    updateRowTotal(row);
+    initMasks(row);
+        updateRowTotal(row);
   });
   updateTotals();
 })();
