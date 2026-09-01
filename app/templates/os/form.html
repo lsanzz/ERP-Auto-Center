@@ -374,14 +374,7 @@
   }
   function grandTotalValue() { return parseNumber(document.getElementById('preview-grand-total').dataset.raw || '0'); }
 
-  function applyCurrencyMask(e) {
-    let input = e.target;
-    let val = input.value.replace(/\D/g, '');
-    if (val === '') val = '0';
-    input.value = (parseInt(val, 10) / 100).toFixed(2).replace('.', ',');
-  }
-
-  function applyQtyMask(e) {
+  function sanitizeInput(e) {
     let input = e.target;
     let val = input.value.replace(/[^0-9,]/g, '');
     let parts = val.split(',');
@@ -389,6 +382,24 @@
       val = parts[0] + ',' + parts.slice(1).join('');
     }
     input.value = val;
+  }
+
+  function formatCurrencyOnBlur(e) {
+    let input = e.target;
+    if (!input.value) return;
+    let parsed = parseFloat(input.value.replace(',', '.'));
+    if (!isNaN(parsed)) {
+      input.value = parsed.toFixed(2).replace('.', ',');
+    }
+  }
+
+  function formatQtyOnBlur(e) {
+    let input = e.target;
+    if (!input.value) return;
+    let parsed = parseFloat(input.value.replace(',', '.'));
+    if (!isNaN(parsed)) {
+      input.value = parsed.toFixed(2).replace('.', ',');
+    }
   }
 
   function initMasks(container = document) {
@@ -400,8 +411,10 @@
         }
         input.dataset.masked = '1';
       }
-      input.removeEventListener('input', applyCurrencyMask);
-      input.addEventListener('input', applyCurrencyMask);
+      input.removeEventListener('input', sanitizeInput);
+      input.addEventListener('input', sanitizeInput);
+      input.removeEventListener('blur', formatCurrencyOnBlur);
+      input.addEventListener('blur', formatCurrencyOnBlur);
     });
     
     container.querySelectorAll('.item-qty').forEach(input => {
@@ -412,8 +425,10 @@
         }
         input.dataset.masked = '1';
       }
-      input.removeEventListener('input', applyQtyMask);
-      input.addEventListener('input', applyQtyMask);
+      input.removeEventListener('input', sanitizeInput);
+      input.addEventListener('input', sanitizeInput);
+      input.removeEventListener('blur', formatQtyOnBlur);
+      input.addEventListener('blur', formatQtyOnBlur);
     });
   }
 
