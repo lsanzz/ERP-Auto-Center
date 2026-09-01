@@ -40,7 +40,14 @@
         <td>{{ budget.status }}</td>
         <td>{{ format_currency(budget.total) }}</td>
         <td>{{ budget.validade|date_br }}</td>
-        <td><a class="button secondary" href="{{ url_for('web.budgets_edit', budget_id=budget.id) }}">Editar</a></td>
+        <td>
+          <div style="display: flex; gap: 8px;">
+            <a class="button secondary" href="{{ url_for('web.budgets_edit', budget_id=budget.id) }}">Editar</a>
+            <form method="post" action="{{ url_for('web.budgets_delete', budget_id=budget.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este orçamento?');" style="margin:0;">
+              <button class="button secondary danger" type="submit" style="color: var(--color-ember-red); border-color: var(--color-ember-red);">Excluir</button>
+            </form>
+          </div>
+        </td>
       </tr>
       {% else %}
       <tr><td colspan="7">Nenhum orçamento cadastrado.</td></tr>

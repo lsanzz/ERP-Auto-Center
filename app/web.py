@@ -709,6 +709,18 @@ def budgets_new():
         return redirect(url_for('web.budgets_show', budget_id=budget.id))
     return render_template('orcamentos/form.html', budget=None, clients=clients, statuses=BUDGET_STATUSES, budget_default_date=budget_default_date())
 
+@web_bp.post('/orcamentos/<int:budget_id>/excluir')
+@login_required
+@admin_required
+def budgets_delete(budget_id: int):
+    budget = db.session.get(Budget, budget_id)
+    if not budget:
+        return redirect(url_for('web.budgets_index'))
+    db.session.delete(budget)
+    db.session.commit()
+    flash('Orçamento excluído com sucesso.', 'success')
+    return redirect(url_for('web.budgets_index'))
+
 
 @web_bp.route('/orcamentos/<int:budget_id>/editar', methods=['GET', 'POST'])
 @login_required

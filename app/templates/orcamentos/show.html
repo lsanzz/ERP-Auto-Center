@@ -29,6 +29,9 @@
     <form method="post" action="{{ url_for('web.budgets_convert', budget_id=budget.id) }}">
       <button class="success full" type="submit">Converter em O.S.</button>
     </form>
+    <form method="post" action="{{ url_for('web.budgets_delete', budget_id=budget.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este orçamento?');">
+      <button class="danger full" style="background: var(--color-ember-red); color: white;" type="submit">Excluir orçamento</button>
+    </form>
   </div>
 </div>
 <div class="table-card" style="margin-top: 18px;">
