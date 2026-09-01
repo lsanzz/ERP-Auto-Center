@@ -1312,7 +1312,18 @@ def finance_settle(entry_id: int):
     entry = db.session.get(FinancialEntry, entry_id)
     if not entry:
         return redirect(url_for('web.finance_index'))
-    settle_financial_entry(entry, payment_method_id=int(request.form.get('payment_method_id')) if request.form.get('payment_method_id') else None, payment_receipt_at=request.form.get('payment_receipt_at'), bank_account_id=int(request.form.get('bank_account_id')) if request.form.get('bank_account_id') else None)
+    settle_financial_entry(
+        entry,
+        payment_method_id=int(request.form.get('payment_method_id')) if request.form.get('payment_method_id') else None,
+        payment_receipt_at=request.form.get('payment_receipt_at'),
+        bank_account_id=int(request.form.get('bank_account_id')) if request.form.get('bank_account_id') else None,
+        valor_baixa=request.form.get('valor_baixa'),
+        juros=request.form.get('juros'),
+        desconto=request.form.get('desconto'),
+        taxa=request.form.get('taxa'),
+        acrescimo=request.form.get('acrescimo'),
+        observacoes_pagamento=request.form.get('observacoes_pagamento'),
+    )
     db.session.commit()
     flash('Lançamento liquidado.', 'success')
     return redirect(url_for('web.finance_index'))
@@ -1904,19 +1915,31 @@ def finance_revert(entry_id: int):
         return redirect(url_for('web.finance_index'))
         
     if entry.status in ['RECEBIDO', 'PAGO']:
-        # Estorna o saldo da conta bancária
+        # Estorna o saldo da conta bancária — usa o valor líquido que foi creditado/debitado
         if entry.bank_account_id:
             account = db.session.get(BankAccount, entry.bank_account_id)
             if account:
-                value = parse_decimal(entry.valor)
+                # Calcula o valor líquido que foi movimentado na liquidação
+                valor_baixa = parse_decimal(entry.valor_baixa) if entry.valor_baixa is not None else parse_decimal(entry.valor)
+                juros = parse_decimal(entry.juros)
+                desconto = parse_decimal(entry.desconto)
+                taxa = parse_decimal(entry.taxa)
+                acrescimo = parse_decimal(entry.acrescimo)
+                valor_liquido = valor_baixa + juros - desconto - taxa + acrescimo
                 if entry.entry_type == 'RECEBER':
-                    account.saldo_atual = parse_decimal(account.saldo_atual) - value
+                    account.saldo_atual = parse_decimal(account.saldo_atual) - valor_liquido
                 else:
-                    account.saldo_atual = parse_decimal(account.saldo_atual) + value
+                    account.saldo_atual = parse_decimal(account.saldo_atual) + valor_liquido
                     
-        # Reverte o lançamento para pendente
+        # Reverte o lançamento para pendente e limpa campos de liquidação
         entry.status = 'PENDENTE'
         entry.payment_receipt_at = None
+        entry.valor_baixa = None
+        entry.juros = None
+        entry.desconto = None
+        entry.taxa = None
+        entry.acrescimo = None
+        entry.observacoes_pagamento = None
         db.session.commit()
         flash('Lançamento estornado e saldo revertido com sucesso.', 'success')
     else:
@@ -1936,11 +1959,16 @@ def finance_delete(entry_id: int):
     if entry.status in ['RECEBIDO', 'PAGO'] and entry.bank_account_id:
         account = db.session.get(BankAccount, entry.bank_account_id)
         if account:
-            val = parse_decimal(entry.valor)
+            valor_baixa = parse_decimal(entry.valor_baixa) if entry.valor_baixa is not None else parse_decimal(entry.valor)
+            juros = parse_decimal(entry.juros)
+            desconto = parse_decimal(entry.desconto)
+            taxa = parse_decimal(entry.taxa)
+            acrescimo = parse_decimal(entry.acrescimo)
+            valor_liquido = valor_baixa + juros - desconto - taxa + acrescimo
             if entry.entry_type == 'RECEBER':
-                account.saldo_atual = parse_decimal(account.saldo_atual) - val
+                account.saldo_atual = parse_decimal(account.saldo_atual) - valor_liquido
             else:
-                account.saldo_atual = parse_decimal(account.saldo_atual) + val
+                account.saldo_atual = parse_decimal(account.saldo_atual) + valor_liquido
                 
     db.session.delete(entry)
     db.session.commit()

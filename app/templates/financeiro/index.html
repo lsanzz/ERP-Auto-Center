@@ -12,6 +12,25 @@
   .ventriloc-modal { margin: auto; border: 1px solid var(--color-graphite); background: var(--color-canvas-white); padding: 40px; width: 90%; max-width: 440px; border-radius: 6px 0px 0px 0px; box-shadow: none; box-sizing: border-box; }
   .ventriloc-modal::backdrop { background: rgba(32, 32, 32, 0.5); backdrop-filter: blur(2px); }
   .ventriloc-modal input, .ventriloc-modal select { width: 100%; box-sizing: border-box; margin-top: 6px; }
+  .ventriloc-modal.modal-liquidar-completo { max-width: 720px; padding: 0; border-radius: 8px; border: none; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+  .modal-liquidar-completo .modal-liq-header { background: #f0f4f8; padding: 24px 32px; border-bottom: 1px solid #e2e8f0; border-radius: 8px 8px 0 0; }
+  .modal-liq-header .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 24px; margin-top: 12px; }
+  .modal-liq-header .info-item label { font-size: 11px; font-weight: 600; color: #2563eb; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
+  .modal-liq-header .info-item span { font-size: 13px; color: var(--color-graphite); display: block; }
+  .modal-liquidar-completo .modal-liq-body { padding: 24px 32px 32px; }
+  .modal-liq-body .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .modal-liq-body .form-row-5 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .modal-liq-body .form-group { display: flex; flex-direction: column; }
+  .modal-liq-body .form-group label { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; }
+  .modal-liq-body .form-group label .required { color: #ef4444; }
+  .modal-liq-body .form-group input, .modal-liq-body .form-group select, .modal-liq-body .form-group textarea { font-size: 14px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; margin-top: 0; transition: border-color 0.2s; }
+  .modal-liq-body .form-group input:focus, .modal-liq-body .form-group select:focus, .modal-liq-body .form-group textarea:focus { border-color: #2563eb; outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .modal-liq-body .form-group textarea { resize: vertical; min-height: 60px; }
+  .modal-liq-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid #e2e8f0; margin-top: 8px; }
+  .modal-liq-footer .valor-receber { font-size: 14px; color: #475569; }
+  .modal-liq-footer .valor-receber strong { font-size: 18px; color: #059669; font-family: var(--font-polysans); }
+  .btn-liquidar { background: #2563eb; color: #fff; border: none; padding: 12px 40px; border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+  .btn-liquidar:hover { background: #1d4ed8; }
   .action-group { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
   .finance-table { width: 100%; table-layout: fixed; }
   .finance-table th, .finance-table td { padding: 14px 16px; vertical-align: middle; }
@@ -157,28 +176,114 @@
               {% if group.status_label in ['PENDENTE', 'PARCIAL'] %}
                  {% if not group.is_grouped %}
                    <button type="button" class="button secondary" onclick="document.getElementById('modal-liquidar-{{ tab_id }}-{{ loop.index }}').showModal()" style="height: 32px; padding: 0 12px; font-size: 13px;">Liquidar</button>
-                   <dialog id="modal-liquidar-{{ tab_id }}-{{ loop.index }}" class="ventriloc-modal" style="text-align: left;">
-                     <div style="display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center;">
-                       <h3 style="margin: 0;">Liquidar Lançamento</h3>
-                       <button type="button" onclick="this.closest('dialog').close()" style="background: transparent; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                     </div>
-                     <form method="post" action="{{ url_for('web.finance_settle', entry_id=group.entries[0].id) }}">
-                       <label style="margin-bottom: 16px; font-size: 13px;">Conta Bancária
-                         <select name="bank_account_id" required>
-                            <option value="">Selecione a conta...</option>
-                            {% for account in bank_accounts %}
-                            <option value="{{ account.id }}">{{ account.nome }}</option>
-                            {% endfor %}
-                         </select>
-                       </label>
-                       <label style="margin-bottom: 24px; font-size: 13px;">Data da Baixa
-                         <input type="date" name="payment_receipt_at" value="{{ iso_today() }}" required>
-                       </label>
-                       <div style="display: flex; gap: 12px;">
-                         <button type="submit" style="flex: 1;">Confirmar Baixa</button>
-                         <button type="button" class="button secondary" onclick="this.closest('dialog').close()" style="flex: 1;">Cancelar</button>
+                   <dialog id="modal-liquidar-{{ tab_id }}-{{ loop.index }}" class="ventriloc-modal modal-liquidar-completo" style="text-align: left;">
+                     <!-- Cabeçalho com informações do lançamento -->
+                     <div class="modal-liq-header">
+                       <div style="display: flex; justify-content: space-between; align-items: center;">
+                         <h3 style="margin: 0; font-size: 18px; color: #1e293b;">Liquidar conta a {{ 'receber' if group.entry_type == 'RECEBER' else 'pagar' }}</h3>
+                         <button type="button" onclick="this.closest('dialog').close()" style="background: transparent; border: none; font-size: 24px; cursor: pointer; color: #64748b;">&times;</button>
                        </div>
-                     </form>
+                       <div class="info-grid">
+                         <div class="info-item">
+                           <label>Nome da {{ 'receita' if group.entry_type == 'RECEBER' else 'despesa' }}</label>
+                           <span>{{ group.descricao }}</span>
+                         </div>
+                         <div class="info-item">
+                           <label>Vencimento</label>
+                           <span>{{ group.first_due_date|date_br if group.first_due_date else '-' }}</span>
+                         </div>
+                         <div class="info-item">
+                           <label>Status</label>
+                           <span>{{ group.status_label }}</span>
+                         </div>
+                         <div class="info-item">
+                           <label>Valor da {{ 'receita' if group.entry_type == 'RECEBER' else 'despesa' }}</label>
+                           <span style="font-weight: 600;">{{ group.summary_value }}</span>
+                         </div>
+                         <div class="info-item">
+                           <label>Valor em aberto</label>
+                           <span style="font-weight: 600;">{{ group.summary_value }}</span>
+                         </div>
+                         {% if group.categoria %}
+                         <div class="info-item">
+                           <label>Categoria</label>
+                           <span>{{ group.categoria }}</span>
+                         </div>
+                         {% endif %}
+                       </div>
+                     </div>
+
+                     <!-- Corpo do formulário -->
+                     <div class="modal-liq-body">
+                       <form method="post" action="{{ url_for('web.finance_settle', entry_id=group.entries[0].id) }}" id="form-liquidar-{{ tab_id }}-{{ loop.index }}">
+                         <!-- Linha 1: Data, Conta, Forma de pagamento -->
+                         <div class="form-row">
+                           <div class="form-group">
+                             <label>Data pagamento <span class="required">*</span></label>
+                             <input type="date" name="payment_receipt_at" value="{{ iso_today() }}" required>
+                           </div>
+                           <div class="form-group">
+                             <label>Conta bancária <span class="required">*</span></label>
+                             <select name="bank_account_id" required>
+                               <option value="">Selecione...</option>
+                               {% for account in bank_accounts %}
+                               <option value="{{ account.id }}">{{ account.nome }}</option>
+                               {% endfor %}
+                             </select>
+                           </div>
+                           <div class="form-group">
+                             <label>Forma de pagamento</label>
+                             <select name="payment_method_id">
+                               <option value="">Selecione...</option>
+                               {% for pm in payment_methods %}
+                               <option value="{{ pm.id }}" {% if group.entries[0].payment_method_id == pm.id %}selected{% endif %}>{{ pm.nome }}</option>
+                               {% endfor %}
+                             </select>
+                           </div>
+                         </div>
+
+                         <!-- Linha 2: Valor de baixa, Juros, Desconto, Taxa, Acréscimo -->
+                         <div class="form-row-5">
+                           <div class="form-group">
+                             <label>Valor de baixa</label>
+                             <input type="text" name="valor_baixa" value="{{ '%0.2f'|format(group.entries[0].valor|float) }}" class="campo-calculo" data-form="form-liquidar-{{ tab_id }}-{{ loop.index }}" oninput="recalcularValorReceber(this)">
+                           </div>
+                           <div class="form-group">
+                             <label>Juros</label>
+                             <input type="text" name="juros" value="0,00" class="campo-calculo" data-form="form-liquidar-{{ tab_id }}-{{ loop.index }}" oninput="recalcularValorReceber(this)">
+                           </div>
+                           <div class="form-group">
+                             <label>Desconto</label>
+                             <input type="text" name="desconto" value="0,00" class="campo-calculo" data-form="form-liquidar-{{ tab_id }}-{{ loop.index }}" oninput="recalcularValorReceber(this)">
+                           </div>
+                           <div class="form-group">
+                             <label>Taxa</label>
+                             <input type="text" name="taxa" value="0,00" class="campo-calculo" data-form="form-liquidar-{{ tab_id }}-{{ loop.index }}" oninput="recalcularValorReceber(this)">
+                           </div>
+                           <div class="form-group">
+                             <label>Acréscimo</label>
+                             <input type="text" name="acrescimo" value="0,00" class="campo-calculo" data-form="form-liquidar-{{ tab_id }}-{{ loop.index }}" oninput="recalcularValorReceber(this)">
+                           </div>
+                         </div>
+
+                         <!-- Observações -->
+                         <div class="form-group" style="margin-bottom: 16px;">
+                           <label>Observações de pagamento</label>
+                           <textarea name="observacoes_pagamento" placeholder="Conta liquidada"></textarea>
+                         </div>
+
+                         <!-- Footer: Valor a receber + Botão -->
+                         <div class="modal-liq-footer">
+                           <div class="valor-receber">
+                             Valor a {{ 'receber' if group.entry_type == 'RECEBER' else 'pagar' }}: <strong class="liq-valor-final">{{ group.summary_value }}</strong>
+                           </div>
+                           <div style="display: flex; gap: 12px;">
+                             <button type="button" class="button secondary" onclick="this.closest('dialog').close()" style="padding: 12px 24px;">Cancelar</button>
+                             <button type="submit" class="btn-liquidar">Liquidar conta</button>
+                           </div>
+                         </div>
+                       </form>
+                     </div>
                    </dialog>
                  {% else %}
                    <span class="muted" style="font-size: 13px;">Parcelado</span>
@@ -350,5 +455,42 @@ document.addEventListener("DOMContentLoaded", function() {
         if(btn) { btn.click(); }
     }
 });
+
+/* ── Cálculo em tempo real do valor a receber na liquidação ── */
+function parseBR(v) {
+  if (!v) return 0;
+  // Aceita tanto "1.234,56" quanto "1234.56"
+  var s = String(v).trim();
+  if (s.indexOf(',') > -1) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  }
+  var n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+function formatBR(n) {
+  return 'R$ ' + n.toFixed(2).replace('.', ',');
+}
+
+function recalcularValorReceber(el) {
+  var formId = el.getAttribute('data-form');
+  var form = document.getElementById(formId);
+  if (!form) return;
+
+  var valorBaixa = parseBR(form.querySelector('[name="valor_baixa"]').value);
+  var juros      = parseBR(form.querySelector('[name="juros"]').value);
+  var desconto   = parseBR(form.querySelector('[name="desconto"]').value);
+  var taxa       = parseBR(form.querySelector('[name="taxa"]').value);
+  var acrescimo  = parseBR(form.querySelector('[name="acrescimo"]').value);
+
+  var total = valorBaixa + juros - desconto - taxa + acrescimo;
+  if (total < 0) total = 0;
+
+  var dialog = form.closest('dialog');
+  var display = dialog.querySelector('.liq-valor-final');
+  if (display) {
+    display.textContent = formatBR(total);
+  }
+}
 </script>
 {% endblock %}

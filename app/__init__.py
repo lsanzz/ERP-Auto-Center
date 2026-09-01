@@ -110,6 +110,19 @@ def _run_schema_updates(app: Flask) -> None:
         fe_columns = {column['name'] for column in inspector.get_columns('financial_entries')}
         if 'version' not in fe_columns:
             statements.append("ALTER TABLE financial_entries ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
+        # Campos de liquidação detalhada
+        if 'valor_baixa' not in fe_columns:
+            statements.append("ALTER TABLE financial_entries ADD COLUMN valor_baixa NUMERIC(12, 2)")
+        if 'juros' not in fe_columns:
+            statements.append("ALTER TABLE financial_entries ADD COLUMN juros NUMERIC(12, 2) DEFAULT 0")
+        if 'desconto' not in fe_columns:
+            statements.append("ALTER TABLE financial_entries ADD COLUMN desconto NUMERIC(12, 2) DEFAULT 0")
+        if 'taxa' not in fe_columns:
+            statements.append("ALTER TABLE financial_entries ADD COLUMN taxa NUMERIC(12, 2) DEFAULT 0")
+        if 'acrescimo' not in fe_columns:
+            statements.append("ALTER TABLE financial_entries ADD COLUMN acrescimo NUMERIC(12, 2) DEFAULT 0")
+        if 'observacoes_pagamento' not in fe_columns:
+            statements.append("ALTER TABLE financial_entries ADD COLUMN observacoes_pagamento TEXT")
 
     for sql in statements:
         db.session.execute(text(sql))

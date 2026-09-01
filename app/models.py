@@ -409,6 +409,14 @@ class FinancialEntry(db.Model, TimestampMixin, SerializableMixin):
     reference_id = db.Column(db.Integer)
     bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'))
 
+    # Campos de liquidação (baixa) detalhada
+    valor_baixa = db.Column(db.Numeric(12, 2))
+    juros = db.Column(db.Numeric(12, 2), default=0, server_default='0')
+    desconto = db.Column(db.Numeric(12, 2), default=0, server_default='0')
+    taxa = db.Column(db.Numeric(12, 2), default=0, server_default='0')
+    acrescimo = db.Column(db.Numeric(12, 2), default=0, server_default='0')
+    observacoes_pagamento = db.Column(db.Text)
+
     __mapper_args__ = {'version_id_col': version}
 
     bank_account = db.relationship('BankAccount')

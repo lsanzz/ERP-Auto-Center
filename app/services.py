@@ -369,25 +369,59 @@ def deduct_work_order_stock(order: WorkOrder) -> list[str]:
     return warnings
 
 
-def settle_financial_entry(entry: FinancialEntry, payment_method_id: int | None = None, payment_receipt_at=None, bank_account_id: int | None = None) -> FinancialEntry:
-    """Liquida lancamento e atualiza saldo bancario. Usa FOR UPDATE para evitar race condition."""
+def settle_financial_entry(
+    entry: FinancialEntry,
+    payment_method_id: int | None = None,
+    payment_receipt_at=None,
+    bank_account_id: int | None = None,
+    valor_baixa=None,
+    juros=None,
+    desconto=None,
+    taxa=None,
+    acrescimo=None,
+    observacoes_pagamento: str | None = None,
+) -> FinancialEntry:
+    """Liquida lancamento e atualiza saldo bancario. Usa FOR UPDATE para evitar race condition.
+
+    O valor creditado/debitado na conta bancaria e o valor liquido:
+        valor_baixa + juros - desconto - taxa + acrescimo
+    """
     entry.payment_receipt_at = parse_date(payment_receipt_at) or date.today()
     if payment_method_id:
         entry.payment_method_id = payment_method_id
     if bank_account_id:
         entry.bank_account_id = bank_account_id
+
+    # Campos de liquidação detalhada
+    entry.valor_baixa = parse_decimal(valor_baixa) if valor_baixa is not None else parse_decimal(entry.valor)
+    entry.juros = parse_decimal(juros) if juros is not None else Decimal('0')
+    entry.desconto = parse_decimal(desconto) if desconto is not None else Decimal('0')
+    entry.taxa = parse_decimal(taxa) if taxa is not None else Decimal('0')
+    entry.acrescimo = parse_decimal(acrescimo) if acrescimo is not None else Decimal('0')
+    if observacoes_pagamento is not None:
+        entry.observacoes_pagamento = observacoes_pagamento
+
     entry.status = 'RECEBIDO' if entry.entry_type == 'RECEBER' else 'PAGO'
+
+    # Valor líquido = valor_baixa + juros - desconto - taxa + acréscimo
+    valor_liquido = (
+        parse_decimal(entry.valor_baixa)
+        + parse_decimal(entry.juros)
+        - parse_decimal(entry.desconto)
+        - parse_decimal(entry.taxa)
+        + parse_decimal(entry.acrescimo)
+    )
+
     if entry.bank_account_id:
         if _is_postgres():
             account = db.session.query(BankAccount).filter_by(id=entry.bank_account_id).with_for_update().first()
         else:
             account = db.session.get(BankAccount, entry.bank_account_id)
         if account:
-            value = parse_decimal(entry.valor)
             if entry.entry_type == 'RECEBER':
-                account.saldo_atual = parse_decimal(account.saldo_atual) + value
+                account.saldo_atual = parse_decimal(account.saldo_atual) + valor_liquido
             else:
-                account.saldo_atual = parse_decimal(account.saldo_atual) - value
+                account.saldo_atual = parse_decimal(account.saldo_atual) - valor_liquido
     return entry
 
 
@@ -415,9 +449,18 @@ def update_work_order_receivables(order: WorkOrder, status: str, payment_method_
                 else:
                     account = db.session.get(BankAccount, entry.bank_account_id)
                 if account:
-                    account.saldo_atual = parse_decimal(account.saldo_atual) - parse_decimal(entry.valor)
+                    # Usa o valor líquido que foi efetivamente creditado
+                    vb = parse_decimal(entry.valor_baixa) if entry.valor_baixa is not None else parse_decimal(entry.valor)
+                    valor_liquido = vb + parse_decimal(entry.juros) - parse_decimal(entry.desconto) - parse_decimal(entry.taxa) + parse_decimal(entry.acrescimo)
+                    account.saldo_atual = parse_decimal(account.saldo_atual) - valor_liquido
             entry.status = 'PENDENTE'
             entry.payment_receipt_at = None
+            entry.valor_baixa = None
+            entry.juros = None
+            entry.desconto = None
+            entry.taxa = None
+            entry.acrescimo = None
+            entry.observacoes_pagamento = None
             if payment_method_id:
                 entry.payment_method_id = payment_method_id
             if bank_account_id is not None:
