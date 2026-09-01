@@ -368,7 +368,9 @@
 
   function parseNumber(value) { 
     if (typeof value === 'string') {
-      value = value.replace(/\./g, '').replace(',', '.');
+      if (value.includes(',')) {
+        value = value.replace(/\./g, '').replace(',', '.');
+      }
     }
     return Number.parseFloat(value || '0') || 0; 
   }
