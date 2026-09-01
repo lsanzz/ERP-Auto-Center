@@ -478,6 +478,20 @@
           }
         }
       }
+      
+      const valInput = row.querySelector('.payment-value-input');
+      if (valInput && event.target.value) {
+        const currentVal = parseNumber(valInput.value);
+        if (currentVal === 0) {
+          const currentSum = Array.from(paymentsContainer.querySelectorAll('.payment-value-input'))
+                                  .reduce((acc, el) => acc + (el === valInput ? 0 : parseNumber(el.value)), 0);
+          const remaining = Math.max(0, grandTotalValue() - currentSum);
+          valInput.value = remaining.toFixed(2).replace('.', ',');
+          valInput.dataset.masked = '';
+          initMasks(row);
+          updatePaymentsTotals();
+        }
+      }
     }
   });
 
@@ -626,20 +640,7 @@
     }
   });
 
-  if (paymentSelect && installmentBox) {
-    const syncInstallments = () => {
-      const option = paymentSelect.options[paymentSelect.selectedIndex];
-      const allows = option && option.dataset.parcela === '1';
-      installmentBox.style.display = allows ? 'block' : 'none';
-      installmentValueBox.style.display = paymentSelect.value ? 'flex' : 'none';
-      if (!allows && installmentInput) installmentInput.value = 1;
-      if (allows && installmentInput && option.dataset.max) installmentInput.max = option.dataset.max;
-      updateInstallmentPreview();
-    };
-    paymentSelect.addEventListener('change', syncInstallments);
-    syncInstallments();
-  }
-
+  
   if (clientSelect) {
     clientSelect.addEventListener('change', () => {
       const option = clientSelect.options[clientSelect.selectedIndex];
