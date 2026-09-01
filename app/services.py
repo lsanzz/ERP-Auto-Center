@@ -271,7 +271,7 @@ def ensure_work_order_receivables(order: WorkOrder) -> list[FinancialEntry]:
             installment_values = split_installments(payment.valor, installments)
             for number, value in enumerate(installment_values, start=1):
                 nome_cliente = order.client_nome or (order.client.nome if order.client else None) or order.numero
-                description = f'{nome_cliente} ({method.nome})'
+                description = f'{nome_cliente}'
                 if installments > 1:
                     description += f' ({number}/{installments})'
                 entry = FinancialEntry(
