@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy.orm import joinedload
+from sqlalchemy.exc import IntegrityError
 from collections import OrderedDict
 import base64
 import io
@@ -1904,6 +1905,24 @@ def payment_methods_edit(method_id: int):
         flash('Forma de pagamento atualizada.', 'success')
         return redirect(url_for('web.payment_methods_index'))
     return render_template('formas_pagamento/form.html', method=method)
+
+@web_bp.post('/formas-pagamento/<int:method_id>/excluir')
+@login_required
+@admin_required
+def payment_methods_delete(method_id: int):
+    method = db.session.get(PaymentMethod, method_id)
+    if not method:
+        return redirect(url_for('web.payment_methods_index'))
+    
+    try:
+        db.session.delete(method)
+        db.session.commit()
+        flash('Forma de pagamento excluída.', 'success')
+    except IntegrityError:
+        db.session.rollback()
+        flash('Esta forma de pagamento não pode ser excluída pois já possui vínculos no sistema (ex: Ordens de Serviço ou Financeiro). Experimente apenas inativá-la na edição.', 'error')
+        
+    return redirect(url_for('web.payment_methods_index'))
 
 @web_bp.post('/os/<int:work_order_id>/excluir')
 @login_required
