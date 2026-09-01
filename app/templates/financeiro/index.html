@@ -113,6 +113,7 @@
   <button class="ventriloc-tab" onclick="openTab('tab-pagar', this)">Contas a Pagar</button>
   <button class="ventriloc-tab" onclick="openTab('tab-nfe', this)">NF-e (Peças/Produtos)</button>
   <button class="ventriloc-tab" onclick="openTab('tab-nfse', this)">NFS-e (Serviços)</button>
+  <button class="ventriloc-tab" onclick="openTab('tab-extrato', this)">Extrato</button>
 </div>
 
 {% macro finance_table(groups, filter_type, tab_id) %}
@@ -130,7 +131,9 @@
     <table class="table finance-table">
       <thead>
         <tr>
-          <th>Vencimento</th>
+          <th onclick="sortTableByDate(this)" style="cursor: pointer; user-select: none;" title="Clique para ordenar por data">
+            Vencimento <span class="sort-icon" style="font-size: 10px; color: #888;">↕</span>
+          </th>
           <th>Descrição</th>
           <th>Tipo</th>
           <th>Valor Total</th>
@@ -440,6 +443,59 @@
   {% endif %}
 </div>
 
+<!-- ABA EXTRATO -->
+<div class="table-card tab-content" id="tab-extrato">
+  
+  {% if extrato_entries %}
+  <table class="table finance-table">
+    <thead>
+      <tr>
+        <th onclick="sortTableByDate(this)" style="cursor: pointer; user-select: none;" title="Clique para ordenar por data">
+          Data Liquidação <span class="sort-icon" style="font-size: 10px; color: #888;">↕</span>
+        </th>
+        <th>Descrição</th>
+        <th>Tipo</th>
+        <th>Valor Líquido</th>
+        <th>Status</th>
+        <th style="text-align: right;">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in extrato_entries|sort(attribute='vencimento', reverse=True) %}
+      <tr>
+        <td>{{ entry.payment_receipt_at|datetime_br if entry.payment_receipt_at else entry.vencimento|date_br }}</td>
+        <td>
+          <strong style="color: var(--color-graphite); font-weight: 500;">{{ entry.descricao }}</strong>
+          {% if entry.categoria %}<br><span class="muted" style="font-size: 13px;">{{ entry.categoria }}</span>{% endif %}
+        </td>
+        <td>
+          {% if entry.entry_type == 'RECEBER' %}<span style="color: var(--color-brass);">Entrada</span>
+          {% else %}<span style="color: var(--color-steel);">Saída</span>{% endif %}
+        </td>
+        <td style="font-family: var(--font-polysans); color: {% if entry.entry_type == 'RECEBER' %}var(--color-brass){% else %}var(--color-steel){% endif %};">
+          {{ "R$ %.2f"|format(entry.valor_baixa|float if entry.valor_baixa else entry.valor|float)|replace('.', ',') }}
+        </td>
+        <td>
+          <span class="status-badge status-pago"><span class="status-dot"></span>Liquidado</span>
+        </td>
+        <td style="text-align: right;">
+          <form method="post" action="{{ url_for('web.finance_revert', entry_id=entry.id) }}" onsubmit="return confirm('Tem certeza que deseja estornar este lançamento? O saldo bancário será revertido e o lançamento voltará para Pendente.');">
+            <button type="submit" class="button secondary small" style="color: #dc3545; border-color: #dc3545;">Estornar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div style="background-color: #f8f9fa; border-radius: 8px; text-align: center; padding: 60px 20px; margin-top: 20px; border: 1px dashed #dee2e6;">
+        <i class="fas fa-history" style="font-size: 48px; color: #adb5bd; margin-bottom: 20px;"></i>
+        <h4 style="color: #495057; font-weight: bold;">Nenhum lançamento liquidado</h4>
+        <p class="muted">Os lançamentos aparecerão aqui após serem liquidados.</p>
+    </div>
+  {% endif %}
+</div>
+
 <script>
 function openTab(tabId, element) {
   document.querySelectorAll('.tab-content').forEach(tab => { tab.classList.remove('active'); });
@@ -491,6 +547,57 @@ function recalcularValorReceber(el) {
   if (display) {
     display.textContent = formatBR(total);
   }
+}
+
+function sortTableByDate(th) {
+    const table = th.closest('table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Check current sort order
+    const isAsc = th.classList.contains('sort-asc');
+    
+    // Remove sort classes from all th in this table
+    table.querySelectorAll('th').forEach(h => {
+        h.classList.remove('sort-asc', 'sort-desc');
+        const icon = h.querySelector('.sort-icon');
+        if (icon) icon.textContent = '↕';
+    });
+    
+    // Set new sort order
+    const direction = isAsc ? -1 : 1;
+    const currentIcon = th.querySelector('.sort-icon');
+    
+    if (isAsc) {
+        th.classList.add('sort-desc');
+        if (currentIcon) currentIcon.textContent = '↓';
+    } else {
+        th.classList.add('sort-asc');
+        if (currentIcon) currentIcon.textContent = '↑';
+    }
+    
+    rows.sort((a, b) => {
+        const dateAStr = a.cells[0].textContent.trim();
+        const dateBStr = b.cells[0].textContent.trim();
+        
+        function parseDate(str) {
+            if (str === '-' || !str) return 0;
+            const parts = str.split('/');
+            if (parts.length === 3) {
+                // Return YYYYMMDD for easy numerical sorting without timezone issues
+                return parseInt(parts[2] + parts[1] + parts[0], 10);
+            }
+            return 0;
+        }
+        
+        const dateA = parseDate(dateAStr);
+        const dateB = parseDate(dateBStr);
+        
+        return (dateA - dateB) * direction;
+    });
+    
+    // Append rows back to tbody in new order
+    rows.forEach(row => tbody.appendChild(row));
 }
 </script>
 {% endblock %}

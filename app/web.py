@@ -1232,6 +1232,38 @@ def finance_index():
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all()
     bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all()
     
+    # Busca lançamentos liquidados para o Extrato, limitando aos últimos 500 para performance
+    extrato_query = FinancialEntry.query.options(
+        joinedload(FinancialEntry.payment_method),
+        joinedload(FinancialEntry.bank_account)
+    ).filter(FinancialEntry.status.in_(['RECEBIDO', 'PAGO']))
+    
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            extrato_query = extrato_query.filter(
+                db.or_(
+                    db.func.date(FinancialEntry.payment_receipt_at) >= start_date,
+                    FinancialEntry.vencimento >= start_date
+                )
+            )
+        except ValueError:
+            pass
+            
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            extrato_query = extrato_query.filter(
+                db.or_(
+                    db.func.date(FinancialEntry.payment_receipt_at) <= end_date,
+                    FinancialEntry.vencimento <= end_date
+                )
+            )
+        except ValueError:
+            pass
+            
+    extrato_entries = extrato_query.order_by(FinancialEntry.vencimento.desc(), FinancialEntry.id.desc()).limit(500).all()
+    
     total_receber = db.session.query(db.func.coalesce(db.func.sum(FinancialEntry.valor), 0)).filter(FinancialEntry.entry_type == 'RECEBER', FinancialEntry.status == 'PENDENTE').scalar() or 0
     total_pagar = db.session.query(db.func.coalesce(db.func.sum(FinancialEntry.valor), 0)).filter(FinancialEntry.entry_type == 'PAGAR', FinancialEntry.status == 'PENDENTE').scalar() or 0
     
@@ -1255,6 +1287,7 @@ def finance_index():
         xml_imports_by_id=xml_imports_by_id,
         nfe_docs=nfe_docs,
         nfse_docs=nfse_docs,
+        extrato_entries=extrato_entries,
     )
 
 @web_bp.route('/financeiro/novo', methods=['GET', 'POST'])
