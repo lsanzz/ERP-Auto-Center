@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><span class="eyebrow">Aprovacao digital</span><h2>Link de {{ budget.numero }}</h2></div><a class="button secondary" href="{{ url_for('web.budgets_show', budget_id=budget.id) }}">Voltar</a></div>
+<div class="card"><p>Envie este link ao cliente. Por seguranca, ele e exibido somente agora; gere outro se precisar revoga-lo.</p><label>Link publico<input id="approval-url" readonly value="{{ approval_url }}"></label><button type="button" onclick="navigator.clipboard.writeText(document.getElementById('approval-url').value)">Copiar link</button><p class="muted" style="margin-top:16px">Valido ate {{ approval.expires_at|datetime_br }}.</p></div>
+{% endblock %}

@@ -8,8 +8,8 @@
   --line-strong: rgba(255,255,255,0.16);
   --text: #f6f7f9;
   --muted: #a0a8b8;
-  --primary: #c51622;
-  --primary-2: #ff4d57;
+--primary: #3b82f6;
+--primary-2: #2563eb;
   --success: #15b26d;
   --danger: #f04452;
   --warning: #f5a524;
@@ -23,12 +23,12 @@ body {
   margin: 0;
   font-family: Inter, Arial, sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(197, 22, 34, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(255, 77, 87, 0.10), transparent 22%),
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 22%),
     linear-gradient(180deg, #121317 0%, #0b0c0f 100%);
   color: var(--text);
 }
-a { color: #ff8b92; text-decoration: none; }
+a { color: #3b82f6; text-decoration: none; }
 a:hover { text-decoration: underline; }
 .sidebar {
   position: fixed;
@@ -50,10 +50,10 @@ a:hover { text-decoration: underline; }
   pointer-events: none;
 }
 .sidebar-glow-top {
-  width: 220px; height: 220px; background: rgba(197, 22, 34, 0.28); top: -90px; right: -90px;
+  width: 220px; height: 220px; background: rgba(59, 130, 246, 0.28); top: -90px; right: -90px;
 }
 .sidebar-glow-bottom {
-  width: 160px; height: 160px; background: rgba(255, 77, 87, 0.18); bottom: -50px; left: -40px;
+  width: 160px; height: 160px; background: rgba(37, 99, 235, 0.18); bottom: -50px; left: -40px;
 }
 .brand {
   position: relative;
@@ -67,14 +67,14 @@ a:hover { text-decoration: underline; }
 .brand-badge {
   width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center;
   background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #fff; font-weight: 800;
-  box-shadow: 0 10px 30px rgba(197, 22, 34, 0.45);
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.28);
 }
 .sidebar nav { display: flex; flex-direction: column; gap: 10px; position: relative; }
 .sidebar nav a {
   padding: 13px 14px; border-radius: 14px; color: #eef3f8; border: 1px solid transparent; font-weight: 600;
 }
 .sidebar nav a:hover {
-  background: linear-gradient(180deg, rgba(197,22,34,.14), rgba(255,255,255,.02));
+background: linear-gradient(180deg, rgba(59,130,246,.14), rgba(255,255,255,.02));
   border-color: rgba(255,255,255,0.08); text-decoration: none; transform: translateX(2px);
 }
 .main { margin-left: 272px; min-height: 100vh; padding: 24px; }
@@ -100,7 +100,7 @@ a:hover { text-decoration: underline; }
 }
 .stat span, .muted { color: var(--muted); }
 .stat strong { font-size: 29px; letter-spacing: -0.03em; }
-.accent-red { background: linear-gradient(180deg, rgba(197,22,34,.22), rgba(255,255,255,.03)); }
+.accent-red { background: linear-gradient(180deg, rgba(59,130,246,.22), rgba(255,255,255,.03)); }
 .accent-dark { background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03)); }
 .topbar h1, .page-header h2 { margin: 0; letter-spacing: -0.03em; }
 .topbar p, .page-header p { margin: 6px 0 0; color: var(--muted); }
@@ -109,7 +109,7 @@ a:hover { text-decoration: underline; }
 }
 .eyebrow, .hero-kicker, .status-label {
   display: inline-flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: .14em;
-  font-size: 11px; font-weight: 700; color: #ff7d86;
+font-size: 11px; font-weight: 700; color: #3b82f6;
 }
 .user-box { display: flex; gap: 12px; align-items: center; }
 .user-chip {
@@ -138,13 +138,13 @@ input, select, textarea {
 }
 input::placeholder, textarea::placeholder { color: #7f8897; }
 input:focus, select:focus, textarea:focus {
-  border-color: rgba(255,77,87,.65); box-shadow: 0 0 0 4px rgba(197,22,34,0.16);
+border-color: rgba(59,130,246,.65); box-shadow: 0 0 0 4px rgba(59,130,246,0.16);
 }
 textarea { min-height: 98px; resize: vertical; }
 button, .button {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 18px;
   border: 0; border-radius: 14px; background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #fff;
-  font-weight: 800; cursor: pointer; text-decoration: none; box-shadow: 0 10px 24px rgba(197, 22, 34, 0.28);
+  font-weight: 800; cursor: pointer; text-decoration: none; box-shadow: 0 10px 24px rgba(59, 130, 246, 0.24);
 }
 button:hover, .button:hover { opacity: .94; text-decoration: none; }
 .button.secondary, button.secondary {
@@ -157,6 +157,9 @@ button.full, .full { width: 100%; }
 .form-grid { display: grid; gap: 14px; grid-template-columns: repeat(1, minmax(0, 1fr)); }
 .form-grid-2 { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .form-grid-3 { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.form-grid-4 { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.form-grid-5 { display: grid; gap: 14px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.form-grid-6 { display: grid; gap: 14px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .kv {
   display: flex; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line);
 }
@@ -175,8 +178,8 @@ button.full, .full { width: 100%; }
 .login-body {
   min-height: 100vh; display: grid; place-items: center;
   background:
-    radial-gradient(circle at top left, rgba(197, 22, 34, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(255, 77, 87, 0.10), transparent 22%),
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 22%),
     linear-gradient(180deg, #121317 0%, #0b0c0f 100%);
 }
 .login-card {
@@ -196,7 +199,7 @@ button.full, .full { width: 100%; }
 .hero-panel {
   display: flex; justify-content: space-between; gap: 18px; align-items: stretch; margin-bottom: 18px;
   padding: 24px; border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, rgba(197,22,34,.28), rgba(255,255,255,.04) 55%, rgba(255,255,255,.03));
+  background: linear-gradient(135deg, rgba(59,130,246,.28), rgba(255,255,255,.04) 55%, rgba(255,255,255,.03));
   border: 1px solid rgba(255,255,255,0.1); box-shadow: var(--shadow);
 }
 .hero-panel h3 { margin: 6px 0 6px; font-size: 30px; }
@@ -221,7 +224,7 @@ button.full, .full { width: 100%; }
   border: 1px solid var(--line-strong); background: rgba(255,255,255,0.04); min-height: 96px;
 }
 .payment-preview-box.highlighted {
-  background: linear-gradient(135deg, rgba(197,22,34,.18), rgba(255,255,255,.04));
+  background: linear-gradient(135deg, rgba(59,130,246,.18), rgba(255,255,255,.04));
 }
 .status-badge {
   display: inline-flex; align-items: center; gap: 9px; width: fit-content; padding: 8px 12px;
@@ -233,12 +236,12 @@ button.full, .full { width: 100%; }
 }
 .status-aberta .status-dot { background: #f5a524; box-shadow: 0 0 0 4px rgba(245,165,36,.15); }
 .status-em-andamento .status-dot { background: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,.15); }
-.status-aguardando-peca .status-dot { background: #f97316; box-shadow: 0 0 0 4px rgba(249,115,22,.15); }
+.status-aguardando-peca .status-dot { background: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,.15); }
 .status-finalizada .status-dot { background: #15b26d; box-shadow: 0 0 0 4px rgba(21,178,109,.15); }
 .status-entregue .status-dot { background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.15); }
 .status-cancelada .status-dot { background: #f04452; box-shadow: 0 0 0 4px rgba(240,68,82,.15); }
 @media (max-width: 1200px) {
-  .grid-4, .grid-3, .grid-2, .form-grid-3, .form-grid-2, .checkbox-grid, .hero-meta { grid-template-columns: 1fr; }
+  .grid-4, .grid-3, .grid-2, .form-grid-6, .form-grid-5, .form-grid-4, .form-grid-3, .form-grid-2, .checkbox-grid, .hero-meta { grid-template-columns: 1fr; }
   .hero-panel { flex-direction: column; }
 }
 @media (max-width: 900px) {
@@ -253,7 +256,7 @@ button.full, .full { width: 100%; }
 .finance-group summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; }
 .finance-group summary::-webkit-details-marker { display: none; }
 .finance-group[open] .finance-group-arrow { transform: rotate(90deg); }
-.finance-group-arrow { transition: transform .2s ease; font-size: 18px; color: #ff8b92; }
+.finance-group-arrow { transition: transform .2s ease; font-size: 18px; color: #3b82f6; }
 .finance-group-summary { display: flex; align-items: center; gap: 14px; }
 .finance-group-title { font-weight: 800; }
 .finance-group-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
@@ -277,14 +280,14 @@ button.full, .full { width: 100%; }
   border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05);
 }
 .action-menu summary::-webkit-details-marker { display: none; }
-.action-menu[open] summary { background: rgba(197,22,34,.22); border-color: rgba(197,22,34,.35); }
+.action-menu[open] summary { background: rgba(59,130,246,.22); border-color: rgba(59,130,246,.35); }
 .action-menu-panel {
   position: absolute; right: 0; top: calc(100% + 10px); z-index: 200; min-width: 320px; max-width: min(92vw, 360px);
   padding: 16px; display: grid; gap: 12px; border-radius: 18px;
   background: linear-gradient(180deg, rgba(18,18,20,.98), rgba(30,30,34,.96));
   box-shadow: 0 18px 40px rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.08);
 }
-.action-menu-title { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #ff9aa0; }
+.action-menu-title { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #3b82f6; }
 .action-form { display: grid; gap: 10px; }
 .action-form label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .action-link { text-align: center; }
@@ -317,7 +320,7 @@ button.full, .full { width: 100%; }
   border: 1px solid var(--color-graphite, #202020);
   box-shadow: 0 8px 20px rgba(0, 0, 0, .15);
 }
-.plate-float-button:hover { background: var(--color-ember-orange, #ff682c); border-color: var(--color-ember-orange, #ff682c); }
+.plate-float-button:hover { background: var(--color-ember-orange, #3b82f6); border-color: var(--color-ember-orange, #3b82f6); }
 .plate-float-button span { font-size: 20px; line-height: 1; }
 
 @media (max-width: 600px) {

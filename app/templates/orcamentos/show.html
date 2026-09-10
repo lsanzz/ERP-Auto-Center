@@ -8,8 +8,10 @@
   <div class="actions">
     <a class="button secondary" href="{{ url_for('web.budgets_edit', budget_id=budget.id) }}">Editar</a>
     <a class="button secondary" href="{{ url_for('web.budgets_index') }}">Voltar</a>
+    <form method="post" action="{{ url_for('operations.issue_budget_approval', budget_id=budget.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Gerar link para cliente</button></form>
   </div>
 </div>
+{% if budget.approvals %}<div class="card" style="margin-bottom:18px"><h3>Historico de aprovacao digital</h3>{% for approval in budget.approvals %}<p><strong>{{ approval.status }}</strong> · criado em {{ approval.created_at|datetime_br }}{% if approval.response_name %} · {{ approval.response_name }}{% endif %}</p>{% endfor %}</div>{% endif %}
 <div class="grid grid-3">
   <div class="card">
     <div class="kv"><strong>Subtotal</strong><span>{{ format_currency(budget.subtotal) }}</span></div>
@@ -23,13 +25,13 @@
   </div>
   <div class="card">
     <h3>Ações</h3>
-    <form method="post" action="{{ url_for('web.budgets_approve', budget_id=budget.id) }}">
+    <form method="post" action="{{ url_for('web.budgets_approve', budget_id=budget.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit">Aprovar orçamento</button>
     </form>
-    <form method="post" action="{{ url_for('web.budgets_convert', budget_id=budget.id) }}">
+    <form method="post" action="{{ url_for('web.budgets_convert', budget_id=budget.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="success full" type="submit">Converter em O.S.</button>
     </form>
-    <form method="post" action="{{ url_for('web.budgets_delete', budget_id=budget.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este orçamento?');">
+    <form method="post" action="{{ url_for('web.budgets_delete', budget_id=budget.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este orçamento?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="danger full" style="background: var(--color-ember-red); color: white;" type="submit">Excluir orçamento</button>
     </form>
   </div>
@@ -56,7 +58,7 @@
 </div>
 <div class="card" style="margin-top: 18px;">
   <h3>Adicionar item</h3>
-  <form method="post" action="{{ url_for('web.budgets_add_item', budget_id=budget.id) }}">
+  <form method="post" action="{{ url_for('web.budgets_add_item', budget_id=budget.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid-3">
       <label>Tipo
         <select name="item_type" required>

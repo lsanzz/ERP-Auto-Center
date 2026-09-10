@@ -2,12 +2,23 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from .models import BankAccount, Budget, BudgetItem, Client, Employee, PaymentMethod, Product, Service, User, db
+from .models import BankAccount, Budget, BudgetItem, ChartOfAccount, Client, CostCenter, Employee, PaymentMethod, Product, Service, StockLocation, User, db
 from .services import recalculate_budget_totals
 
 
 def seed_database() -> None:
+    defaults = (
+        (ChartOfAccount, 'code', '3.1', {'name': 'Receita de serviços e peças', 'kind': 'RECEITA'}),
+        (ChartOfAccount, 'code', '4.1', {'name': 'Custos e despesas operacionais', 'kind': 'DESPESA'}),
+        (CostCenter, 'code', 'OFICINA', {'name': 'Oficina'}),
+        (CostCenter, 'code', 'ADMIN', {'name': 'Administrativo'}),
+        (StockLocation, 'code', 'PRINCIPAL', {'name': 'Estoque principal'}),
+    )
+    for model, key, value, fields in defaults:
+        if not model.query.filter_by(**{key: value}).first():
+            db.session.add(model(**{key: value}, **fields))
     if User.query.first():
+        db.session.commit()
         return
 
     admin = User(username='admin', role='ADMINISTRADOR', nome='Administrador')

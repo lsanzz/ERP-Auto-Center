@@ -9,7 +9,7 @@
 </div>
 
 <div class="card asymmetric">
-  <form method="post">
+  <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h3 style="margin-bottom: 24px;">Dados do Serviço</h3>
     
     <div class="form-grid-3">

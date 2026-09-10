@@ -1,0 +1,40 @@
+name: Qualidade
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: erp_auto_center_test
+          MYSQL_USER: erp
+          MYSQL_PASSWORD: erp_test
+          MYSQL_ROOT_PASSWORD: root_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot_test"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: python -m ruff check app tests
+      - run: python -m pytest --cov=app --cov-report=term-missing --cov-report=xml
+      - name: Validar migrations no MySQL
+        env:
+          APP_ENV: testing
+          SECRET_KEY: tests-only-secret-key-with-32-characters
+          DATABASE_URL: mysql+pymysql://erp:erp_test@127.0.0.1:3306/erp_auto_center_test
+          AUTO_CREATE_SCHEMA: "false"
+        run: |
+          flask --app run.py db upgrade
+          flask --app run.py db downgrade -1
+          flask --app run.py db upgrade

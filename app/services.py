@@ -183,14 +183,22 @@ def approve_budget(budget: Budget) -> Budget:
 
 
 def create_work_order_from_budget(budget: Budget) -> WorkOrder:
-    if budget.status != 'APROVADO':
+    if budget.status not in {'APROVADO', 'APROVADO_PARCIAL'}:
         raise ValueError('Somente orçamentos aprovados podem ser convertidos em OS.')
     if budget.work_orders:
         raise ValueError('Este orçamento já foi convertido em ordem de serviço.')
-    order = WorkOrder(client_id=budget.client_id, client_nome=budget.client.nome if budget.client else None, budget=budget, numero=next_number(WorkOrder, get_system_settings().work_order_prefix or 'OS'), status='ABERTA', data_entrada=date.today(), placa=budget.placa, veiculo_descricao=budget.veiculo_descricao, observacoes=budget.observacoes, installment_count=1)
+    order = WorkOrder(vehicle_id=budget.vehicle_id, client_id=budget.client_id, client_nome=budget.client.nome if budget.client else None, budget=budget, numero=next_number(WorkOrder, get_system_settings().work_order_prefix or 'OS'), status='ABERTA', data_entrada=date.today(), placa=budget.placa, veiculo_descricao=budget.veiculo_descricao, observacoes=budget.observacoes, installment_count=1)
     db.session.add(order)
     db.session.flush()
-    for item in budget.items:
+    items = list(budget.items)
+    if budget.status == 'APROVADO_PARCIAL':
+        from .operations.models import BudgetApproval
+        latest = BudgetApproval.query.filter_by(budget_id=budget.id, status='APROVADO_PARCIAL').order_by(BudgetApproval.id.desc()).first()
+        approved_ids = {row.budget_item_id for row in (latest.item_decisions if latest else []) if row.decision == 'APROVADO'}
+        items = [item for item in items if item.id in approved_ids]
+        if not items:
+            raise ValueError('O orçamento não possui itens aprovados para conversão.')
+    for item in items:
         add_work_order_item(order, item_type=item.item_type, reference_id=item.reference_id, quantidade=item.quantidade, desconto=item.desconto, descricao=item.descricao, valor_unitario=item.valor_unitario, total=item.total)
     ensure_work_order_checklist(order)
     recalculate_work_order_totals(order)
@@ -322,14 +330,14 @@ def ensure_work_order_receivables(order: WorkOrder) -> list[FinancialEntry]:
     return entries
 
 
-def _is_postgres() -> bool:
-    """Retorna True se o banco de dados atual eh PostgreSQL."""
-    return db.session.bind is not None and db.session.bind.dialect.name == 'postgresql'
+def _supports_row_locks() -> bool:
+    """MySQL/InnoDB fornece locks de linha para operações transacionais."""
+    return db.session.get_bind().dialect.name == 'mysql'
 
 
 def finalize_work_order(order: WorkOrder) -> list[FinancialEntry]:
     """Finaliza a OS com lock exclusivo para evitar dupla finalizacao."""
-    if _is_postgres():
+    if _supports_row_locks():
         locked = db.session.query(WorkOrder).filter_by(id=order.id).with_for_update().first()
     else:
         locked = db.session.get(WorkOrder, order.id)
@@ -341,12 +349,18 @@ def finalize_work_order(order: WorkOrder) -> list[FinancialEntry]:
     locked.data_saida = date.today()
     order.status = locked.status
     order.data_saida = locked.data_saida
+    from .operations.services import ensure_warranty
+    ensure_warranty(locked)
     return ensure_work_order_receivables(locked)
 
 
 def deduct_work_order_stock(order: WorkOrder) -> list[str]:
+    """Baixa peças usando reservas e registra o razão de estoque."""
+    from .operations.services import consume_order_parts
+    return consume_order_parts(order)
+
     """Baixa estoque das pecas. Usa SELECT FOR UPDATE para evitar baixa dupla."""
-    if _is_postgres():
+    if _supports_row_locks():
         locked_order = db.session.query(WorkOrder).filter_by(id=order.id).with_for_update().first()
     else:
         locked_order = db.session.get(WorkOrder, order.id)
@@ -356,7 +370,7 @@ def deduct_work_order_stock(order: WorkOrder) -> list[str]:
     for item in locked_order.items:
         if item.item_type != 'PECA' or not item.reference_id:
             continue
-        if _is_postgres():
+        if _supports_row_locks():
             product = db.session.query(Product).filter_by(id=item.reference_id).with_for_update().first()
         else:
             product = db.session.get(Product, item.reference_id)
@@ -415,7 +429,7 @@ def settle_financial_entry(
     )
 
     if entry.bank_account_id:
-        if _is_postgres():
+        if _supports_row_locks():
             account = db.session.query(BankAccount).filter_by(id=entry.bank_account_id).with_for_update().first()
         else:
             account = db.session.get(BankAccount, entry.bank_account_id)
@@ -446,7 +460,7 @@ def update_work_order_receivables(order: WorkOrder, status: str, payment_method_
                 settle_financial_entry(entry, payment_method_id=payment_method_id, payment_receipt_at=payment_receipt_at, bank_account_id=bank_account_id)
         else:
             if entry.status == 'RECEBIDO' and entry.bank_account_id:
-                if _is_postgres():
+                if _supports_row_locks():
                     account = db.session.query(BankAccount).filter_by(id=entry.bank_account_id).with_for_update().first()
                 else:
                     account = db.session.get(BankAccount, entry.bank_account_id)
@@ -478,14 +492,22 @@ def client_history(client_id: int) -> dict:
 
 
 def services_rank(limit: int = 5):
-    return (
+    rows = (
         db.session.query(WorkOrderItem.descricao.label('descricao'), func.sum(WorkOrderItem.quantidade).label('quantidade'))
-        .filter(WorkOrderItem.item_type == 'SERVICO')
+        .join(WorkOrder, WorkOrder.id == WorkOrderItem.work_order_id)
+        .filter(WorkOrderItem.item_type == 'SERVICO', WorkOrder.status.in_(['FINALIZADA', 'ENTREGUE']))
         .group_by(WorkOrderItem.descricao)
         .order_by(func.sum(WorkOrderItem.quantidade).desc())
         .limit(limit)
         .all()
     )
+    return [{'descricao': row.descricao, 'quantidade': float(row.quantidade)} for row in rows]
+
+
+def settled_net_amount(entry):
+    principal = entry.valor_baixa if entry.valor_baixa is not None else entry.valor
+    return (parse_decimal(principal) + parse_decimal(entry.juros) - parse_decimal(entry.desconto)
+            - parse_decimal(entry.taxa) + parse_decimal(entry.acrescimo))
 
 
 def daily_cash_summary() -> dict:
@@ -495,9 +517,9 @@ def daily_cash_summary() -> dict:
     entries = FinancialEntry.query.filter(FinancialEntry.payment_receipt_at == today).all()
     for entry in entries:
         if entry.entry_type == 'RECEBER' and entry.status == 'RECEBIDO':
-            recebidos += parse_decimal(entry.valor)
+            recebidos += settled_net_amount(entry)
         if entry.entry_type == 'PAGAR' and entry.status == 'PAGO':
-            pagos += parse_decimal(entry.valor)
+            pagos += settled_net_amount(entry)
     return {'recebidos': recebidos, 'pagos': pagos, 'saldo': recebidos - pagos}
 
 
@@ -524,13 +546,13 @@ def create_financial_entries(entry_type, descricao, categoria, valor_total, venc
 
 def dashboard_data(user_role: str = 'ADMINISTRADOR') -> dict:
     closed_statuses = ['FINALIZADA', 'ENTREGUE', 'CANCELADA']
-    os_abertas = WorkOrder.query.filter(~WorkOrder.status.in_(closed_statuses), WorkOrder.data_entrada == date.today()).count()
-    os_andamento = WorkOrder.query.filter(WorkOrder.status == 'EM_ANDAMENTO', WorkOrder.data_entrada == date.today()).count()
+    os_abertas = WorkOrder.query.filter(~WorkOrder.status.in_(closed_statuses)).count()
+    os_andamento = WorkOrder.query.filter(WorkOrder.status == 'EM_ANDAMENTO').count()
     faturamento_dia = Decimal('0')
     if user_role == 'ADMINISTRADOR':
         entries = FinancialEntry.query.filter(FinancialEntry.entry_type == 'RECEBER', FinancialEntry.status == 'RECEBIDO', FinancialEntry.payment_receipt_at == date.today()).all()
         for entry in entries:
-            faturamento_dia += parse_decimal(entry.valor)
+            faturamento_dia += settled_net_amount(entry)
     bank_accounts = []
     bank_accounts_total = None
     if user_role == 'ADMINISTRADOR':
@@ -539,46 +561,10 @@ def dashboard_data(user_role: str = 'ADMINISTRADOR') -> dict:
     return {
         'os_abertas': os_abertas,
         'os_andamento': os_andamento,
+        'entradas_hoje': WorkOrder.query.filter(WorkOrder.data_entrada == date.today()).count(),
         'faturamento_dia': faturamento_dia if user_role == 'ADMINISTRADOR' else None,
         'caixa_diario': daily_cash_summary() if user_role == 'ADMINISTRADOR' else None,
         'bank_accounts': bank_accounts if user_role == 'ADMINISTRADOR' else [],
         'bank_accounts_total': bank_accounts_total if user_role == 'ADMINISTRADOR' else None,
         'services_rank': services_rank(),
-    }
-
-def daily_cash_summary() -> dict:
-    today = date.today()
-    recebidos = Decimal('0')
-    pagos = Decimal('0')
-    entries = FinancialEntry.query.filter(FinancialEntry.payment_receipt_at == today).all()
-    for entry in entries:
-        if entry.entry_type == 'RECEBER' and entry.status == 'RECEBIDO':
-            recebidos += parse_decimal(entry.valor)
-        if entry.entry_type == 'PAGAR' and entry.status == 'PAGO':
-            pagos += parse_decimal(entry.valor)
-    return {'recebidos': recebidos, 'pagos': pagos, 'saldo': recebidos - pagos}
-
-def services_rank() -> list[dict]:
-    from sqlalchemy import func
-    from .models import WorkOrderItem, db
-    
-    # Check if WorkOrderItem has 'item_type', if not we just rank all items
-    # Wait, the previous snippet had: WorkOrderItem.item_type == 'SERVICO'
-    results = (
-        db.session.query(
-            WorkOrderItem.descricao,
-            func.sum(WorkOrderItem.quantidade).label('quantidade'),
-        )
-        .filter(WorkOrderItem.item_type == 'SERVICO')
-        .group_by(WorkOrderItem.descricao)
-        .order_by(func.sum(WorkOrderItem.quantidade).desc())
-        .limit(5)
-        .all()
-    )
-    return [{'descricao': row[0], 'quantidade': float(row[1])} for row in results]
-
-def client_history(client_id: int) -> dict:
-    from .models import WorkOrder
-    return {
-        'work_orders': WorkOrder.query.filter_by(client_id=client_id).order_by(WorkOrder.id.desc()).all()
     }

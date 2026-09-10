@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#006bff">
+  <title>{% block title %}LS Hub — Gestão para oficinas e centros automotivos{% endblock %}</title>
+  <meta name="description" content="Organize sua oficina do agendamento à entrega. Clientes, veículos, orçamentos, ordens de serviço, estoque e financeiro conectados no LS Hub.">
+  <meta property="og:title" content="LS Hub — Sua oficina no próximo nível.">
+  <meta property="og:description" content="Do primeiro agendamento à entrega das chaves. Conheça a gestão feita para a rotina da sua oficina.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <link rel="canonical" href="https://lshub.com.br{{ request.path }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}?v=blue-2">
+  <script src="{{ url_for('static', filename='site.js') }}?v=motion-2" defer></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+<header class="header">
+  <div class="container header-inner">
+    <a class="brand" href="{{ url_for('index') }}" aria-label="LS Hub, início"><span class="brand-mark" aria-hidden="true">LS</span><span>ls<span class="brand-light">hub</span><span class="brand-dot">.</span></span></a>
+    <button class="menu-toggle" aria-expanded="false" aria-controls="main-nav" type="button">Menu <span aria-hidden="true">☰</span></button>
+    <nav id="main-nav" aria-label="Navegação principal">
+      <a href="{{ url_for('index') }}#recursos">O sistema</a><a href="{{ url_for('index') }}#como-funciona">Como funciona</a><a href="{{ url_for('index') }}#planos">Planos</a><a href="{{ url_for('index') }}#duvidas">Dúvidas</a>
+      <a class="login-link" href="https://app.lshub.com.br">Entrar no sistema <span aria-hidden="true">↗</span></a>
+      <a class="button button-small" href="{{ url_for('index') }}#contato">Agendar demonstração <span aria-hidden="true">↗</span></a>
+    </nav>
+  </div>
+</header>
+<main id="conteudo">{% block content %}{% endblock %}</main>
+<footer class="footer">
+  <div class="container footer-top">
+    <div><a class="brand" href="{{ url_for('index') }}"><span class="brand-mark" aria-hidden="true">LS</span><span>ls<span class="brand-light">hub</span><span class="brand-dot">.</span></span></a><p>Gestão conectada.<br>Oficina em movimento.</p></div>
+    <div><h2>Conheça o LS Hub</h2><a href="{{ url_for('index') }}#recursos">Recursos do sistema</a><a href="{{ url_for('index') }}#planos">Planos para sua oficina</a><a href="https://app.lshub.com.br">Acesso do cliente ↗</a></div>
+    <div><h2>Vamos conversar</h2><a href="{{ url_for('index') }}#contato">Solicitar demonstração</a>{% if whatsapp_url %}<a href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>{% endif %}{% if sales_email %}<a href="mailto:{{ sales_email }}">{{ sales_email }}</a>{% endif %}<a href="{{ url_for('privacy') }}">Privacidade</a></div>
+  </div>
+  <div class="container footer-bottom"><span>© 2026 LS Hub. Todos os direitos reservados.{% if company_legal_name %} {{ company_legal_name }}{% endif %}{% if company_cnpj %} · CNPJ {{ company_cnpj }}{% endif %}</span><span>Feito para quem cuida de veículos.</span></div>
+</footer>
+{% if whatsapp_url %}<a class="whatsapp-float" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer" aria-label="Conversar com o comercial no WhatsApp">WhatsApp <span aria-hidden="true">↗</span></a>{% endif %}
+</body>
+</html>

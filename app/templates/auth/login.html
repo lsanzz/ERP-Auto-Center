@@ -3,28 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login · {{ system_settings.company_name }}</title>
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
-  <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+  <title>Entrar · LSHub</title>
   <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=blue-1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}?v=1">
   <style>
     /* Forçar estilos do login para ignorar cache antigo do CSS */
     .login-body {
       min-height: 100vh;
       display: grid;
       place-items: center;
-      background: #f6f7f9 !important; /* Fundo claro para combinar com as telas operacionais */
+      background: var(--background) !important;
     }
     .login-card {
       width: min(420px, calc(100vw - 32px));
       background: #ffffff !important;
-      border: 1px solid #e2e8f0 !important;
-      border-radius: 12px !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--radius) !important;
       padding: 40px !important;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
-      color: #17191f !important;
+      box-shadow: 0 18px 42px rgba(11, 53, 88, 0.10) !important;
+      color: var(--foreground) !important;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -36,13 +34,13 @@
     }
     .login-card h1 {
       margin-top: 0;
-      color: #17191f !important;
+      color: var(--foreground) !important;
       font-size: 24px;
       text-align: center;
       margin-bottom: 8px;
     }
     .login-card p {
-      color: #64748b !important;
+      color: var(--muted-foreground) !important;
       text-align: center;
       margin-bottom: 24px;
       width: 100%;
@@ -50,7 +48,7 @@
     .login-card label {
       display: grid;
       gap: 6px;
-      color: #475569 !important;
+      color: var(--secondary-foreground) !important;
       font-size: 14px;
       font-weight: 500;
       width: 100%;
@@ -62,56 +60,94 @@
     .login-card input {
       width: 100%;
       padding: 12px;
-      border-radius: 8px !important;
-      border: 1px solid #cbd5e1 !important;
-      background: #ffffff !important;
-      color: #1e293b !important;
+      border-radius: var(--radius) !important;
+      border: 1px solid var(--input) !important;
+      background: var(--background) !important;
+      color: var(--foreground) !important;
       transition: all 0.2s;
     }
     .login-card input:focus {
-      border-color: #3b82f6 !important;
-      box-shadow: 0 0 0 3px rgba(59,130,246,0.1) !important;
+      border-color: var(--ring) !important;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.14) !important;
       outline: none;
     }
     .login-card button {
       width: 100%;
       margin-top: 12px;
       padding: 14px !important;
-      border-radius: 8px !important;
-      background: #17191f !important;
-      color: #ffffff !important;
+      border-radius: var(--radius) !important;
+      background: var(--primary) !important;
+      color: var(--primary-foreground) !important;
       font-weight: 600 !important;
       font-size: 16px !important;
       border: none !important;
       cursor: pointer;
     }
     .login-card button:hover {
-      background: #2d3748 !important;
+      background: var(--primary-hover) !important;
     }
-  </style>
+  .login-body { background: #f5f7fb !important; padding: 48px 16px; font-family: system-ui, sans-serif; }
+.login-card { width: min(460px, 100%); padding: 40px !important; border-radius: 16px !important; box-shadow: 0 12px 40px #1720330a !important; }
+.login-logo { width: 176px; margin: 0 0 36px; }
+.login-card h1 { font-size: 25px; letter-spacing: -.04em; }
+.login-card button { background: #006bff !important; box-shadow: none; }
+.login-card input { min-height: 46px; }
+.login-card small { font-weight: 400; }
+.turnstile-shell { width: 100%; min-height: 65px; display: grid; place-items: center; }
+.turnstile-status { min-height: 18px; margin: -8px 0 0 !important; font-size: 12px; }
+.login-provider { margin-top: 28px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #667085; text-align: center; width: 100%; }
+@media(max-width:480px) { .login-card { padding: 28px !important; } }
+</style>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='lshub-icon.svg') }}">
 </head>
 <body class="login-body">
   <div class="login-card">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ system_settings.company_name }}" class="login-logo">
-    <p>Faça login para acessar o sistema.</p>
+    <img src="{{ url_for('static', filename='lshub.svg') }}" alt="LSHub" class="login-logo">
+    <h1>Bem-vindo à LSHub</h1><p>Acesse a gestão da sua empresa.</p>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-        <div class="flash {{ category }}" style="background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; text-align: center; width: 100%;">
+        <div class="flash {{ category }}" style="background: var(--muted); color: var(--foreground); border: 1px solid var(--border); padding: 12px; border-radius: var(--radius); margin-bottom: 16px; font-size: 14px; text-align: center; width: 100%;">
           {{ message }}
         </div>
         {% endfor %}
       {% endif %}
     {% endwith %}
-    <form method="post" style="display: grid; gap: 16px;">
+    <form method="post" style="display: grid; gap: 16px;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>Usuário
         <input type="text" name="username" required autocomplete="username">
       </label>
       <label>Senha
         <input type="password" name="password" required autocomplete="current-password">
       </label>
-      <button type="submit">Entrar no Sistema</button>
+      {% if config.TURNSTILE_ENABLED %}
+      <div class="turnstile-shell">
+        <div class="cf-turnstile" data-sitekey="{{ config.TURNSTILE_SITE_KEY }}" data-action="login" data-language="pt-BR" data-size="flexible" data-theme="light" data-callback="turnstileOk" data-error-callback="turnstileError" data-expired-callback="turnstileExpired"></div>
+      </div>
+      <p class="turnstile-status" id="turnstile-status" role="status" aria-live="polite">Verificação de segurança em andamento…</p>
+      {% endif %}
+      <button id="login-submit" type="submit" {% if config.TURNSTILE_ENABLED %}disabled{% endif %}>Entrar no Sistema</button>
     </form>
+    <footer class="login-provider">LSHub · Gestão para empresas</footer>
   </div>
+  <link rel="stylesheet" href="{{ url_for('static', filename='lshub-ui.css') }}?v=4">
+  <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=2" defer></script>
+  {% if config.TURNSTILE_ENABLED %}
+  <script>
+    function turnstileOk() {
+      document.getElementById('login-submit').disabled = false;
+      document.getElementById('turnstile-status').textContent = 'Verificação concluída.';
+    }
+    function turnstileError() {
+      document.getElementById('login-submit').disabled = true;
+      document.getElementById('turnstile-status').textContent = 'Não foi possível carregar a verificação. Atualize a página.';
+    }
+    function turnstileExpired() {
+      document.getElementById('login-submit').disabled = true;
+      document.getElementById('turnstile-status').textContent = 'A verificação expirou. Confirme novamente.';
+    }
+  </script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  {% endif %}
 </body>
 </html>

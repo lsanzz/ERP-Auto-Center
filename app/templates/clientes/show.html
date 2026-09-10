@@ -4,7 +4,7 @@
   <div><h2>{{ client.nome }}</h2><p class="muted">Ficha do cliente e histórico de atendimento.</p></div>
   <div class="actions" style="display: flex; gap: 10px;">
     {% if current_user().role == 'ADMINISTRADOR' %}
-    <form method="post" action="{{ url_for('web.clients_delete', client_id=client.id) }}" style="margin: 0;" onsubmit="return confirm('Excluir este cliente do sistema?');">
+    <form method="post" action="{{ url_for('web.clients_delete', client_id=client.id) }}" style="margin: 0;" onsubmit="return confirm('Excluir este cliente do sistema?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
     </form>
     {% endif %}
@@ -13,6 +13,7 @@
   </div>
 </div>
 <div class="grid grid-2">
+  <a class="button secondary" href="{{ url_for('fleet.index', client_id=client.id) }}">Ver veículos deste cliente</a>
   <div class="card">
     <div class="kv"><strong>CPF/CNPJ</strong><span>{{ client.cpf_cnpj or '-' }}</span></div>
     <div class="kv"><strong>Telefone</strong><span>{{ client.telefone or '-' }}</span></div>

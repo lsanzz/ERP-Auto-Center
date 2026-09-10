@@ -8,7 +8,7 @@
 </div>
 
 <div class="card asymmetric">
-  <form method="post">
+  <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h3 style="margin-bottom: 24px;">Dados da Peça</h3>
     
     <div class="form-grid-3">
@@ -73,6 +73,7 @@
     
     <!-- Saídas (Vendas) -->
     <option value="5102">5102 - Venda de mercadoria de terceiros</option>
+    <option value="5120">5120 - Venda de mercadoria (Venda à ordem)</option>
     <option value="5405">5405 - Venda de mercadoria sujeita a ST</option>
     <option value="6102">6102 - Venda de mercadoria (Interestadual)</option>
     <option value="6404">6404 - Venda de mercadoria sujeita a ST (Interestadual)</option>

@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='overview.css') }}">
+<main class="hub"><section class="hub-panel">
+<div class="hub-header"><div><span class="eyebrow">Comprovante de recebimento</span><h2>Recibo #{{ entry.id }}</h2></div><button class="receipt-print" onclick="window.print()">Imprimir / salvar PDF</button></div>
+<h3>{{ system_settings.company_name }}</h3><p>{{ system_settings.company_document or '' }} · {{ system_settings.address or '' }}</p>
+<p>Recebemos{% if order %} de <strong>{{ order.client_nome or (order.client.nome if order.client else 'Cliente') }}</strong>{% endif %} o valor líquido de <strong>{{ format_currency(amount) }}</strong> em {{ entry.payment_receipt_at|date_br }}, referente a {{ entry.descricao }}.</p>
+<div class="hub-summary"><div><small>Principal baixado</small><strong>{{ format_currency(entry.valor_baixa if entry.valor_baixa is not none else entry.valor) }}</strong></div><div><small>Forma de pagamento</small><strong>{{ entry.payment_method.nome if entry.payment_method else 'Não informada' }}</strong></div></div>
+<p>Juros: {{ format_currency(entry.juros or 0) }} · Desconto: {{ format_currency(entry.desconto or 0) }} · Taxa: {{ format_currency(entry.taxa or 0) }} · Acréscimo: {{ format_currency(entry.acrescimo or 0) }}</p>
+<p class="hub-note">Comprovante do lançamento financeiro no sistema. Não substitui nota fiscal nem confirmação bancária. O valor líquido considera os ajustes e taxas registrados.</p><p>{{ entry.observacoes_pagamento or '' }}</p><p>Sistema fornecido por LSHub.</p>
+</section></main><style>@media print{header,nav,.receipt-print,#global-loader-overlay{display:none!important}.hub-panel{border:0!important;box-shadow:none!important}}</style>
+{% endblock %}

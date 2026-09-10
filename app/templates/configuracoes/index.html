@@ -1,5 +1,67 @@
 {% extends 'base.html' %}
 {% block content %}
+<style>
+  .settings-layout { display:grid; grid-template-columns:220px minmax(0,1fr); gap:28px; align-items:start; }
+  .settings-sidebar { position:sticky; top:24px; padding:12px; background:var(--color-ash); border:1px solid var(--color-mist); border-radius:10px; }
+  .settings-sidebar .settings-group { display:block; padding:14px 12px 8px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--color-slate); }
+  .settings-sidebar .settings-link { display:flex; align-items:center; min-height:44px; box-sizing:border-box; margin:2px 0; padding:10px 12px; border-radius:8px; color:var(--foreground); text-decoration:none; font-size:14px; font-weight:500; line-height:1.5; }
+  .settings-sidebar .settings-link:hover { background:var(--card); color:var(--primary-active); }
+  .settings-sidebar .settings-link[aria-current="page"] { background:var(--accent); color:var(--primary-active); font-weight:600; box-shadow:inset 3px 0 var(--primary); }
+  .settings-sidebar .settings-link:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+  @media(hover:hover) and (prefers-reduced-motion:no-preference) { .settings-sidebar .settings-link { transition:background-color 150ms ease,color 150ms ease,transform 150ms ease; } .settings-sidebar .settings-link:hover { transform:translateX(2px); } }
+  .settings-content { min-width:0; }
+  .settings-content > section { margin:0; padding:28px; border:1px solid var(--color-mist); border-radius:10px; background:var(--color-canvas-white); }
+  .settings-content > section[hidden] { display:none; }
+  .settings-content .page-header { flex-wrap:wrap; gap:16px; }
+  .settings-content .inline-form { display:flex; align-items:stretch; gap:10px; }
+  .settings-content .inline-form input { min-width:0; }
+  .settings-content .inline-form button { flex-shrink:0; margin:0; white-space:nowrap; }
+  .settings-content .table { display:table; width:100%; border-collapse:collapse; }
+  #fiscal-documentos, #acessos { overflow-x:auto; }
+  .settings-content .table th, .settings-content .table td { padding:16px 18px; text-align:left; vertical-align:middle; line-height:1.5; }
+  .settings-content .table th { font-size:12px; white-space:nowrap; background:var(--color-ash); }
+  .settings-content .table td { font-size:14px; }
+  #fiscal-documentos .table { min-width:720px; }
+  #acessos .table { min-width:640px; }
+  #fiscal-documentos .table td:nth-child(4) { overflow-wrap:anywhere; min-width:150px; max-width:230px; }
+  .settings-content .table .actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px !important; margin:0 !important; }
+  .settings-content .table form { margin:0; }
+  .settings-content .table td:last-child { min-width:200px; }
+  .settings-content .table td > form { flex-wrap:wrap; gap:12px !important; padding-top:12px; }
+  .settings-content .table td > form input:not([type="hidden"]) { min-width:160px; flex:1; }
+  .settings-content form > .actions { margin-top:24px; }
+  .settings-content .form-grid-2 { gap:24px; }
+  .settings-content .actions { gap:12px; }
+  .settings-content .button, .settings-content button { height:auto; min-height:44px; line-height:1.4; padding:12px 18px; box-sizing:border-box; }
+  .company-block { margin-top:18px; border:1px solid var(--color-mist); border-radius:8px; background:white; }
+  .company-block > summary { cursor:pointer; padding:18px 20px; font-weight:700; list-style:none; }
+  .company-block > summary::-webkit-details-marker { display:none; }
+  .company-block > summary::before { content:'\203A'; display:inline-block; margin-right:10px; transform:rotate(90deg); }
+  .company-block:not([open]) > summary::before { transform:none; }
+  .company-block-content { padding:4px 20px 22px; border-top:1px solid var(--color-mist); }
+  .company-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; padding-top:20px; }
+  .company-grid .span-2 { grid-column:span 2; }
+  .company-grid .span-3 { grid-column:span 3; }
+  .company-grid .span-4 { grid-column:1/-1; }
+  .company-grid label { min-width:0; }
+  .company-grid input, .company-grid select { width:100%; box-sizing:border-box; }
+  .partner-card { position:relative; padding:20px; margin-top:18px; border:1px dashed var(--color-mist); border-radius:8px; }
+  .partner-card .company-grid { padding-top:0; }
+  .partner-remove { position:absolute; right:16px; top:12px; min-height:0 !important; padding:7px 10px !important; }
+  .hours-row { display:grid; grid-template-columns:180px 130px 140px 140px; gap:16px; align-items:end; padding-top:18px; }
+  .certificate-status { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:18px; padding:18px; background:var(--color-ash); border-radius:8px; }
+  .certificate-status strong, .certificate-status span { display:block; overflow-wrap:anywhere; }
+  .settings-shortcuts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+  .settings-shortcuts a { display:flex; align-items:center; justify-content:space-between; padding:20px; min-height:76px; border:1px solid var(--color-mist); border-radius:8px; color:var(--color-graphite); text-decoration:none; line-height:1.5; }
+  .settings-shortcuts a:hover { background:var(--color-ash); border-color:var(--color-graphite); }
+  .settings-shortcuts a::after { content:'›'; margin-left:12px; }
+  #settings-workspace { padding:0; overflow:hidden; }
+  #settings-frame { display:block; width:100%; height:75vh; min-height:600px; border:0; background:white; }
+  .settings-workspace-heading { display:flex; align-items:center; justify-content:space-between; padding:18px 24px; border-bottom:1px solid var(--color-mist); }
+  @media(max-width:1100px) { .company-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .company-grid .span-3 { grid-column:span 2; } }
+  @media(max-width:600px) { .settings-shortcuts, .company-grid, .certificate-status { grid-template-columns:1fr; } .company-grid .span-2, .company-grid .span-3, .company-grid .span-4 { grid-column:auto; } .hours-row { grid-template-columns:1fr 1fr; } }
+  @media(max-width:800px) { .settings-layout { grid-template-columns:1fr; gap:18px; } .settings-sidebar { position:static; display:flex; flex-wrap:wrap; gap:4px; } .settings-sidebar .settings-group { display:none; } .settings-content > section { padding:20px; } .settings-content .form-grid-2 { grid-template-columns:minmax(0,1fr); } }
+</style>
 <div class="page-header">
   <div>
     <span class="eyebrow">Administração</span>
@@ -8,77 +70,117 @@
   </div>
 </div>
 
-<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:16px; margin-bottom:40px;">
-  <a class="data-card" href="#empresa" style="text-decoration:none; color:inherit;">
-    <span class="eyebrow">01</span><h3>Empresa</h3><p class="muted">Nome, contato e endereço usados no sistema.</p>
-  </a>
-  <a class="data-card" href="#operacao" style="text-decoration:none; color:inherit;">
-    <span class="eyebrow">02</span><h3>Operação</h3><p class="muted">Numeração e validade padrão de orçamentos.</p>
-  </a>
-  <a class="data-card" href="#acessos" style="text-decoration:none; color:inherit;">
-    <span class="eyebrow">03</span><h3>Acessos</h3><p class="muted">Usuários, perfis e senhas do ERP.</p>
-  </a>
-  <a class="data-card" href="#fiscal" style="text-decoration:none; color:inherit;">
-    <span class="eyebrow">04</span><h3>Integrações</h3><p class="muted">API fiscal e emissão de documentos.</p>
-  </a>
-</div>
+<div class="settings-layout">
+<nav class="settings-sidebar" aria-label="Seções de configurações">
+  <span class="settings-group">Oficina</span>
+  <a class="settings-link" href="#empresa" aria-current="page">Dados da empresa</a>
+  <a class="settings-link" href="#operacao">Padrões da operação</a>
+  <a class="settings-link" href="#cadastros">Cadastros administrativos</a>
+  <span class="settings-group">Fiscal</span>
+  <a class="settings-link" href="#fiscal-documentos">Documentos fiscais</a>
+  <span class="settings-group">Conta e segurança</span>
+  <a class="settings-link" href="#acessos">Usuários e acessos</a>
+  <a class="settings-link" href="#perfil">Meu perfil</a>
+  <a class="settings-link" href="#auditoria">Auditoria</a>
+</nav>
+<div class="settings-content">
 
 <section id="empresa" class="card">
+  <p class="muted" role="status">Focus NFe: {{ 'empresa sincronizada' if settings.focus_sync_status == 'SINCRONIZADA' else 'sincronização pendente' }}. Ao salvar, o cadastro será criado ou atualizado automaticamente.</p>
   <div class="page-header" style="margin-bottom:28px;">
-    <div><h3>Dados da empresa</h3><p class="muted">Esses dados aparecem no cabeçalho e identificam a oficina nos documentos.</p></div>
+    <div><h3>Dados da empresa</h3><p class="muted">Cadastro completo da oficina para documentos, emissão fiscal e integração com a Focus NFe.</p></div>
   </div>
-  <form method="post" action="{{ url_for('web.settings_save_company') }}">
-    <div class="form-grid-2">
-      <label>Nome exibido no sistema<input name="company_name" value="{{ settings.company_name or '' }}" required></label>
-      <label>Razão social<input name="trade_name" value="{{ settings.trade_name or '' }}"></label>
-      <label>CNPJ/CPF<input name="company_document" value="{{ settings.company_document or '' }}"></label>
-      <label>Telefone<input name="phone" value="{{ settings.phone or '' }}"></label>
-      <label>E-mail<input type="email" name="email" value="{{ settings.email or '' }}"></label>
-      <label>CEP
-        <div class="inline-form">
-          <input id="company-cep" name="zip_code" inputmode="numeric" maxlength="9" placeholder="00000-000" value="{{ settings.zip_code or '' }}">
-          <button type="button" class="secondary" id="buscar-company-cep">Buscar CEP</button>
-        </div>
-      </label>
-      <label>Endereço<input id="company-address" name="address" value="{{ settings.address or '' }}"></label>
-      <div class="form-grid-2" style="margin-bottom:0;">
+  <form method="post" action="{{ url_for('web.settings_save_company') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <details class="company-block" open>
+      <summary>Identificação e dados fiscais</summary>
+      <div class="company-block-content company-grid">
+        <label>Tipo de pessoa<select name="person_type"><option value="JURIDICA" {% if settings.person_type != 'FISICA' %}selected{% endif %}>Pessoa jurídica</option><option value="FISICA" {% if settings.person_type == 'FISICA' %}selected{% endif %}>Pessoa física</option></select></label>
+        <label>CNPJ/CPF<input name="company_document" value="{{ settings.company_document or '' }}"></label>
+        <label>Inscrição estadual<input name="state_registration" value="{{ settings.state_registration or '' }}"></label>
+        <label class="checkbox" style="align-self:end; min-height:48px;"><input type="checkbox" name="state_registration_exempt" {% if settings.state_registration_exempt %}checked{% endif %}> Isento de inscrição estadual</label>
+        <label class="span-2">Razão social<input name="trade_name" value="{{ settings.trade_name or '' }}"></label>
+        <label class="span-2">Nome fantasia / nome exibido<input name="company_name" value="{{ settings.company_name or '' }}" required></label>
+        <label>Inscrição municipal<input name="municipal_registration" value="{{ settings.municipal_registration or '' }}"></label>
+        <label>Regime tributário<select name="tax_regime"><option value=""></option><option value="1" {% if settings.tax_regime == '1' %}selected{% endif %}>Simples Nacional</option><option value="2" {% if settings.tax_regime == '2' %}selected{% endif %}>Simples Nacional - excesso de sublimite</option><option value="3" {% if settings.tax_regime == '3' %}selected{% endif %}>Regime Normal</option><option value="4" {% if settings.tax_regime == '4' %}selected{% endif %}>Simples Nacional - MEI</option></select></label>
+        <label>CNAE<input name="cnae" value="{{ settings.cnae or '' }}"></label>
+        <label>RNTRC<input name="rntrc" value="{{ settings.rntrc or '' }}"></label>
+        <label class="span-2">Responsável pela empresa<input name="responsible_name" value="{{ settings.responsible_name or '' }}"></label>
+        <label>Porte<select name="company_size"><option value=""></option>{% for value, label in [('MEI','MEI'),('ME','Microempresa'),('EPP','Empresa de pequeno porte'),('DEMAIS','Demais portes')] %}<option value="{{ value }}" {% if settings.company_size == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      </div>
+    </details>
+    <details class="company-block" open>
+      <summary>Endereço e contato</summary>
+      <div class="company-block-content company-grid">
+        <label>CEP<div class="inline-form"><input id="company-cep" name="zip_code" inputmode="numeric" maxlength="9" value="{{ settings.zip_code or '' }}"><button type="button" class="secondary" id="buscar-company-cep">Buscar</button></div></label>
+        <label class="span-2">Endereço<input id="company-address" name="address" value="{{ settings.address or '' }}"></label>
+        <label>Número<input name="address_number" value="{{ settings.address_number or '' }}"></label>
+        <label>Bairro<input id="company-neighborhood" name="neighborhood" value="{{ settings.neighborhood or '' }}"></label>
+        <label>Complemento<input id="company-complement" name="address_complement" value="{{ settings.address_complement or '' }}"></label>
         <label>Cidade<input id="company-city" name="city" value="{{ settings.city or '' }}"></label>
         <label>UF<input id="company-state" name="state" maxlength="2" value="{{ settings.state or '' }}"></label>
+        <label>Telefone<input name="phone" value="{{ settings.phone or '' }}"></label>
+        <label>Celular<input name="mobile" value="{{ settings.mobile or '' }}"></label>
+        <label>Website<input type="url" name="website" value="{{ settings.website or '' }}"></label>
+        <label>E-mail<input type="email" name="email" value="{{ settings.email or '' }}"></label>
+        <p class="muted span-4" id="company-cep-status">Informe o CEP para preencher endereço, bairro, cidade e UF automaticamente.</p>
       </div>
-    </div>
-    <p class="muted" id="company-cep-status">Informe o CEP para preencher endereço, cidade e UF automaticamente.</p>
+    </details>
+    <details class="company-block">
+      <summary>Responsáveis e sócios</summary>
+      <div class="company-block-content">
+        <div id="partners-list">
+          {% for partner in settings.partners %}
+          <div class="partner-card"><button type="button" class="secondary partner-remove" aria-label="Remover sócio">Remover</button><div class="company-grid">
+            <label class="span-2">Nome completo<input name="partner_name[]" value="{{ partner.full_name }}"></label><label>CPF<input name="partner_cpf[]" value="{{ partner.cpf or '' }}"></label><label>Telefone<input name="partner_phone[]" value="{{ partner.phone or '' }}"></label>
+            <label class="span-2">E-mail<input type="email" name="partner_email[]" value="{{ partner.email or '' }}"></label><label>Data de nascimento<input type="date" name="partner_birth_date[]" value="{{ partner.birth_date.isoformat() if partner.birth_date else '' }}"></label><label>RG<input name="partner_rg[]" value="{{ partner.rg or '' }}"></label><label>Quota (%)<input type="number" min="0" max="100" step="0.01" name="partner_share[]" value="{{ partner.ownership_percentage if partner.ownership_percentage is not none else '' }}"></label>
+          </div></div>
+          {% endfor %}
+        </div>
+        <div class="actions"><button type="button" class="secondary" id="add-partner">Adicionar sócio</button></div>
+      </div>
+    </details>
+    <details class="company-block">
+      <summary>Horário de funcionamento</summary>
+      <div class="company-block-content">
+        {% for prefix, label in [('weekdays','Segunda a sexta'),('saturday','Sábado'),('sunday','Domingo')] %}
+        <div class="hours-row"><strong>{{ label }}</strong><label class="checkbox"><input type="checkbox" name="{{ prefix }}_open" {% if settings|attr(prefix ~ '_open') %}checked{% endif %}> Aberto</label><label>Das<input type="time" name="{{ prefix }}_from" value="{{ settings|attr(prefix ~ '_from') }}"></label><label>Até<input type="time" name="{{ prefix }}_to" value="{{ settings|attr(prefix ~ '_to') }}"></label></div>
+        {% endfor %}
+      </div>
+    </details>
+    <details class="company-block">
+      <summary>Dados da contabilidade</summary>
+      <div class="company-block-content company-grid">
+        <label class="span-2">Contabilista responsável<input name="accountant_name" value="{{ settings.accountant_name or '' }}"></label><label>CPF do contabilista<input name="accountant_cpf" value="{{ settings.accountant_cpf or '' }}"></label><label>CRC<input name="accountant_crc" value="{{ settings.accountant_crc or '' }}"></label>
+        <label>CNPJ da contabilidade<input name="accountant_cnpj" value="{{ settings.accountant_cnpj or '' }}"></label><label>E-mail<input type="email" name="accountant_email" value="{{ settings.accountant_email or '' }}"></label><label>Telefone<input name="accountant_phone" value="{{ settings.accountant_phone or '' }}"></label>
+        <label>CEP<div class="inline-form"><input id="accountant-cep" name="accountant_zip_code" value="{{ settings.accountant_zip_code or '' }}"><button type="button" class="secondary" id="buscar-accountant-cep">Buscar</button></div></label><label class="span-2">Endereço<input id="accountant-address" name="accountant_address" value="{{ settings.accountant_address or '' }}"></label><label>Número<input name="accountant_address_number" value="{{ settings.accountant_address_number or '' }}"></label>
+        <label>Bairro<input id="accountant-neighborhood" name="accountant_neighborhood" value="{{ settings.accountant_neighborhood or '' }}"></label><label>Complemento<input id="accountant-complement" name="accountant_complement" value="{{ settings.accountant_complement or '' }}"></label><label>Cidade<input id="accountant-city" name="accountant_city" value="{{ settings.accountant_city or '' }}"></label><label>UF<input id="accountant-state" name="accountant_state" maxlength="2" value="{{ settings.accountant_state or '' }}"></label>
+        <p class="muted span-4" id="accountant-cep-status">Informe o CEP para preencher o endereço da contabilidade.</p>
+      </div>
+    </details>
     <div class="actions"><button type="submit">Salvar dados da empresa</button></div>
   </form>
+  <details class="company-block" open>
+    <summary>Certificado digital A1</summary>
+    <div class="company-block-content">
+      <p class="muted">Salve primeiro os dados da empresa. O arquivo PFX/P12 e sua senha são usados apenas durante o envio seguro para a Focus NFe; o sistema guarda somente os dados públicos e a validade do certificado.</p>
+      {% if settings.certificate_synced_at %}<div class="certificate-status"><div><span class="muted small">Situação</span><strong>Enviado para a Focus NFe</strong></div><div><span class="muted small">Validade</span><strong>{{ settings.certificate_expires_at|datetime_br if settings.certificate_expires_at else '-' }}</strong></div><div><span class="muted small">Último envio</span><strong>{{ settings.certificate_synced_at|datetime_br }}</strong></div></div>{% endif %}
+      <form method="post" enctype="multipart/form-data" autocomplete="off" action="{{ url_for('web.settings_upload_focus_certificate') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="company-grid"><label class="span-2">Certificado A1 (.pfx ou .p12)<input type="file" name="certificate_file" accept=".pfx,.p12,application/x-pkcs12" required></label><label>Senha do certificado<input type="password" name="certificate_password" autocomplete="off" required></label></div><div class="actions"><button type="submit">Validar e enviar para Focus NFe</button></div></form>
+    </div>
+  </details>
 </section>
 
 <script>
-  setupCepLookup({cepId: 'company-cep', buttonId: 'buscar-company-cep', statusId: 'company-cep-status', addressId: 'company-address', cityId: 'company-city', stateId: 'company-state'});
+  setupCepLookup({cepId: 'company-cep', buttonId: 'buscar-company-cep', statusId: 'company-cep-status', addressId: 'company-address', complementId: 'company-complement', neighborhoodId: 'company-neighborhood', cityId: 'company-city', stateId: 'company-state'});
+  setupCepLookup({cepId: 'accountant-cep', buttonId: 'buscar-accountant-cep', statusId: 'accountant-cep-status', addressId: 'accountant-address', complementId: 'accountant-complement', neighborhoodId: 'accountant-neighborhood', cityId: 'accountant-city', stateId: 'accountant-state'});
+  (() => {
+    const list = document.getElementById('partners-list');
+    const fields = '<div class="partner-card"><button type="button" class="secondary partner-remove" aria-label="Remover sócio">Remover</button><div class="company-grid"><label class="span-2">Nome completo<input name="partner_name[]"></label><label>CPF<input name="partner_cpf[]"></label><label>Telefone<input name="partner_phone[]"></label><label class="span-2">E-mail<input type="email" name="partner_email[]"></label><label>Data de nascimento<input type="date" name="partner_birth_date[]"></label><label>RG<input name="partner_rg[]"></label><label>Quota (%)<input type="number" min="0" max="100" step="0.01" name="partner_share[]"></label></div></div>';
+    document.getElementById('add-partner').addEventListener('click', () => list.insertAdjacentHTML('beforeend', fields));
+    list.addEventListener('click', event => { const button = event.target.closest('.partner-remove'); if (button) button.closest('.partner-card').remove(); });
+  })();
 </script>
 
-<section id="fiscal" class="card">
-  <div class="page-header" style="margin-bottom:28px;">
-    <div><h3>Emissão de notas fiscais</h3><p class="muted">Configure a integração e os dados de comunicação. A emissão fica disponível nas ações da O.S. e de cada peça do estoque.</p></div>
-  </div>
-  <form method="post" action="{{ url_for('web.fiscal_save_config') }}">
-    <div class="form-grid-2">
-      <label>Provedor<select name="provider_name"><option value="CUSTOM" {% if not fiscal_config or fiscal_config.provider_name == 'CUSTOM' %}selected{% endif %}>Custom</option><option value="FOCUSNFE" {% if fiscal_config and fiscal_config.provider_name == 'FOCUSNFE' %}selected{% endif %}>Focus NFe</option><option value="NFEIO" {% if fiscal_config and fiscal_config.provider_name == 'NFEIO' %}selected{% endif %}>NFE.io</option><option value="TECNOSPEED" {% if fiscal_config and fiscal_config.provider_name == 'TECNOSPEED' %}selected{% endif %}>TecnoSpeed</option></select></label>
-      <label>Ambiente<select name="environment"><option value="HOMOLOGACAO" {% if not fiscal_config or fiscal_config.environment == 'HOMOLOGACAO' %}selected{% endif %}>Homologação</option><option value="PRODUCAO" {% if fiscal_config and fiscal_config.environment == 'PRODUCAO' %}selected{% endif %}>Produção</option></select></label>
-      <label>URL base da API<input type="url" name="api_base_url" value="{{ (fiscal_config.api_base_url if fiscal_config else '') or '' }}" placeholder="https://homologacao.focusnfe.com.br"></label>
-      <label>Token/API Key<input type="password" name="api_token" placeholder="{% if fiscal_config and fiscal_config.api_token %}Token já configurado{% else %}Cole o token da API fiscal{% endif %}"></label>
-      <label>Razão social fiscal<input name="company_name" value="{{ ((fiscal_config.company_name if fiscal_config else '') or (settings.trade_name or settings.company_name or '')) }}"></label>
-      <label>CNPJ fiscal<input name="company_document" value="{{ (fiscal_config.company_document if fiscal_config else '') or (settings.company_document or '') }}"></label>
-      <label>Inscrição municipal<input name="municipal_registration" value="{{ (fiscal_config.municipal_registration if fiscal_config else '') or '' }}"></label>
-      <label>Inscrição estadual<input name="state_registration" value="{{ (fiscal_config.state_registration if fiscal_config else '') or '' }}"></label>
-      <label>Regime tributário<input name="tax_regime" value="{{ (fiscal_config.tax_regime if fiscal_config else '') or '' }}" placeholder="Ex.: 1 para Simples Nacional"></label>
-      <label>Código padrão de serviço<input name="default_service_code" value="{{ (fiscal_config.default_service_code if fiscal_config else '') or '' }}" placeholder="Ex.: 14.01"></label>
-      <label>Natureza padrão<input name="default_nature" value="{{ (fiscal_config.default_nature if fiscal_config else '') or '' }}" placeholder="Venda"></label>
-      <label>Webhook URL<input type="url" name="webhook_url" value="{{ (fiscal_config.webhook_url if fiscal_config else '') or '' }}"></label>
-      <label class="checkbox" style="align-self:end; min-height:48px;"><input type="checkbox" name="active" {% if not fiscal_config or fiscal_config.active %}checked{% endif %}> Integração ativa</label>
-    </div>
-    <p class="muted small">Os dados principais da oficina continuam em Empresa. Aqui ficam os dados fiscais e a comunicação com o provedor.</p>
-    <div class="actions"><button type="submit">Salvar configuração fiscal</button></div>
-  </form>
-  <div id="fiscal-documentos" class="table-card" style="margin-top:28px;">
+  <section id="fiscal-documentos" class="card" hidden>
     <div class="page-header" style="margin-bottom:18px;"><div><h3>Documentos fiscais</h3><p class="muted">Consulte, reenvie ou cancele documentos já preparados pela O.S. ou pelo estoque.</p></div></div>
     <table class="table">
       <thead><tr><th>Origem</th><th>Tipo</th><th>Status</th><th>Referência/chave</th><th>Ações</th></tr></thead>
@@ -92,12 +194,12 @@
           <td>
             {% if document.error_message %}<div class="muted small" style="max-width:320px; margin-bottom:8px; color:var(--color-ember-orange);">Erro: {{ document.error_message }}</div>{% endif %}
             <div class="actions" style="margin-top:0;">
-              {% if document.status in ['PRONTO_PARA_ENVIO', 'ERRO'] %}<form method="post" action="{{ url_for('web.fiscal_document_issue', document_id=document.id) }}"><button class="small success" type="submit">Emitir</button></form>{% endif %}
-              {% if document.external_id %}<form method="post" action="{{ url_for('web.fiscal_document_consult', document_id=document.id) }}"><button class="small secondary" type="submit">Consultar</button></form>{% endif %}
+              {% if document.status in ['PRONTO_PARA_ENVIO', 'ERRO'] %}<form method="post" action="{{ url_for('web.fiscal_document_issue', document_id=document.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small success" type="submit">Emitir</button></form>{% endif %}
+              {% if document.external_id %}<form method="post" action="{{ url_for('web.fiscal_document_consult', document_id=document.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small secondary" type="submit">Consultar</button></form>{% endif %}
               {% if document.xml_content %}<a class="button small secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">XML</a>{% endif %}
             </div>
             {% if document.external_id and document.status == 'AUTORIZADO' %}
-            <form method="post" action="{{ url_for('web.fiscal_document_cancel', document_id=document.id) }}" style="margin-top:8px; display:flex; gap:6px;"><input name="justificativa" minlength="15" maxlength="255" placeholder="Justificativa do cancelamento" required><button class="small danger" type="submit">Cancelar</button></form>
+            <form method="post" action="{{ url_for('web.fiscal_document_cancel', document_id=document.id) }}" style="margin-top:8px; display:flex; gap:6px;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="justificativa" minlength="15" maxlength="255" required><button class="small danger" type="submit">Cancelar</button></form>
             {% endif %}
           </td>
         </tr>
@@ -105,14 +207,13 @@
       </tbody>
     </table>
     {% set pagination = fiscal_documents_pagination %}{% include '_pagination.html' %}
-  </div>
 </section>
 
-<section id="operacao" class="card">
+<section id="operacao" class="card" hidden>
   <div class="page-header" style="margin-bottom:28px;">
     <div><h3>Padrões da operação</h3><p class="muted">Defina como os próximos documentos serão identificados e apresentados.</p></div>
   </div>
-  <form method="post" action="{{ url_for('web.settings_save_operation') }}">
+  <form method="post" action="{{ url_for('web.settings_save_operation') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid-2">
       <label>Prefixo de orçamento<input name="budget_prefix" maxlength="10" value="{{ settings.budget_prefix or 'ORC' }}" required></label>
       <label>Prefixo de O.S.<input name="work_order_prefix" maxlength="10" value="{{ settings.work_order_prefix or 'OS' }}" required></label>
@@ -124,7 +225,7 @@
   </form>
 </section>
 
-<section id="acessos" class="card">
+<section id="acessos" class="card" hidden>
   <div class="page-header" style="margin-bottom:28px;">
     <div><h3>Usuários e acessos</h3><p class="muted">Controle quem entra no sistema e quais áreas administrativas cada pessoa pode acessar.</p></div>
     <a class="button" href="{{ url_for('web.settings_users_new') }}">Novo usuário</a>
@@ -133,18 +234,18 @@
     <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Status</th><th></th></tr></thead>
     <tbody>
       {% for user in users %}
-      <tr><td>{{ user.nome }}</td><td>{{ user.username }}</td><td>{{ user.role }}</td><td>{{ 'Ativo' if user.ativo else 'Inativo' }}</td><td><div class="actions" style="margin: 0; display: flex; gap: 8px;"><a class="button secondary small" href="{{ url_for('web.settings_users_edit', user_id=user.id) }}">Editar</a><form method="post" action="{{ url_for('web.settings_users_delete', user_id=user.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este usuário?');"><button type="submit" class="button secondary small" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button></form></div></td></tr>
+      <tr><td>{{ user.nome }}</td><td>{{ user.username }}</td><td>{{ user.role }}</td><td>{{ 'Ativo' if user.ativo else 'Inativo' }}</td><td><div class="actions" style="margin: 0; display: flex; gap: 8px;"><a class="button secondary small" href="{{ url_for('web.settings_users_edit', user_id=user.id) }}">Editar</a><form method="post" action="{{ url_for('web.settings_users_delete', user_id=user.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este usuário?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="button secondary small" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button></form></div></td></tr>
       {% else %}<tr><td colspan="5">Nenhum usuário cadastrado.</td></tr>{% endfor %}
     </tbody>
   </table>
   {% set pagination = users_pagination %}{% include '_pagination.html' %}
 </section>
 
-<section class="card">
+<section id="perfil" class="card" hidden>
   <div class="page-header" style="margin-bottom:28px;">
     <div><h3>Meu perfil</h3><p class="muted">Atualize seu nome ou troque sua senha de acesso.</p></div>
   </div>
-  <form method="post" action="{{ url_for('web.settings_save_profile') }}">
+  <form method="post" action="{{ url_for('web.settings_save_profile') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid-2">
       <label>Nome<input name="nome" value="{{ current_user().nome }}" required></label>
       <label>Usuário<input value="{{ current_user().username }}" disabled></label>
@@ -156,17 +257,92 @@
   </form>
 </section>
 
-<section class="card">
+<section id="cadastros" class="card" hidden>
   <div class="page-header" style="margin-bottom:28px;">
     <div><h3>Cadastros administrativos</h3><p class="muted">Atalhos para os dados internos que sustentam a operação.</p></div>
   </div>
-  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px;">
+  <div class="settings-shortcuts">
     <a class="button secondary" href="{{ url_for('web.employees_index') }}">Funcionários</a>
     <a class="button secondary" href="{{ url_for('web.payment_methods_index') }}">Formas de pagamento</a>
     <a class="button secondary" href="{{ url_for('web.services_index') }}">Catálogo de serviços</a>
     <a class="button secondary" href="{{ url_for('web.products_index') }}">Catálogo de peças</a>
     <a class="button secondary" href="{{ url_for('web.finance_index') }}">Contas e financeiro</a>
-    <a class="button secondary" href="#fiscal">Emissão fiscal</a>
+    <a class="button secondary" href="#fiscal-documentos">Documentos fiscais</a>
   </div>
 </section>
+<section id="settings-workspace" hidden>
+  <div class="settings-workspace-heading"><strong id="settings-workspace-title">Cadastro</strong><a id="settings-workspace-back" href="#cadastros">Voltar às opções</a></div>
+  <iframe id="settings-frame" name="settings-frame" title="Conteúdo das configurações"></iframe>
+</section>
+</div>
+</div>
+<script>
+(() => {
+  const panels = Array.from(document.querySelectorAll('.settings-content > section'));
+  const links = Array.from(document.querySelectorAll('.settings-sidebar a[href^="#"]'));
+  const storageKey = 'settings-section';
+  const frame = document.getElementById('settings-frame');
+  const workspace = document.getElementById('settings-workspace');
+  const workspaceTitle = document.getElementById('settings-workspace-title');
+  const embedded = {
+    auditoria: [{{ url_for('operations.audit_log')|tojson }}, 'Auditoria'],
+    funcionarios: [{{ url_for('web.employees_index')|tojson }}, 'Funcionários'],
+    pagamentos: [{{ url_for('web.payment_methods_index')|tojson }}, 'Formas de pagamento'],
+    servicos: [{{ url_for('web.services_index')|tojson }}, 'Catálogo de serviços'],
+    pecas: [{{ url_for('web.products_index')|tojson }}, 'Catálogo de peças'],
+    financeiro: [{{ url_for('web.finance_index')|tojson }}, 'Contas e financeiro']
+  };
+  function loadWorkspace(url, title) {
+    workspaceTitle.textContent = title;
+    document.getElementById('settings-workspace-back').hidden = url === embedded.auditoria[0];
+    frame.src = url;
+  }
+  let resizeObserver;
+  frame.addEventListener('load', () => {
+    let doc;
+    try { doc = frame.contentDocument; } catch (_) { return; }
+    if (!doc) return;
+    if (frame.contentWindow.location.pathname === {{ url_for('web.settings_index')|tojson }}) {
+      location.hash = '#acessos';
+      location.reload();
+      return;
+    }
+    const style = doc.createElement('style');
+    style.textContent = '.top-header,.plate-float-button{display:none!important} body{background:white!important} body>.container{max-width:none!important;width:100%!important;padding:24px!important;box-sizing:border-box} .main{margin:0!important;padding:0!important;min-height:0!important} .page-header{margin-bottom:24px!important;flex-wrap:wrap;gap:16px} .button,button{height:auto!important;min-height:44px;line-height:1.4;padding:12px 18px;box-sizing:border-box} .actions{gap:12px!important;flex-wrap:wrap} .table-card{overflow-x:auto} .form-grid-2,.form-grid-3{gap:24px}';
+    doc.head.appendChild(style);
+    if (resizeObserver) resizeObserver.disconnect();
+    const resize = () => { frame.style.height = Math.max(600, doc.body.getBoundingClientRect().height + 32) + 'px'; };
+    resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(doc.body);
+    resize();
+  });
+  document.querySelector('.settings-content').addEventListener('click', event => {
+    const link = event.target.closest('a');
+    if (!link || link.hasAttribute('download') || link.target === '_blank') return;
+    const url = new URL(link.href, location.href);
+    if (url.origin !== location.origin || url.pathname === location.pathname) return;
+    const entry = Object.entries(embedded).find(([, value]) => value[0] === url.pathname);
+    event.preventDefault();
+    if (entry) { location.hash = entry[0]; return; }
+    panels.forEach(panel => { panel.hidden = panel !== workspace; });
+    loadWorkspace(url.href, link.textContent.trim());
+  });
+  function showSection() {
+    let saved = '';
+    try { saved = sessionStorage.getItem(storageKey) || ''; } catch (_) {}
+    const requested = location.hash.slice(1) || saved || 'empresa';
+    const active = embedded[requested] ? workspace : (panels.find(panel => panel.id === requested) || panels[0]);
+    if (embedded[requested]) loadWorkspace(...embedded[requested]);
+    panels.forEach(panel => { panel.hidden = panel !== active; });
+    links.forEach(link => {
+      if (link.hash === '#' + (embedded[requested] ? (requested === 'auditoria' ? 'auditoria' : 'cadastros') : active.id)) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+    try { sessionStorage.setItem(storageKey, embedded[requested] ? requested : active.id); } catch (_) {}
+    active.querySelectorAll('a[href*="page="]').forEach(link => { link.hash = active.id; });
+  }
+  window.addEventListener('hashchange', showSection);
+  showSection();
+})();
+</script>
 {% endblock %}

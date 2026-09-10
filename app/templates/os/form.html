@@ -14,8 +14,8 @@
     z-index: 999;
     background: #ffffff;
     border: 1px solid var(--color-mist);
-    border-radius: 12px;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+    border-radius: 8px;
+    box-shadow: 0 12px 30px rgba(32,32,32,0.14);
     max-height: 220px;
     overflow-y: auto;
     display: none;
@@ -29,6 +29,49 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+  button.custom-suggestion-item {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--color-mist);
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+    text-align: left;
+    font-weight: 500;
+  }
+  button.custom-suggestion-item:last-child { border-bottom: 0; }
+  .custom-suggestion-copy { display: grid; gap: 3px; min-width: 0; }
+  .custom-suggestion-copy strong { color: var(--color-graphite); font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+  .custom-suggestion-copy small { color: var(--color-slate); font-size: 12px; font-weight: 400; }
+  .custom-suggestion-action { color: var(--color-ember-orange); font-size: 12px; font-weight: 600; }
+  .entity-autocomplete-help { display: block; min-height: 18px; margin-top: 0; font-size: 12px; }
+  .entity-autocomplete-input[aria-expanded="true"] { border-color: var(--color-ember-orange); }
+  .client-autocomplete-field,
+  .vehicle-autocomplete-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-self: start;
+  }
+  .os-primary-grid { align-items: start; column-gap: 20px; row-gap: 24px; }
+  .os-primary-grid > * { min-width: 0; margin: 0; }
+  .os-plate-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .os-plate-control input { min-width: 0; }
+  .os-plate-control button {
+    min-width: 104px;
+    margin: 0;
+    padding: 0 20px;
+    white-space: nowrap;
+  }
+  @media (max-width: 700px) {
+    .os-plate-control { grid-template-columns: 1fr; }
+    .os-plate-control button { min-height: 44px; }
   }
   .custom-suggestion-item:hover {
     background: var(--color-sand);
@@ -54,7 +97,7 @@
   .item-row input[type="text"]:focus,
   .item-row input[inputmode="numeric"]:focus {
     border-color: var(--color-ember-orange);
-    box-shadow: 0 0 0 3px rgba(197, 22, 34, 0.1);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
     outline: none;
   }
   .item-row input.item-total-price {
@@ -75,22 +118,28 @@
   </div>
 </div>
 
-<form method="post" id="work-order-form">
+<form method="post" id="work-order-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <!-- BLOCO 1: Cliente e Veículo -->
   <div class="card asymmetric" style="margin-bottom: 40px;">
     <h3 style="margin-bottom: 24px;">1. Cliente e Veículo</h3>
-    <div class="form-grid-3">
-      <label>Nome do cliente
-        <input type="text" name="client_nome" id="client_nome" value="{{ order.client_nome if order and order.client_nome else (order.client.nome if order and order.client else '') }}" required placeholder="DIGITE O NOME DO CLIENTE" style="text-transform: uppercase;">
-      </label>
-      <label>Cliente cadastrado (opcional)
-        <select name="client_id" id="client_id">
-          <option value="">Selecionar existente</option>
-          {% for client in clients %}
-          <option value="{{ client.id }}" data-name="{{ client.nome }}" {% if order and order.client_id == client.id %}selected{% endif %}>{{ client.nome }}</option>
-          {% endfor %}
-        </select>
-      </label>
+    <div class="form-grid-3 os-primary-grid">
+      <div class="client-autocomplete-field">
+        <label for="client_nome">Cliente</label>
+        <div class="custom-autocomplete-wrapper" id="client-autocomplete">
+          <input class="entity-autocomplete-input" type="text" name="client_nome" id="client_nome" value="{{ order.client_nome if order and order.client_nome else (order.client.nome if order and order.client else '') }}" required autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="client-suggestions" aria-expanded="false" style="text-transform: uppercase;">
+          <input type="hidden" name="client_id" id="client_id" value="{{ order.client_id if order else '' }}">
+          <div class="custom-suggestions-box" id="client-suggestions" role="listbox">
+            {% for client in clients %}
+            <button type="button" class="custom-suggestion-item client-suggestion" role="option" data-id="{{ client.id }}" data-name="{{ client.nome }}" data-search="{{ client.nome }} {{ client.telefone or '' }} {{ client.cpf_cnpj or '' }}">
+              <span class="custom-suggestion-copy"><strong>{{ client.nome }}</strong><small>{{ [client.telefone, client.cpf_cnpj]|select|join(' · ') or 'Cliente cadastrado' }}</small></span>
+              <span class="custom-suggestion-action">Selecionar</span>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+        <span id="client-help" class="muted entity-autocomplete-help">Digite para localizar um cliente ou informe um novo nome.</span>
+      </div>
+      {% include 'veiculos/_selector.html' %}
       <label>Funcionário responsável
         <select name="employee_id">
           <option value="">Selecione</option>
@@ -110,13 +159,13 @@
         <input type="date" name="data_entrada" value="{{ order.data_entrada.isoformat() if order and order.data_entrada else iso_today() }}">
       </label>
       <label>Placa
-        <div class="inline-form">
-          <input id="placa" type="text" name="placa" value="{{ order.placa if order else '' }}" placeholder="ABC1D23" style="text-transform: uppercase;">
+        <div class="os-plate-control">
+          <input id="placa" type="text" name="placa" value="{{ order.placa if order else '' }}" style="text-transform: uppercase;">
           <button type="button" class="secondary" id="buscar-placa">Buscar</button>
         </div>
       </label>
       <label style="grid-column: span 3;">Veículo e Detalhes Iniciais
-        <input id="veiculo_descricao" type="text" name="veiculo_descricao" value="{{ order.veiculo_descricao if order else '' }}" placeholder="EX.: ONIX BRANCO, CG 160, HILUX DIESEL..." style="text-transform: uppercase;">
+        <input id="veiculo_descricao" type="text" name="veiculo_descricao" value="{{ order.veiculo_descricao if order else '' }}" style="text-transform: uppercase;">
       </label>
     </div>
     <p class="muted" id="placa-status" style="margin-top: 8px;">Consulte a placa para preencher a descrição do veículo.</p>
@@ -358,6 +407,8 @@
   
   const clientSelect = document.getElementById('client_id');
   const clientName = document.getElementById('client_nome');
+  const clientBox = document.getElementById('client-suggestions');
+  const clientHelp = document.getElementById('client-help');
   const plateInput = document.getElementById('placa');
   const vehicleDescription = document.getElementById('veiculo_descricao');
   const plateButton = document.getElementById('buscar-placa');
@@ -641,11 +692,74 @@
   });
 
   
-  if (clientSelect) {
-    clientSelect.addEventListener('change', () => {
-      const option = clientSelect.options[clientSelect.selectedIndex];
-      if (option && option.dataset.name) clientName.value = option.dataset.name.toUpperCase();
+  if (clientSelect && clientName && clientBox) {
+    const clientOptions = Array.from(clientBox.querySelectorAll('.client-suggestion'));
+    let activeClientIndex = -1;
+    const normalizeSearch = (value) => (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    const visibleClients = () => clientOptions.filter((option) => option.style.display !== 'none');
+
+    function closeClientSuggestions() {
+      clientBox.style.display = 'none';
+      clientName.setAttribute('aria-expanded', 'false');
+      activeClientIndex = -1;
+      clientOptions.forEach((option) => option.removeAttribute('aria-selected'));
+    }
+
+    function renderClientSuggestions() {
+      const query = normalizeSearch(clientName.value.trim());
+      let count = 0;
+      clientOptions.forEach((option) => {
+        const matches = !query || normalizeSearch(option.dataset.search).includes(query);
+        option.style.display = matches && count < 12 ? 'flex' : 'none';
+        if (matches && count < 12) count += 1;
+      });
+      if (!count) {
+        closeClientSuggestions();
+        clientHelp.textContent = 'Nenhum cadastro encontrado. O nome digitado criará um novo cliente.';
+        return;
+      }
+      clientBox.style.display = 'block';
+      clientName.setAttribute('aria-expanded', 'true');
+      clientHelp.textContent = `${count} cliente${count === 1 ? '' : 's'} encontrado${count === 1 ? '' : 's'}.`;
+    }
+
+    function selectClient(option) {
+      clientSelect.value = option.dataset.id;
+      clientSelect.dataset.selectedName = option.dataset.name;
+      clientName.value = option.dataset.name.toUpperCase();
+      clientHelp.textContent = 'Cliente cadastrado selecionado.';
+      closeClientSuggestions();
+      clientSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    clientOptions.forEach((option) => option.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      selectClient(option);
+    }));
+    clientName.addEventListener('input', () => {
+      if (normalizeSearch(clientName.value) !== normalizeSearch(clientSelect.dataset.selectedName)) {
+        if (clientSelect.value) {
+          clientSelect.value = '';
+          clientSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+      renderClientSuggestions();
     });
+    clientName.addEventListener('focus', renderClientSuggestions);
+    clientName.addEventListener('blur', () => setTimeout(closeClientSuggestions, 160));
+    clientName.addEventListener('keydown', (event) => {
+      const options = visibleClients();
+      if (event.key === 'Escape') return closeClientSuggestions();
+      if (!['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key) || !options.length) return;
+      event.preventDefault();
+      if (event.key === 'Enter') return selectClient(options[activeClientIndex >= 0 ? activeClientIndex : 0]);
+      activeClientIndex = event.key === 'ArrowUp'
+        ? (activeClientIndex <= 0 ? options.length - 1 : activeClientIndex - 1)
+        : (activeClientIndex + 1) % options.length;
+      options.forEach((option, index) => option.setAttribute('aria-selected', index === activeClientIndex ? 'true' : 'false'));
+      options[activeClientIndex].scrollIntoView({ block: 'nearest' });
+    });
+    if (clientSelect.value) clientSelect.dataset.selectedName = clientName.value;
   }
 
   async function consultarPlaca() {

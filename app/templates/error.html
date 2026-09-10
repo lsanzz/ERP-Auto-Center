@@ -1,8 +1,104 @@
 {% extends 'base.html' %}
+{% block page_title %} · Erro {{ code }}{% endblock %}
 {% block content %}
-<div class="card">
-  <h2>Erro {{ code }}</h2>
-  <p>{{ message }}</p>
-  <a class="button" href="{{ url_for('web.dashboard') }}">Voltar ao painel</a>
-</div>
+<style>
+  .error-shell {
+    min-height: min(68vh, 680px);
+    display: grid;
+    place-items: center;
+    padding: clamp(32px, 7vw, 96px) 0;
+  }
+  .error-panel {
+    width: min(100%, 760px);
+    position: relative;
+    overflow: hidden;
+    padding: clamp(28px, 5vw, 56px);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--card);
+    box-shadow: 0 24px 70px rgba(30, 64, 175, .10);
+  }
+  .error-panel::after {
+    content: "{{ code }}";
+    position: absolute;
+    right: -12px;
+    bottom: -54px;
+    color: color-mix(in srgb, var(--primary) 8%, transparent);
+    font-family: var(--font-polysans);
+    font-size: clamp(150px, 30vw, 280px);
+    line-height: 1;
+    letter-spacing: -.09em;
+    pointer-events: none;
+  }
+  .error-code {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    color: var(--primary-active);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .error-code::before {
+    content: "";
+    width: 28px;
+    height: 2px;
+    background: var(--primary);
+  }
+  .error-title {
+    max-width: 580px;
+    margin-bottom: 12px;
+    font-size: clamp(34px, 6vw, 58px);
+    line-height: 1.02;
+    text-wrap: balance;
+  }
+  .error-message {
+    max-width: 520px;
+    margin-bottom: 30px;
+    color: var(--muted-foreground);
+    font-size: 17px;
+    text-wrap: pretty;
+  }
+  .error-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .error-back {
+    appearance: none;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--background);
+    color: var(--foreground) !important;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .error-back:hover { background: var(--muted); }
+</style>
+
+<main class="error-shell" aria-labelledby="error-title">
+  <section class="error-panel">
+    <span class="error-code">Erro {{ code }}</span>
+    {% if code == 404 %}
+      <h1 class="error-title" id="error-title">Essa página saiu da rota.</h1>
+      <p class="error-message">{{ message }} O endereço pode ter mudado ou o conteúdo não está mais disponível.</p>
+    {% elif code == 403 %}
+      <h1 class="error-title" id="error-title">Acesso não autorizado.</h1>
+      <p class="error-message">{{ message }} Se precisar entrar aqui, fale com um administrador.</p>
+    {% else %}
+      <h1 class="error-title" id="error-title">Algo não encaixou.</h1>
+      <p class="error-message">{{ message }}</p>
+    {% endif %}
+    <div class="error-actions">
+      <a class="button" href="{{ url_for('web.root') }}">Ir para o início</a>
+      <button class="error-back" type="button" onclick="history.back()">Voltar à página anterior</button>
+    </div>
+  </section>
+</main>
 {% endblock %}

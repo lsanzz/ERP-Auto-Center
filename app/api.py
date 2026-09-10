@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from functools import wraps
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy.orm.exc import StaleDataError
 
 from .auth import current_user, login_user, logout_user
@@ -33,10 +33,17 @@ from .services import (
 from .utils import parse_date, parse_decimal
 from .settings import budget_default_date, get_system_settings
 from .vehicles import lookup_plate
+from .fleet.services import link_vehicle
 from .xml_import import parse_nfe_xml
 
 
 api_bp = Blueprint("api", __name__)
+
+
+@api_bp.errorhandler(ValueError)
+def handle_validation_error(exc):
+    db.session.rollback()
+    return as_json({'error': str(exc)}, 400)
 
 
 @api_bp.errorhandler(StaleDataError)
@@ -222,17 +229,36 @@ def _collect_work_order_item_payloads(data: dict) -> list[dict]:
 
 @api_bp.get('/health')
 def health():
-    return as_json({'status': 'ok', 'service': 'erp-auto-center'})
+    try:
+        db.session.execute(db.text('SELECT 1'))
+    except Exception:
+        current_app.logger.exception('health_database_failed')
+        return as_json({'status': 'degraded', 'service': 'erp-auto-center', 'database': 'unavailable'}, 503)
+    return as_json({'status': 'ok', 'service': 'erp-auto-center', 'database': 'ok'})
 
 
 @api_bp.post('/session')
 def session_create():
     data = payload()
+    from .security import login_is_rate_limited
+    from .operations.services import record_audit
+    if login_is_rate_limited(request.remote_addr):
+        return as_json({'error': 'muitas tentativas; aguarde alguns minutos'}, 429)
+    from .security import verify_turnstile
+    if not verify_turnstile(data.get('turnstile_token') or data.get('cf-turnstile-response'), request.remote_addr):
+        record_audit('LOGIN_CAPTCHA_FALHA', 'SESSAO', None, None, ip=request.remote_addr)
+        db.session.commit()
+        return as_json({'error': 'verificação de segurança inválida'}, 400)
     username = data.get('username', '').strip()
     password = data.get('password', '')
     user = User.query.filter_by(username=username, ativo=True).first()
-    if not user or not user.check_password(password):
+    from .security import verify_totp
+    if not user or not user.check_password(password) or not verify_totp(user, data.get('otp')):
+        record_audit('LOGIN_FALHA', 'SESSAO', None, user.id if user else None, {'usuario': username}, request.remote_addr)
+        db.session.commit()
         return as_json({'error': 'credenciais inválidas'}, 401)
+    record_audit('LOGIN_SUCESSO', 'SESSAO', None, user.id, ip=request.remote_addr)
+    db.session.commit()
     login_user(user)
     return as_json({'message': 'autenticado', 'user': {'id': user.id, 'username': user.username, 'role': user.role}})
 
@@ -334,6 +360,9 @@ def products_collection():
         ativo=bool(data.get('ativo', True)),
     )
     db.session.add(product)
+    db.session.flush()
+    from .operations.services import register_inventory_change
+    register_inventory_change(product, 0, 'SALDO_INICIAL', 'API_CADASTRO', current_user().id)
     db.session.commit()
     return as_json(product.to_dict(), 201)
 
@@ -349,6 +378,7 @@ def product_resource(product_id: int):
     if current_user().role != 'ADMINISTRADOR':
         return as_json({'error': 'acesso negado'}, 403)
     data = payload()
+    previous_stock = product.estoque_atual
     for field in ['codigo', 'nome', 'categoria', 'marca', 'unidade']:
         if field in data:
             setattr(product, field, data.get(field) or None)
@@ -362,6 +392,8 @@ def product_resource(product_id: int):
         product.estoque_minimo = parse_decimal(data.get('estoque_minimo'))
     if 'ativo' in data:
         product.ativo = bool(data.get('ativo'))
+    from .operations.services import register_inventory_change
+    register_inventory_change(product, previous_stock, 'AJUSTE', 'API_EDICAO', current_user().id)
     db.session.commit()
     return as_json(product.to_dict())
 
@@ -424,6 +456,7 @@ def budgets_collection():
         validade=parse_date(data.get('validade')) or budget_default_date(),
     )
     db.session.add(budget)
+    link_vehicle(budget, data)
     db.session.flush()
     recalculate_budget_totals(budget)
     db.session.commit()
@@ -451,6 +484,7 @@ def budget_resource(budget_id: int):
         budget.desconto = parse_decimal(data.get('desconto'))
     if 'validade' in data:
         budget.validade = parse_date(data.get('validade'))
+    link_vehicle(budget, data)
     recalculate_budget_totals(budget)
     db.session.commit()
     return as_json(serialize_budget(budget))
@@ -524,6 +558,7 @@ def work_orders_collection():
             emitir_nota=True,
         )
         db.session.add(order)
+        link_vehicle(order, data)
         db.session.flush()
         record_work_order_status(order, order.status, current_user().id, 'O.S. cadastrada')
         if items_payload:
@@ -560,6 +595,7 @@ def work_order_resource(work_order_id: int):
             client = _resolve_or_create_client_from_payload({'client_id': data.get('client_id', order.client_id), 'client_nome': data.get('client_nome') or data.get('nome_cliente') or order.client_nome})
             order.client_id = client.id
             order.client_nome = data.get('client_nome') or data.get('nome_cliente') or client.nome
+        link_vehicle(order, data)
         if 'employee_id' in data:
             order.employee_id = int(data.get('employee_id')) if data.get('employee_id') else None
         if 'budget_id' in data:

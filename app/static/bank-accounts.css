@@ -1,0 +1,11 @@
+.hub-bank-overview{margin-bottom:22px;border-top:3px solid var(--primary)}
+.bank-overview-heading{align-items:flex-start}.bank-overview-heading p{margin-bottom:0}
+.bank-total{display:inline-flex;align-items:baseline;gap:8px;margin-top:8px}.bank-total span{color:var(--muted-foreground);font-size:12px}.bank-total strong{color:var(--foreground);font-size:24px;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.bank-accounts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.bank-account-card{min-width:0;padding:18px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);transition:border-color 160ms ease,box-shadow 160ms ease,transform 160ms ease}
+.bank-account-card:hover{border-color:color-mix(in srgb,var(--primary) 42%,var(--border));box-shadow:0 10px 28px rgba(37,99,235,.08);transform:translateY(-1px)}
+.bank-account-top{display:flex;align-items:center;gap:12px}.bank-account-icon{display:grid;flex:0 0 auto;place-items:center;width:42px;height:42px;border-radius:var(--radius);background:var(--accent);color:var(--primary-active)}.bank-account-icon svg{width:22px;height:22px}
+.bank-account-name{display:grid;flex:1;min-width:0;gap:4px}.bank-account-name strong,.bank-account-name small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bank-account-name small,.bank-account-balance small{color:var(--muted-foreground);font-size:12px}.hub .bank-account-edit{min-height:34px;padding:7px 11px}
+.bank-account-balance{display:grid;gap:6px;margin-top:24px}.bank-account-balance strong{font-size:clamp(22px,2vw,30px);font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.bank-account-details{display:flex;gap:22px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);color:var(--muted-foreground);font-size:11px}.bank-account-details span{display:grid;gap:4px}.bank-account-details strong{color:var(--foreground);font-size:12px}.bank-account-empty{grid-column:1/-1;border:1px dashed var(--border)}
+@media(max-width:700px){.bank-overview-heading .hub-actions,.bank-overview-heading .hub-actions>*{width:100%}.bank-accounts-grid{grid-template-columns:1fr}}

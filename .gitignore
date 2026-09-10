@@ -43,6 +43,23 @@ sample_*.pdf
 # ── Scripts de utilitário local ───────────────────────────
 export_sqlite_dump.py
 tmp/
+uploads/
+*.rar
+*.zip
+coverage.xml
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# Amostras locais e arquivos de migração manual
+notateste.xml
+teste*nota.xml
+osimport.html
+fix_form.py
+import_os_only.py
+migrardados.py
+criar_tabelas.py
 
 # ── Arquivos JSON de API / testes locais ─────────────────
 api-*.json

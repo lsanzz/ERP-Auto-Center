@@ -36,7 +36,7 @@
         <td style="display: flex; gap: 8px;">
           {% if current_user().role == 'ADMINISTRADOR' %}
           <a class="button secondary" href="{{ url_for('web.payment_methods_edit', method_id=method.id) }}">Editar</a>
-          <form method="post" action="{{ url_for('web.payment_methods_delete', method_id=method.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir esta forma de pagamento?');" style="display:inline;">
+          <form method="post" action="{{ url_for('web.payment_methods_delete', method_id=method.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir esta forma de pagamento?');" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="secondary" style="color: var(--color-ember-orange); border-color: var(--color-ember-orange);">Excluir</button>
           </form>
           {% endif %}

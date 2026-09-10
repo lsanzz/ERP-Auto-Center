@@ -9,8 +9,9 @@
     </span>
   </div>
 <div class="actions" style="margin-top: 0; display: flex; gap: 10px;">
+    <a class="button secondary" href="{{ url_for('operations.inspection', work_order_id=order.id) }}">Inspeção</a>
     {% if current_user().role == 'ADMINISTRADOR' %}
-    <form method="post" action="{{ url_for('web.work_orders_delete', work_order_id=order.id) }}" onsubmit="return confirm('Atenção: Excluir esta O.S. apagará também os recebimentos pendentes atrelados a ela. Deseja continuar?');">
+    <form method="post" action="{{ url_for('web.work_orders_delete', work_order_id=order.id) }}" onsubmit="return confirm('Atenção: Excluir esta O.S. apagará também os recebimentos pendentes atrelados a ela. Deseja continuar?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir O.S.</button>
     </form>
     {% endif %}
@@ -18,6 +19,16 @@
     <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}" download>Baixar PDF</a>
     <a class="button" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar O.S.</a>
   </div>
+</div>
+
+<div class="card" style="margin-bottom:24px">
+  <h3>Peças e garantia</h3>
+  <p class="muted">Reserve peças antes do serviço. A baixa gera movimentações rastreáveis ao finalizar.</p>
+  <div class="actions">
+    <form method="post" action="{{ url_for('operations.reserve_parts', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Reservar peças</button></form>
+    <form method="post" action="{{ url_for('operations.release_parts', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="secondary">Liberar reservas</button></form>
+  </div>
+  {% if order.warranty %}<p><strong>Garantia:</strong> {{ order.warranty.starts_at|date_br }} até {{ order.warranty.ends_at|date_br }} · {{ order.warranty.status }}</p>{% endif %}
 </div>
 
 <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px; margin-bottom: 60px;">
@@ -99,10 +110,10 @@
     <div><h3>Financeiro desta O.S.</h3><p class="muted" style="margin-top:8px;">{{ 'Recebimento já lançado.' if has_receivables else 'Esta ordem está pronta para entrar em contas a receber.' }}</p></div>
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
       {% if not has_receivables %}
-      <form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><button type="submit">Lançar contas</button></form>
+      <form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Lançar contas</button></form>
       {% else %}
 
-      {% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary" style="color:var(--color-ember-orange)!important; border-color:var(--color-ember-orange)!important;">Estornar recebimento</button></form>{% endif %}
+      {% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary" style="color:var(--color-ember-orange)!important; border-color:var(--color-ember-orange)!important;">Estornar recebimento</button></form>{% endif %}
       {% endif %}
     </div>
   </div>

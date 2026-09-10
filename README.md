@@ -1,86 +1,74 @@
 # ERP Auto Center
 
-ERP Auto Center é um sistema de gestão desenvolvido para **oficinas mecânicas (Auto Center)**, criado para centralizar e automatizar toda a operação da empresa em uma única plataforma. O projeto foi desenvolvido sob medida para atender às necessidades do negócio, proporcionando maior organização, controle e eficiência nos processos administrativos e operacionais.
+Sistema web para gestão de oficinas mecânicas. Centraliza clientes e veículos, orçamento e aprovação digital, ordens de serviço, agenda e pátio, inspeções, estoque, compras, financeiro gerencial e documentos fiscais.
 
-A plataforma reúne em um único ambiente o gerenciamento de clientes, ordens de serviço, orçamentos, peças, serviços, financeiro, documentos fiscais e equipe, permitindo que toda a rotina da oficina seja administrada de forma prática e segura.
+## Stack
 
-## 🚀 Principais funcionalidades
+- Python 3.11+
+- Flask 3 e SQLAlchemy 2
+- MySQL 8.4/InnoDB em desenvolvimento e produção
+- SQLite em memória somente nos testes unitários
+- Alembic/Flask-Migrate para evolução do banco
+- Jinja, CSS e JavaScript sem framework no frontend
+- ReportLab para documentos PDF
 
-### 📋 Gestão de clientes
+## Preparação local
 
-- Cadastro completo de clientes
-- Consulta rápida de informações
-- Histórico de atendimentos
+1. Copie `.env.example` para `.env` e troque as credenciais e a chave secreta.
+2. Inicie um MySQL 8.4 e crie o banco indicado em `DATABASE_URL`.
+3. Instale as dependências: `python -m pip install -r requirements-dev.txt`.
+4. Aplique o schema: `flask --app run.py db upgrade`.
+5. Para uma instalação vazia, execute uma vez: `flask --app run.py seed`.
+6. Inicie: `flask --app run.py run --debug`.
 
-### 🔧 Ordens de Serviço
+`AUTO_CREATE_SCHEMA` deve permanecer `false`. Bancos anteriores ao Alembic devem ser verificados e marcados uma única vez com `flask --app run.py adotar-baseline`; consulte os documentos de entrega antes de executar isso em dados reais.
 
-- Abertura de O.S.
-- Controle dos serviços executados
-- Inclusão de peças utilizadas
-- Acompanhamento do andamento dos serviços
-- Emissão de documentos em PDF
+## Qualidade
 
-### 💰 Orçamentos
+```text
+python -m ruff check app tests
+python -m pytest
+python -m pytest --cov=app --cov-report=term-missing
+```
 
-- Criação de orçamentos
-- Inclusão de peças e serviços
-- Conversão para Ordem de Serviço
+O workflow em `.github/workflows/quality.yml` também testa upgrade, downgrade e novo upgrade das migrations em MySQL.
 
-### 🛠 Gestão de serviços
+## Operação
 
-- Cadastro de serviços
-- Organização dos procedimentos realizados pela oficina
+- Saúde: `GET /api/health` verifica aplicação e banco.
+- Logs: JSON em `stdout`, com `X-Request-ID` em cada resposta.
+- Fila: `flask --app run.py jobs-worker --once` processa uma tarefa pendente; em produção, execute continuamente por um supervisor.
+- Backup: `scripts/backup_mysql.sh` cria dump transacional compactado.
+- Restauração: `scripts/restore_mysql.sh caminho/arquivo.sql.gz`.
 
-### 📦 Controle de peças
+Leia [Operação em produção](docs/operacao-producao.md) antes da primeira implantação.
 
-- Cadastro de produtos
-- Controle de estoque
-- Utilização de peças nas Ordens de Serviço
+## Segurança
 
-### 💳 Financeiro
+### Cloudflare Turnstile no login
 
-- Controle de receitas
-- Registro de pagamentos
-- Acompanhamento financeiro da oficina
+O login web usa Cloudflare Turnstile e valida o token no servidor. Em desenvolvimento,
+o projeto usa automaticamente as chaves de teste oficiais da Cloudflare, válidas em
+`localhost` e `127.0.0.1`. Em produção, crie um widget Turnstile no painel da Cloudflare
+e configure obrigatoriamente:
 
-### 💵 Formas de pagamento
+```env
+TURNSTILE_SITE_KEY=sua-chave-publica
+TURNSTILE_SECRET_KEY=sua-chave-secreta
+```
 
-- Cadastro e gerenciamento das formas de pagamento aceitas
+Cadastre no widget apenas os hostnames reais da aplicação. Não use as chaves de teste
+em produção. A autenticação em duas etapas continua independente: quando ativada para
+um usuário, o código do autenticador é solicitado em uma segunda tela após o CAPTCHA,
+usuário e senha.
 
-### 👨‍🔧 Funcionários
+- CSRF nos formulários e chamadas mutáveis.
+- Cookies `HttpOnly`, `SameSite=Lax` e `Secure` em produção.
+- Content Security Policy e cabeçalhos defensivos.
+- Rate limit persistente de login.
+- Permissões por capacidade, além dos papéis de usuário.
+- MFA TOTP opcional em **Perfil → Segurança da conta**.
+- Fotos de inspeção validadas, redimensionadas, normalizadas e servidas apenas a usuários autenticados.
+- Auditoria para operações sensíveis de estoque, aprovação e conciliação.
 
-- Cadastro de colaboradores
-- Controle de acesso por níveis de permissão
-- Área administrativa para gerenciamento da equipe
-
-### 📄 Fiscal
-
-- Importação de XML de Nota Fiscal Eletrônica (NF-e)
-- Organização de documentos fiscais
-- Integração com Focus NFe para emissão e importação de NF-e
-
-### 📊 Dashboard
-
-- Visão geral da operação
-- Indicadores e informações importantes para gestão
-
-## 🛠 Tecnologias utilizadas
-
-- Python
-- Flask
-- SQLAlchemy
-- HTML
-- CSS
-- Jinja2
-- SQLite
-- Bootstrap (interface personalizada)
-
-## 🎯 Sobre o projeto
-
-O ERP Auto Center foi desenvolvido como uma solução personalizada para atender às necessidades de uma oficina mecânica, substituindo controles manuais e processos descentralizados por um sistema integrado.
-
-Seu objetivo é facilitar o gerenciamento das operações diárias, oferecendo mais organização, produtividade e controle sobre clientes, serviços, estoque, financeiro e documentos fiscais.
-
----
-
-**ERP Auto Center** demonstra a aplicação de tecnologias web na criação de um sistema de gestão empresarial voltado para oficinas mecânicas, reunindo em uma única plataforma os principais processos necessários para uma administração eficiente e profissional.
+Nunca versione `.env`, certificados, tokens fiscais, XMLs reais, backups ou anexos de clientes.

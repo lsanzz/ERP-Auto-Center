@@ -24,7 +24,7 @@
   <div class="card section-card">
     <h3>Ação requerida</h3>
     <p style="margin-bottom: 15px;">O sistema criará o vínculo com o fornecedor e salvará este documento bruto. A nota será listada nas suas Importações para que você possa converter as peças para o seu estoque posteriormente.</p>
-    <form method="post" action="{{ url_for('web.finance_import_xml_confirm') }}">
+    <form method="post" action="{{ url_for('web.finance_import_xml_confirm') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="raw_xml_b64" value="{{ raw_xml_b64 }}">
       <button type="submit" class="button success" {% if existing %}disabled{% endif %}>Confirmar importação</button>
       <a class="button secondary" href="{{ url_for('web.finance_index') }}">Cancelar</a>

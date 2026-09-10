@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>{{ vehicle.placa or 'Veículo sem placa' }}</h2><p>{{ vehicle.descricao }} · {{ 'Ativo' if vehicle.ativo else 'Inativo' }}</p></div><div class="actions"><a class="button" href="{{ url_for('fleet.edit', vehicle_id=vehicle.id) }}">Editar veículo</a><a class="button secondary" href="{{ url_for('fleet.index') }}">Voltar</a></div></div>
+<div class="card"><h3>Prontuário do veículo</h3>
+  <p>Cliente atual: <a href="{{ url_for('web.clients_show', client_id=vehicle.client_id) }}">{{ vehicle.client.nome }}</a></p>
+  <div class="form-grid-2">{% for label, value in [('Marca',vehicle.marca),('Modelo',vehicle.modelo),('Versão',vehicle.versao),('Ano fabricação',vehicle.ano_fabricacao),('Ano modelo',vehicle.ano_modelo),('Chassi',vehicle.chassi),('Renavam',vehicle.renavam),('Motor',vehicle.motor),('Combustível',vehicle.combustivel),('Câmbio',vehicle.cambio),('Cor',vehicle.cor),('Quilometragem',vehicle.quilometragem)] %}<p><strong>{{ label }}:</strong> {{ value if value is not none else 'Não informado' }}</p>{% endfor %}</div>
+  <p>{{ vehicle.observacoes or '' }}</p>
+  {% if current_user().role == 'ADMINISTRADOR' %}<form method="post" action="{{ url_for('fleet.toggle_active', vehicle_id=vehicle.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="version" value="{{ vehicle.version }}"><button class="secondary" type="submit">{{ 'Inativar' if vehicle.ativo else 'Reativar' }} veículo</button></form>{% endif %}
+</div>
+<div class="card"><h3>Registrar quilometragem</h3><form method="post" action="{{ url_for('fleet.odometer', vehicle_id=vehicle.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="version" value="{{ vehicle.version }}">
+  <div class="form-grid-2"><label>Quilometragem<input type="number" name="quilometragem" min="0" step="1" required></label><label>Data da leitura<input type="date" name="recorded_on" value="{{ today }}" max="{{ today }}" required></label></div>
+  <label>Observação<input name="observacoes" maxlength="255"></label><button type="submit">Registrar leitura</button>
+</form>
+<details><summary>Histórico de quilometragem ({{ vehicle.readings|length }})</summary><ul>{% for reading in vehicle.readings %}<li>{{ reading.recorded_on|date_br }} — {{ reading.quilometragem }} km · {{ reading.user.nome if reading.user else 'Importação' }}{% if reading.observacoes %} · {{ reading.observacoes }}{% endif %}</li>{% else %}<li>Nenhuma leitura registrada.</li>{% endfor %}</ul></details></div>
+<div class="table-card" style="overflow-x:auto"><h3>Histórico de atendimentos</h3><table class="table"><thead><tr><th>Documento</th><th>Data</th><th>Cliente na época</th><th>Status</th><th>Total</th></tr></thead><tbody>
+{% for kind, document in timeline %}<tr><td><a href="{{ url_for('web.work_orders_show', work_order_id=document.id) if kind == 'OS' else url_for('web.budgets_show', budget_id=document.id) }}">{{ document.numero }}</a></td><td>{{ document.created_at|datetime_br }}</td><td>{{ document.client.nome }}</td><td>{{ document.status|replace('_', ' ') }}</td><td>{{ format_currency(document.total_geral if kind == 'OS' else document.total) }}</td></tr>{% else %}<tr><td colspan="5">Nenhum atendimento vinculado. Selecione este veículo ao criar uma OS ou orçamento.</td></tr>{% endfor %}
+</tbody></table><div class="actions">{% if page > 1 %}<a href="{{ url_for('fleet.show', vehicle_id=vehicle.id, page=page-1) }}">Anterior</a>{% endif %}<span>Página {{ page }}</span>{% if has_next %}<a href="{{ url_for('fleet.show', vehicle_id=vehicle.id, page=page+1) }}">Próxima</a>{% endif %}</div></div>
+<div class="card"><h3>Histórico de proprietários</h3><ul>{% for entry in vehicle.ownership_history %}<li>{{ entry.created_at|datetime_br }}: {{ entry.previous_client.nome if entry.previous_client else 'Cadastro inicial' }} → {{ entry.client.nome }}</li>{% else %}<li>Nenhuma transferência registrada.</li>{% endfor %}</ul></div>
+{% endblock %}

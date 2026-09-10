@@ -1,0 +1,15 @@
+{% extends 'base.html' %}{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='overview.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='business.css') }}?v=3">
+<main class="hub">
+  <div class="hub-header"><div><span class="eyebrow">Histórico · memória da operação</span><h2>Registros e atividades</h2><p>Consulte documentos e a autoria das alterações registradas pelo sistema.</p></div><a class="button secondary" href="{{ url_for('web.finance_imports') }}">Importar dados</a></div>
+  <section class="hub-panel">
+    <form class="hub-filters history-filters" method="get"><label>Consultar<select name="kind"><option value="eventos">Atividades e alterações</option>{% for key, config in catalogs.items() %}<option value="{{ key }}" {{ 'selected' if kind == key }}>{{ config[2] }}</option>{% endfor %}</select></label><label>Busca<input name="q" value="{{ search }}" placeholder="Nome, número ou ação…"></label><label>Criado de<input type="date" name="start" value="{{ start }}" required></label><label>Até<input type="date" name="end" value="{{ end }}" required></label>
+      {% if kind == 'eventos' %}<label>Usuário<select name="user_id"><option value="">Todos</option>{% for user in users %}<option value="{{ user.id }}" {{ 'selected' if request.args.get('user_id') == user.id|string }}>{{ user.nome }}</option>{% endfor %}</select></label><label>ID da entidade<input type="number" min="1" name="entity_id" value="{{ request.args.get('entity_id','') }}"></label>{% endif %}
+      <div class="hub-actions history-actions"><button>Pesquisar</button><button class="secondary" name="export" value="csv" formtarget="_blank">Exportar CSV</button><a href="{{ url_for('business.history') }}">Limpar filtros</a></div>
+    </form>
+    <p>{{ pagination.total }} registro(s) encontrado(s).</p>
+    <div class="hub-table-wrap"><table class="hub-table"><thead><tr><th>Registrado em</th><th>Registro</th><th>Situação / entidade</th><th>Autoria</th><th>Campos alterados</th></tr></thead><tbody>{% for row in records %}<tr><td>{{ row.created_at|datetime_br }}</td><td class="description">{% if row.url %}<a href="{{ row.url }}">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</td><td>{{ row.status }}</td><td>{{ row.author }}</td><td class="description">{{ row.detail or '—' }}</td></tr>{% else %}<tr><td colspan="5" class="hub-empty">Nenhum registro encontrado. Experimente outro período ou busca.</td></tr>{% endfor %}</tbody></table></div>{% include '_pagination.html' %}
+    <p class="hub-note">A auditoria identifica campos alterados, sem guardar seus valores. Não recupera alterações anteriores à ativação da auditoria nem substitui backups. As abas de documentos mostram o estado atual dos registros criados no período.</p>
+  </section>
+</main>{% endblock %}

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div><span class="eyebrow">Inspecao digital</span><h2>{{ order.numero }}</h2><p class="muted">{{ order.placa or '-' }} · {{ order.veiculo_descricao or '-' }}</p></div>
+  <a class="button secondary" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">Voltar para O.S.</a>
+</div>
+<form method="post" class="card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="form-grid-3">
+    <label>Quilometragem<input type="number" min="0" name="odometer" value="{{ inspection.odometer or '' }}"></label>
+    <label style="grid-column:span 2">Observacoes gerais<textarea name="notes">{{ inspection.notes or '' }}</textarea></label>
+  </div>
+  <div class="table-card" style="margin-top:24px">
+    <table class="table"><thead><tr><th>Area</th><th>Item</th><th>Condicao</th><th>Observacao</th></tr></thead><tbody>
+    {% for item in inspection.items %}<tr>
+      <td>{{ item.area }}</td><td><strong>{{ item.description }}</strong></td>
+      <td><select name="condition_{{ item.id }}">{% for condition in conditions %}<option value="{{ condition }}" {% if item.condition == condition %}selected{% endif %}>{{ condition|replace('_',' ') }}</option>{% endfor %}</select></td>
+      <td><input name="notes_{{ item.id }}" value="{{ item.notes or '' }}"></td>
+    </tr>{% endfor %}
+    </tbody></table>
+  </div>
+  <div class="actions" style="margin-top:20px"><button name="complete" value="0">Salvar rascunho</button><button class="success" name="complete" value="1">Concluir inspecao</button></div>
+</form>
+<div class="card" style="margin-top:24px">
+  <h3>Evidencias fotograficas</h3>
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('operations.inspection_photo', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid-3"><label>Foto JPG, PNG ou WEBP<input type="file" name="photo" accept="image/jpeg,image/png,image/webp" required></label><label style="grid-column:span 2">Legenda<input name="caption"></label></div><button>Adicionar foto</button>
+  </form>
+  <div class="grid grid-3" style="margin-top:20px">{% for photo in inspection.photos %}<figure><img src="{{ url_for('operations.inspection_photo_file', photo_id=photo.id) }}" alt="{{ photo.caption or photo.original_name }}" style="width:100%;max-height:220px;object-fit:cover;border-radius:8px"><figcaption class="muted">{{ photo.caption or photo.original_name }}</figcaption></figure>{% else %}<p class="muted">Nenhuma foto adicionada.</p>{% endfor %}</div>
+</div>
+{% endblock %}

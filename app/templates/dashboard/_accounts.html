@@ -1,0 +1,26 @@
+<div class="bank-accounts-grid">
+  {% for account in finance.accounts %}
+  <article class="bank-account-card">
+    <div class="bank-account-top">
+      <span class="bank-account-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10h16M6 10v7m4-7v7m4-7v7m4-7v7M4 19h16M3 7l9-4 9 4v2H3V7Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <div class="bank-account-name"><strong>{{ account.nome }}</strong><small>{{ account.banco or 'Banco não informado' }}</small></div>
+      <button type="button" class="secondary bank-account-edit" onclick="document.getElementById('edit-bank-account-{{ account.id }}').showModal()">Editar</button>
+    </div>
+    <div class="bank-account-balance"><small>Saldo disponível</small><strong>{{ format_currency(account.saldo_atual) }}</strong></div>
+    {% if account.agencia or account.conta %}<div class="bank-account-details"><span>Agência <strong>{{ account.agencia or '—' }}</strong></span><span>Conta <strong>{{ account.conta or '—' }}</strong></span></div>{% endif %}
+  </article>
+  <dialog class="hub-dialog" id="edit-bank-account-{{ account.id }}">
+    <div class="hub-panel-head"><h3>Editar conta</h3><button type="button" class="secondary" onclick="this.closest('dialog').close()" aria-label="Fechar">×</button></div>
+    <form method="post" action="{{ url_for('web.bank_accounts_edit', account_id=account.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="hub-form-grid"><label>Nome<input name="nome" value="{{ account.nome }}" required></label><label>Banco<input name="banco" value="{{ account.banco or '' }}"></label><label>Agência<input name="agencia" value="{{ account.agencia or '' }}"></label><label>Conta<input name="conta" value="{{ account.conta or '' }}"></label><label>Saldo inicial<input type="number" step="0.01" name="saldo_inicial" value="{{ account.saldo_inicial }}" required></label><label>Saldo atual<input type="number" step="0.01" name="saldo_atual" value="{{ account.saldo_atual }}" required></label></div>
+      <div class="hub-actions"><button>Salvar conta</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button></div>
+    </form>
+    <form method="post" action="{{ url_for('web.bank_accounts_delete', account_id=account.id) }}" onsubmit="return confirm('Excluir esta conta bancária?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="secondary">Excluir conta</button></form>
+  </dialog>
+  {% else %}<div class="hub-empty bank-account-empty">Nenhuma conta bancária cadastrada.<br>Adicione uma conta para acompanhar o saldo da oficina.</div>{% endfor %}
+</div>
+<dialog class="hub-dialog" id="new-bank-account">
+  <div class="hub-panel-head"><h3>Nova conta bancária</h3><button type="button" class="secondary" onclick="this.closest('dialog').close()" aria-label="Fechar">×</button></div>
+  <form method="post" action="{{ url_for('web.bank_accounts_new') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="hub-form-grid"><label>Nome<input name="nome" placeholder="Ex.: Conta principal" required></label><label>Banco<input name="banco"></label><label>Agência<input name="agencia"></label><label>Conta<input name="conta"></label><label>Saldo inicial<input type="number" step="0.01" name="saldo_inicial" value="0" required></label></div><div class="hub-actions"><button>Adicionar conta</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button></div></form>
+</dialog>

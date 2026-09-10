@@ -27,13 +27,21 @@
         if (options.addressId) {
           const address = document.getElementById(options.addressId);
           if (address) {
-            address.value = [data.logradouro, data.complemento, data.bairro]
+            address.value = [data.logradouro, options.complementId ? null : data.complemento, options.neighborhoodId ? null : data.bairro]
               .filter(Boolean).join(', ');
           }
+        }
+        if (options.complementId) {
+          const complement = document.getElementById(options.complementId);
+          if (complement) complement.value = data.complemento || '';
         }
         if (options.cityId) {
           const city = document.getElementById(options.cityId);
           if (city) city.value = data.localidade || '';
+        }
+        if (options.neighborhoodId) {
+          const neighborhood = document.getElementById(options.neighborhoodId);
+          if (neighborhood) neighborhood.value = data.bairro || '';
         }
         if (options.stateId) {
           const state = document.getElementById(options.stateId);

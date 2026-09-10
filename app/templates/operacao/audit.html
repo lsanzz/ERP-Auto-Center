@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block content %}
+<div class="page-header"><div><span class="eyebrow">Seguranca</span><h2>Trilha de auditoria</h2><p class="muted">Ultimos 300 eventos e alterações.</p></div></div>
+<div class="table-card"><table class="table"><thead><tr><th>Data</th><th>Usuario</th><th>Acao</th><th>Entidade</th><th>ID</th><th>Origem</th></tr></thead><tbody>{% for event in events %}<tr><td>{{ event.created_at|datetime_br }}</td><td>{{ event.user.nome if event.user else 'Sistema/cliente' }}</td><td>{{ event.action }}</td><td>{{ event.entity_type }}</td><td>{{ event.entity_id or '-' }}</td><td>{{ event.ip_address or '-' }}</td></tr>{% else %}<tr><td colspan="6">Sem eventos.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

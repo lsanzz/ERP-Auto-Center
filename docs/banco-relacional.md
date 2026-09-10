@@ -1,28 +1,24 @@
 # Banco de dados relacional
 
 ## Banco recomendado para produção
-PostgreSQL.
+MySQL 8.4 com InnoDB.
 
-O sistema agora suporta PostgreSQL como banco principal para uso real da oficina e mantém SQLite apenas como fallback para desenvolvimento local rápido.
+O sistema exige MySQL fora dos testes. SQLite é aceito somente quando a aplicação é criada explicitamente em modo de teste.
 
-## Motivos para usar PostgreSQL
-- melhor concorrência para múltiplos usuários
-- integridade transacional forte
-- melhor escalabilidade para financeiro, dashboards, fiscal e BI
-- compatibilidade futura com relatórios e integrações mais complexas
+## Configuração do MySQL
+- engine InnoDB para transações, chaves estrangeiras e locks de linha
+- charset `utf8mb4` e collation `utf8mb4_unicode_ci`
+- bloqueios `SELECT FOR UPDATE` nas baixas e reservas concorrentes
 
 ## Configuração de conexão
 O sistema lê a conexão pela variável de ambiente `DATABASE_URL`.
 
 Exemplo:
 ```env
-DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/erp_auto_center
+DATABASE_URL=mysql+pymysql://erp:SENHA@127.0.0.1:3306/erp_auto_center?charset=utf8mb4
 ```
 
-Se a variável não estiver definida, usa:
-```text
-sqlite:///instance/erp_auto_center.db
-```
+Sem `DATABASE_URL`, a inicialização é recusada para impedir uso acidental de outro banco.
 
 ## Tabelas principais
 - users
@@ -41,6 +37,6 @@ sqlite:///instance/erp_auto_center.db
 - xml_invoice_imports
 
 ## Observações de compatibilidade
-- `db.create_all()` funciona tanto em SQLite quanto PostgreSQL
-- a rotina de atualização de schema reconhece o dialeto PostgreSQL
-- URLs antigas com `postgres://` são convertidas automaticamente para `postgresql://`
+- novas instalações usam `flask db upgrade`
+- instalações legadas adotam a baseline após validação em homologação
+- `db.create_all()` permanece temporariamente como ponte compatível quando `AUTO_CREATE_SCHEMA=true`

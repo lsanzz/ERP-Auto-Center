@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>{{ 'Editar veículo' if vehicle.id else 'Novo veículo' }}</h2><p class="muted">Dados do veículo e proprietário atual. As ordens anteriores mantêm seus dados originais.</p></div></div>
+<form method="post" class="card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="version" value="{{ values.get('version', vehicle.version) or '' }}">
+  <div class="form-grid-2">
+    <label>Cliente<select name="client_id" required><option value="">Selecione</option>{% for client in clients %}<option value="{{ client.id }}" {% if values.get('client_id')|string == client.id|string %}selected{% endif %}>{{ client.nome }}</option>{% endfor %}</select></label>
+    <label>Descrição<input name="descricao" value="{{ values.get('descricao') or '' }}" maxlength="160" required></label>
+    <label>Placa<input name="placa" value="{{ values.get('placa') or '' }}" maxlength="10"></label>
+    <label>Categoria<select name="categoria">{% for category in categories %}<option {% if (values.get('categoria') or 'AUTOMOVEL') == category %}selected{% endif %}>{{ category }}</option>{% endfor %}</select></label>
+    {% for key, label, limit in [('chassi','Chassi',30),('renavam','Renavam',20),('marca','Marca',80),('modelo','Modelo',100),('versao','Versão',100),('motor','Motorização',80),('combustivel','Combustível',40),('cambio','Câmbio',40),('cor','Cor',40)] %}
+    <label>{{ label }}<input name="{{ key }}" value="{{ values.get(key) or '' }}" maxlength="{{ limit }}"></label>
+    {% endfor %}
+    {% for key, label in [('ano_fabricacao','Ano fabricação'),('ano_modelo','Ano modelo')] %}<label>{{ label }}<input type="number" name="{{ key }}" value="{{ values.get(key) or '' }}" min="1900" max="2100"></label>{% endfor %}
+    <label>Quilometragem<input type="number" name="quilometragem" value="{{ values.get('quilometragem') if values.get('quilometragem') is not none else '' }}" min="0" step="1"></label>
+  </div>
+  <label>Observações<textarea name="observacoes" maxlength="10000">{{ values.get('observacoes') or '' }}</textarea></label>
+  <div class="actions"><button type="submit">Salvar veículo</button><a class="button secondary" href="{{ url_for('fleet.index') }}">Voltar</a></div>
+</form>
+{% endblock %}

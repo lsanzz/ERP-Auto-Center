@@ -1,0 +1,20 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 45
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = ["migrations"]
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]

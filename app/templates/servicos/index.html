@@ -31,7 +31,7 @@
           {% if current_user().role == 'ADMINISTRADOR' %}
           <div style="display: flex; gap: 10px; justify-content: flex-end;">
             <a class="button secondary" href="{{ url_for('web.services_edit', service_id=service.id) }}">Editar</a>
-            <form method="post" action="{{ url_for('web.services_delete', service_id=service.id) }}" style="margin: 0;" onsubmit="return confirm('Inativar este serviço?');">
+            <form method="post" action="{{ url_for('web.services_delete', service_id=service.id) }}" style="margin: 0;" onsubmit="return confirm('Inativar este serviço?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
             </form>
           </div>

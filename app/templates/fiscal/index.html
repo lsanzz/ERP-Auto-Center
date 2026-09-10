@@ -16,7 +16,7 @@
 <div class="grid grid-2">
   <div class="card section-card">
     <h3>Configuração da API</h3>
-    <form method="post" action="{{ url_for('web.fiscal_save_config') }}">
+    <form method="post" action="{{ url_for('web.fiscal_save_config') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-grid-2">
         <label
           >Provedor<select name="provider_name">
@@ -67,13 +67,11 @@
             type="url"
             name="api_base_url"
             value="{{ config.api_base_url if config else '' }}"
-            placeholder="https://homologacao.focusnfe.com.br"
         /></label>
         <label
           >Token/API Key<input
             type="password"
             name="api_token"
-            placeholder="{% if config and config.api_token %}Token já configurado{% else %}Cole o token da Focus NFe{% endif %}"
         /></label>
         <label
           >Webhook URL<input
@@ -151,12 +149,12 @@
     action="{{ url_for('web.fiscal_focus_import_nfe') }}"
     enctype="multipart/form-data"
   >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid-2">
       <label
         >Referência opcional<input
           type="text"
           name="ref"
-          placeholder="Se vazio, a Focus usa a chave da nota"
       /></label>
       <label
         >XML da NF-e<input
@@ -193,11 +191,11 @@
           <div class="actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
             
             {% if document.status in ['PRONTO_PARA_ENVIO', 'ERRO'] %}
-              <form method="post" action="{{ url_for('web.fiscal_document_issue', document_id=document.id) }}">
+              <form method="post" action="{{ url_for('web.fiscal_document_issue', document_id=document.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="small success" type="submit">Emitir</button>
               </form>
             {% else %}
-              <form method="post" action="{{ url_for('web.fiscal_document_consult', document_id=document.id) }}">
+              <form method="post" action="{{ url_for('web.fiscal_document_consult', document_id=document.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="small secondary" type="submit">Consultar</button>
               </form>
             {% endif %}
@@ -207,14 +205,14 @@
             {% endif %}
 
             {% if document.status not in ['PRONTO_PARA_ENVIO', 'ERRO', 'CANCELADO'] %}
-              <form method="post" action="{{ url_for('web.fiscal_document_cancel', document_id=document.id) }}" onsubmit="return solicitarJustificativa(this);">
+              <form method="post" action="{{ url_for('web.fiscal_document_cancel', document_id=document.id) }}" onsubmit="return solicitarJustificativa(this);"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="justificativa" class="justificativa-input">
                 <button class="small danger" type="submit" style="background: transparent; color: #dc3545; border: 1px solid #dc3545;">Cancelar</button>
               </form>
             {% endif %}
 
             {% if document.status in ['PRONTO_PARA_ENVIO', 'ERRO'] %}
-              <form method="post" action="{{ url_for('web.fiscal_document_delete', document_id=document.id) }}" onsubmit="return confirm('Tem certeza que deseja apagar esta nota do sistema? Ela ainda não foi enviada para a Sefaz.');">
+              <form method="post" action="{{ url_for('web.fiscal_document_delete', document_id=document.id) }}" onsubmit="return confirm('Tem certeza que deseja apagar esta nota do sistema? Ela ainda não foi enviada para a Sefaz.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="small danger" type="submit" style="background: transparent; color: #dc3545; border: 1px solid #dc3545;">Excluir</button>
               </form>
             {% endif %}

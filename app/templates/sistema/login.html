@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Acesso do proprietário · LSHub</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}?v=1">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--background); color: var(--foreground); font: 15px/1.5 var(--font-sans); }
+    .login { width: min(410px, calc(100% - 32px)); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; box-shadow: 0 18px 42px rgba(51,51,51,.08); }
+    .login h1 { margin: 0 0 8px; }
+    .login p { color: var(--muted-foreground); margin: 0 0 24px; }
+    .login label { display: block; font-weight: 600; margin-top: 16px; }
+    .login input { display: block; width: 100%; margin-top: 7px; padding: 12px; border: 1px solid var(--input); border-radius: var(--radius); background: var(--background); color: var(--foreground); }
+    .login input:focus { border-color: var(--ring); outline: 3px solid rgba(59,130,246,.14); }
+    .login button { width: 100%; margin-top: 22px; padding: 12px; border: 0; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); font-weight: 700; cursor: pointer; }
+    .login button:hover { background: var(--primary-hover); }
+    .message { padding: 11px; background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; }
+  </style>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='lshub-icon.svg') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='lshub-ui.css') }}?v=4">
+</head>
+<body>
+  <form class="login" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h1>Administração do sistema</h1>
+    <p>Acesso exclusivo do proprietário.</p>
+    {% with messages=get_flashed_messages() %}
+      {% for message in messages %}<div class="message">{{ message }}</div>{% endfor %}
+    {% endwith %}
+    <label>Usuário<input name="username" autocomplete="username" required></label>
+    <label>Senha<input type="password" name="password" autocomplete="current-password" required></label>
+    <button type="submit">Entrar</button>
+  </form>
+</body>
+</html>

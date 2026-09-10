@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-header"><div><h2>{{ 'Editar orçamento' if budget else 'Novo orçamento' }}</h2></div></div>
 <div class="card">
-  <form method="post">
+  <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid-2">
       <label>Cliente
         <select name="client_id" required>
@@ -12,13 +12,14 @@
           {% endfor %}
         </select>
       </label>
+      {% include 'veiculos/_selector.html' %}
       <label>Placa
         <div class="inline-form">
-          <input id="placa" type="text" name="placa" value="{{ budget.placa if budget else '' }}" placeholder="ABC1D23" style="text-transform: uppercase;">
+          <input id="placa" type="text" name="placa" value="{{ budget.placa if budget else '' }}" style="text-transform: uppercase;">
           <button type="button" class="secondary" id="buscar-placa">Buscar</button>
         </div>
       </label>
-      <label>Veículo / modelo<input id="veiculo_descricao" type="text" name="veiculo_descricao" value="{{ budget.veiculo_descricao if budget else '' }}" placeholder="Gol 1.6, Onix LT, etc." style="text-transform: uppercase;"></label>
+      <label>Veículo / modelo<input id="veiculo_descricao" type="text" name="veiculo_descricao" value="{{ budget.veiculo_descricao if budget else '' }}" style="text-transform: uppercase;"></label>
       {% if budget %}
       <label>Status
         <select name="status">

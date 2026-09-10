@@ -1,0 +1,18 @@
+{% extends 'base.html' %}{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='overview.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='business.css') }}?v=2">
+<main class="hub business-reports">
+  <div class="hub-header"><div><span class="eyebrow">Financeiro · análise do período</span><h2>Balancete gerencial</h2><p>Receitas, despesas e resultado, com o regime de apuração explícito.</p></div><a class="button secondary" href="{{ url_for('web.finance_index') }}">Ver lançamentos</a></div>
+  <section class="hub-panel">
+    <form class="hub-filters" method="get">
+      <label>Regime<select name="basis"><option value="competencia" {{ 'selected' if basis == 'competencia' }}>Competência</option><option value="caixa" {{ 'selected' if basis == 'caixa' }}>Caixa · liquidado</option></select></label>
+      <label>Início<input type="date" name="start" value="{{ start }}" required></label><label>Fim<input type="date" name="end" value="{{ end }}" required></label>
+      <label>Conta bancária<select name="account"><option value="">Todas</option>{% for account in accounts %}<option value="{{ account.id }}" {{ 'selected' if request.args.get('account') == account.id|string }}>{{ account.nome }}</option>{% endfor %}</select></label>
+      <button>Aplicar</button><button class="secondary" name="export" value="csv" formtarget="_blank">Exportar CSV</button>
+    </form>
+    <div class="hub-summary"><div><small>{{ 'Recebido líquido' if basis == 'caixa' else 'Receitas por competência' }}</small><strong>{{ format_currency(report.revenue) }}</strong></div><div><small>{{ 'Pago líquido' if basis == 'caixa' else 'Despesas por competência' }}</small><strong>{{ format_currency(report.expense) }}</strong></div><div><small>Resultado do período</small><strong>{{ format_currency(report.result) }}</strong></div></div>
+    <p class="hub-note">{{ 'Considera somente baixas, na data do pagamento/recebimento, incluindo juros, descontos, taxas e acréscimos.' if basis == 'caixa' else 'Considera lançamentos não cancelados pela data de competência, inclusive valores ainda em aberto.' }} Relatório gerencial: não substitui o balancete contábil de partidas dobradas.</p>
+  </section>
+  <section class="hub-panel"><h3>Resultado por classificação</h3><div class="hub-table-wrap"><table class="hub-table"><thead><tr><th>Tipo</th><th>Classificação</th><th class="money">Valor</th></tr></thead><tbody>{% for kind, category, value in report.rows %}<tr><td>{{ 'Receita' if kind == 'RECEBER' else 'Despesa' }}</td><td>{{ category }}</td><td class="money">{{ format_currency(value) }}</td></tr>{% else %}<tr><td colspan="3" class="hub-empty">Nenhum lançamento no período e regime selecionados.</td></tr>{% endfor %}</tbody></table></div></section>
+  <details class="hub-panel"><summary>{{ 'Fluxo de caixa realizado' if basis == 'caixa' else 'Movimentação por competência' }} · dia a dia</summary><p>O acumulado começa em zero no início do período. Não representa o saldo bancário.</p><div class="hub-table-wrap"><table class="hub-table"><thead><tr><th>Dia</th><th class="money">Entradas</th><th class="money">Saídas</th><th class="money">Resultado acumulado</th></tr></thead><tbody>{% for row in report.days %}<tr><td>{{ row.day|date_br }}</td><td class="money">{{ format_currency(row.incoming) }}</td><td class="money">{{ format_currency(row.outgoing) }}</td><td class="money">{{ format_currency(row.accumulated) }}</td></tr>{% endfor %}</tbody></table></div></details>
+</main>{% endblock %}

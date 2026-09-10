@@ -1,0 +1,11 @@
+{% set selected_vehicle = order.vehicle if order is defined and order else (budget.vehicle if budget is defined and budget else none) %}
+<div class="vehicle-autocomplete-field">
+  <label for="vehicle-search">Veículo cadastrado (opcional)</label>
+  <div class="custom-autocomplete-wrapper" id="vehicle-autocomplete">
+    <input class="entity-autocomplete-input" type="search" id="vehicle-search" value="{% if selected_vehicle %}{{ selected_vehicle.placa or 'SEM PLACA' }} · {{ selected_vehicle.descricao }}{% endif %}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="vehicle-suggestions" aria-expanded="false">
+    <input type="hidden" name="vehicle_id" id="vehicle_id" value="{{ selected_vehicle.id if selected_vehicle else '' }}">
+    <div class="custom-suggestions-box" id="vehicle-suggestions" role="listbox"></div>
+  </div>
+  <span id="vehicle-help" class="muted entity-autocomplete-help" role="status">Selecione um cliente para localizar seus veículos.</span>
+</div>
+<script src="{{ url_for('static', filename='vehicle-selector.js') }}" defer></script>

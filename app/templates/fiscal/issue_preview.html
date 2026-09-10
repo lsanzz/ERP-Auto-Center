@@ -16,20 +16,16 @@
   <div>
     <span class="eyebrow">Emissão fiscal · O.S. {{ order.numero }}</span>
     <h2>Dados da nota fiscal</h2>
-    <p class="muted">Confira os dados antes de salvar a nota ou enviá-la para a API fiscal.</p>
   </div>
-  <div class="actions fiscal-header-actions">
-    {% if document and document.status %}<span class="status-badge">Status: {{ document.status }}</span>{% endif %}
-    <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Voltar para O.S.</a>
-  </div>
+  <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Voltar para O.S.</a>
 </div>
 {% if document and document.error_message %}<div class="flash error"><strong>Falha na emissão:</strong> {{ document.error_message }}</div>{% endif %}
 
-<form method="post" action="{{ url_for('web.work_order_invoice_save_data', work_order_id=order.id, tipo=payload.document_type) }}" class="fiscal-editor">
+<form method="post" action="{{ url_for('web.work_order_invoice_save_data', work_order_id=order.id, tipo=payload.document_type) }}" class="fiscal-editor"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <section class="card section-card fiscal-section">
-    <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 1</span><h3>Dados da nota</h3></div><span class="fiscal-reference">NF {{ document.numero if document and document.numero else '-' }}</span></div>
-    <div class="fiscal-main-fields">
-      <label class="field-wide">Natureza da operação<input name="natureza_operacao" list="lista-cfop" value="{{ natureza }}" required></label>
+    <div class="fiscal-section-heading"><h3>Dados da nota fiscal</h3></div>
+    <div class="form-grid-5">
+      <label class="field-wide" style="grid-column: span 2;">Natureza da operação<input name="natureza_operacao" list="lista-cfop" value="{{ natureza }}" required></label>
       <label>Finalidade<select name="finalidade_emissao">
         <option value="1" {% if finalidade == '1' %}selected{% endif %}>NF-e normal</option>
         <option value="2" {% if finalidade == '2' %}selected{% endif %}>Complementar</option>
@@ -40,125 +36,255 @@
         <option value="1" {% if tipo_documento == '1' %}selected{% endif %}>Saída</option>
         <option value="0" {% if tipo_documento == '0' %}selected{% endif %}>Entrada</option>
       </select></label>
-      <label>Série NF-e<input name="serie" value="{{ invoice.get('serie') or (document.serie if document else '') or '1' }}"></label>
-      <label>Número NF-e<input value="{{ document.numero if document and document.numero else '-' }}" readonly></label>
-      <label class="field-wide">NF-e referenciada<input name="chave_referenciada" value="{{ invoice.get('chave_referenciada') or '' }}" placeholder="Informe a chave de 44 dígitos quando necessário"></label>
+      <label>Série NFe<input name="serie" value="{{ invoice.get('serie') or (document.serie if document else '') or '1' }}"></label>
+      <label>Número NFe<input value="{{ document.numero if document and document.numero else '-' }}" readonly></label>
     </div>
+    <div class="form-grid-2" style="margin-top: 12px;">
+      <label>Cliente
+        <input name="cliente_nome" value="{{ customer.get('nome') or '-' }}" required>
+        <a href="#" class="muted small" style="text-decoration: underline;">Cadastrar cliente</a>
+      </label>
+      <label>Vendedor<input name="vendedor" value="{{ invoice.get('vendedor') or (order.employee.nome if order and order.employee else '') }}"></label>
+    </div>
+    
+    <!-- Hidden inputs for existing customer fields to retain data if they are not shown but expected -->
+    <input type="hidden" name="cliente_documento" value="{{ customer.get('documento') or '-' }}">
+    <input type="hidden" name="cliente_telefone" value="{{ customer.get('telefone') or '-' }}">
+    <input type="hidden" name="cliente_endereco" value="{{ customer.get('endereco') or '-' }}">
+    <input type="hidden" name="cliente_email" value="{{ customer.get('email') or '-' }}">
   </section>
 
   <section class="card section-card fiscal-section">
-    <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 2</span><h3>Cliente</h3></div><span class="fiscal-check">✓ Cliente da O.S.</span></div>
-    <div class="fiscal-customer-grid">
-      <label class="field-wide">Nome/Razão social<input value="{{ customer.get('nome') or '-' }}" readonly></label>
-      <label>CPF/CNPJ<input value="{{ customer.get('documento') or '-' }}" readonly></label>
-      <label>Telefone<input value="{{ customer.get('telefone') or '-' }}" readonly></label>
-      <label class="field-wide">Endereço<input value="{{ customer.get('endereco') or '-' }}" readonly></label>
-      <label>E-mail<input value="{{ customer.get('email') or '-' }}" readonly></label>
-    </div>
-    <p class="muted small fiscal-help">O cliente é carregado automaticamente da O.S. Para alterar CPF/CNPJ ou endereço, edite o cadastro do cliente antes de emitir.</p>
-  </section>
-
-  <section class="card section-card fiscal-section">
-    <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 3</span><h3>Produtos e serviços</h3></div><span class="muted small">{{ all_items|length }} item(ns)</span></div>
+    <div class="fiscal-section-heading"><h3>Produtos</h3></div>
     <div class="fiscal-items-wrap">
-      <table class="table fiscal-items-table">
-        <thead><tr><th>#</th><th>Produto / serviço</th><th>Qtd.</th><th>IPI %</th><th>ICMS %</th><th>Valor unit.</th><th>CFOP</th><th>NCM</th><th>Valor total</th></tr></thead>
+      <table class="table item-editor-table fiscal-items-table" style="font-size: 13px;">
+        <thead><tr>
+            <th></th>
+            <th>Produto / Código</th>
+            <th style="width: 70px;">Qtde</th>
+            <th style="width: 70px;">IPI %</th>
+            <th style="width: 70px;">ICMS %</th>
+            <th style="width: 90px;">Valor unit.</th>
+            <th style="width: 80px;">CFOP</th>
+            <th style="width: 90px;">NCM</th>
+            <th style="width: 90px;">Valor total</th>
+            <th style="width: 50px;"></th>
+        </tr></thead>
         <tbody>
           {% for item in all_items %}
           <tr>
-            <td><span class="fiscal-item-number">{{ loop.index }}</span></td>
+            <td><div style="background:#2b98d6; color:white; width:24px; height:24px; border-radius:4px; display:flex; align-items:center; justify-content:center;">{{ loop.index }}</div></td>
             <td><input value="{{ item.descricao }}" readonly></td>
             <td><input value="{{ item.quantidade }}" readonly></td>
             <td><input name="item_ipi_percent" value="{{ item.ipi_percent or '0' }}" inputmode="decimal"></td>
             <td><input name="item_icms_percent" value="{{ item.icms_percent or '0' }}" inputmode="decimal"></td>
             <td><input value="{{ format_currency(item.valor_unitario) }}" readonly></td>
             <td><input name="item_cfop" list="lista-cfop" value="{{ item.cfop or '5102' }}" required></td>
-            <input type="text" name="ncm" list="lista-ncm" class="form-control" value="{{ product.ncm if product else '' }}">
+            <td><input type="text" name="item_ncm" list="lista-ncm" value="{{ item.ncm or '' }}"></td>
             <td><input value="{{ format_currency(item.total) }}" readonly></td>
+            <td>
+                <div style="display:flex; gap: 6px; justify-content: center;">
+                    <button type="button" class="button secondary icon-button" style="padding:6px 8px;" title="Editar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                    <button type="button" class="button secondary icon-button" style="padding:6px 8px; color: #d64a2b;" title="Excluir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                </div>
+            </td>
           </tr>
-          {% else %}<tr><td colspan="9">Nenhum item encontrado na O.S.</td></tr>{% endfor %}
+          {% else %}<tr><td colspan="10">Nenhum item encontrado na O.S.</td></tr>{% endfor %}
         </tbody>
       </table>
     </div>
+    <a href="#" style="text-decoration: none; color: #2b98d6; font-size: 13px; font-weight: 500; display: inline-block; margin-top: 12px;">+ adicionar outro produto</a>
   </section>
 
   <section class="card section-card fiscal-section">
-    <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 4</span><h3>Totais da nota fiscal</h3></div></div>
-    <div class="fiscal-totals-grid">
+    <div class="fiscal-section-heading"><h3>Totais da nota fiscal</h3></div>
+    <div class="form-grid-6">
       <label>BC de ICMS<input name="base_icms" value="{{ invoice.get('base_icms') or '0' }}" inputmode="decimal"></label>
       <label>Valor do ICMS<input name="valor_icms" value="{{ invoice.get('valor_icms') or '0' }}" inputmode="decimal"></label>
       <label>BC de ICMS-ST<input name="base_icms_st" value="{{ invoice.get('base_icms_st') or '0' }}" inputmode="decimal"></label>
       <label>Valor do ICMS-ST<input name="valor_icms_st" value="{{ invoice.get('valor_icms_st') or '0' }}" inputmode="decimal"></label>
       <label>Valor do IPI<input name="valor_ipi" value="{{ invoice.get('valor_ipi') or '0' }}" inputmode="decimal"></label>
       <label>Valor dos produtos<input value="{{ format_currency(totals.get('pecas') or totals.get('geral') or 0) }}" readonly></label>
+    </div>
+    <div class="form-grid-5" style="margin-top: 12px;">
       <label>Desconto (R$)<input name="valor_desconto" value="{{ invoice.get('valor_desconto') or '0' }}" inputmode="decimal"></label>
+      <label>Desconto (%)<input name="percentual_desconto" value="{{ invoice.get('percentual_desconto') or '0' }}" inputmode="decimal"></label>
       <label>Valor do frete<input name="valor_frete" value="{{ invoice.get('valor_frete') or '0' }}" inputmode="decimal"></label>
       <label>Valor das despesas<input name="valor_despesas" value="{{ invoice.get('valor_despesas') or '0' }}" inputmode="decimal"></label>
       <label>Valor do seguro<input name="valor_seguro" value="{{ invoice.get('valor_seguro') or '0' }}" inputmode="decimal"></label>
-      <label class="total-highlight">Valor total da nota<input value="{{ format_currency(totals.get('geral') or 0) }}" readonly></label>
+    </div>
+    <div class="form-grid-3" style="margin-top: 12px; align-items: end;">
+      <label>Valor total da nota
+          <div style="display:flex; gap: 4px;">
+              <input value="{{ format_currency(totals.get('geral') or 0) }}" readonly style="flex:1;">
+              <button type="button" class="button secondary" style="padding: 0 10px;">↻</button>
+          </div>
+      </label>
+    </div>
+    <a href="#" style="text-decoration: none; color: #2b98d6; font-size: 13px; font-weight: 500; display: inline-block; margin-top: 12px;">+ Retenções</a>
+  </section>
+
+  <section class="card section-card fiscal-section">
+    <div class="fiscal-section-heading"><h3>Pagamento</h3></div>
+    <div class="form-grid-4">
+        <label>Quantidade de parcelas
+            <div style="display:flex; gap: 4px;">
+                <input type="number" id="parcelas_input" min="1" value="{{ invoice.get('quantidade_parcelas') or '1' }}" style="flex:1;">
+                <button type="button" class="button secondary" id="btn_gerar_parcelas" style="padding: 0 10px;">↻</button>
+                <input type="hidden" name="quantidade_parcelas" id="hidden_parcelas" value="{{ invoice.get('quantidade_parcelas') or '1' }}">
+            </div>
+        </label>
+    </div>
+    
+    <table class="table item-editor-table" style="margin-top: 16px; margin-bottom: 0;">
+        <thead>
+            <tr>
+                <th style="width: 50px;"></th>
+                <th>Data</th>
+                <th>Valor</th>
+                <th>Forma de pgto.</th>
+                <th>Observações</th>
+            </tr>
+        </thead>
+        <tbody id="parcelas_tbody">
+            <!-- JavaScript will populate this -->
+        </tbody>
+    </table>
+  </section>
+
+  <section class="card section-card fiscal-section">
+    <div class="fiscal-section-heading"><h3>Transporte</h3></div>
+    <div class="form-grid-6">
+        <label>Peso bruto<input name="peso_bruto" value="{{ invoice.get('peso_bruto') or '0' }}" inputmode="decimal"></label>
+        <label>Peso líquido<input name="peso_liquido" value="{{ invoice.get('peso_liquido') or '0' }}" inputmode="decimal"></label>
+        <label>Volumes<input name="volumes" value="{{ invoice.get('volumes') or '0' }}" inputmode="numeric"></label>
+        <label>Espécie<input name="especie" value="{{ invoice.get('especie') or '' }}"></label>
+        <label>Marca<input name="marca" value="{{ invoice.get('marca') or '' }}"></label>
+        <label>Numeração<input name="numeracao" value="{{ invoice.get('numeracao') or '' }}"></label>
+    </div>
+    <div class="form-grid-5" style="margin-top: 12px;">
+      <label>Modalidade de frete<select name="modalidade_frete">
+        <option value="9" {% if modalidade_frete == '9' %}selected{% endif %}>Sem frete</option>
+        <option value="0" {% if modalidade_frete == '0' %}selected{% endif %}>Por conta do emitente</option>
+        <option value="1" {% if modalidade_frete == '1' %}selected{% endif %}>Por conta do destinatário</option>
+      </select></label>
+      <label>Transportadora<input name="transportadora" value="{{ invoice.get('transportadora') or '' }}"></label>
+      <label>Placa do veículo<input name="placa_veiculo" value="{{ invoice.get('placa_veiculo') or work_order.get('placa') or '' }}"></label>
+      <label>UF do veículo<input name="uf_veiculo" value="{{ invoice.get('uf_veiculo') or '' }}" maxlength="2"></label>
+      <label>RNTC (ANTT)<input name="rntrc" value="{{ invoice.get('rntrc') or '' }}"></label>
     </div>
   </section>
 
-  <div class="grid grid-2 fiscal-lower-grid">
-    <section class="card section-card fiscal-section">
-      <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 5</span><h3>Pagamento</h3></div></div>
-      <div class="form-grid-2">
-        <label>Quantidade de parcelas<input name="quantidade_parcelas" type="number" min="1" value="{{ invoice.get('quantidade_parcelas') or payment.get('parcelas') or 1 }}"></label>
-        <label>Forma de pagamento<select name="forma_pagamento">
-          {% set payment_method = invoice.get('forma_pagamento') or payment.get('forma_pagamento') or '' %}
-          <option value="" {% if not payment_method %}selected{% endif %}>Não informado</option>
-          <option value="Dinheiro" {% if payment_method == 'Dinheiro' %}selected{% endif %}>Dinheiro</option>
-          <option value="Pix" {% if payment_method == 'Pix' %}selected{% endif %}>Pix</option>
-          <option value="Cartão" {% if payment_method == 'Cartão' %}selected{% endif %}>Cartão</option>
-          <option value="Boleto" {% if payment_method == 'Boleto' %}selected{% endif %}>Boleto</option>
-        </select></label>
-      </div>
-      <p class="muted small fiscal-help">O parcelamento é registrado junto com os dados da emissão para conferência.</p>
-    </section>
-
-    <section class="card section-card fiscal-section">
-      <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 6</span><h3>Transporte</h3></div></div>
-      <div class="form-grid-2">
-        <label>Modalidade de frete<select name="modalidade_frete">
-          <option value="9" {% if modalidade_frete == '9' %}selected{% endif %}>Sem frete</option>
-          <option value="0" {% if modalidade_frete == '0' %}selected{% endif %}>Por conta do emitente</option>
-          <option value="1" {% if modalidade_frete == '1' %}selected{% endif %}>Por conta do destinatário</option>
-        </select></label>
-        <label>Transportadora<input name="transportadora" value="{{ invoice.get('transportadora') or '' }}"></label>
-        <label>Placa do veículo<input name="placa_veiculo" value="{{ invoice.get('placa_veiculo') or work_order.get('placa') or '' }}"></label>
-        <label>UF do veículo<input name="uf_veiculo" value="{{ invoice.get('uf_veiculo') or '' }}" maxlength="2"></label>
-        <label>Peso bruto<input name="peso_bruto" value="{{ invoice.get('peso_bruto') or '0' }}" inputmode="decimal"></label>
-        <label>Volumes<input name="volumes" value="{{ invoice.get('volumes') or '0' }}" inputmode="numeric"></label>
-      </div>
-    </section>
-  </div>
-
   <section class="card section-card fiscal-section">
-    <div class="fiscal-section-heading"><div><span class="eyebrow">Etapa 7</span><h3>Detalhes da nota fiscal</h3></div></div>
-    <div class="form-grid-3">
-      <label>Data de emissão<input type="date" name="data_emissao" value="{{ invoice.get('data_emissao') or iso_today() }}" required></label>
-      <label>Data de saída<input type="date" name="data_saida" value="{{ invoice.get('data_saida') or work_order.get('data_saida') or '' }}"></label>
-      <label>Hora de saída<input type="time" name="hora_saida" value="{{ invoice.get('hora_saida') or '' }}"></label>
+    <div class="fiscal-section-heading"><h3>Detalhes da nota fiscal</h3></div>
+    
+    <div class="form-grid-3" style="margin-bottom: 16px; background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+        <label class="checkbox" style="font-weight: normal;">
+            <input type="checkbox" name="informar_data_emissao" value="1" {% if invoice.get('informar_data_emissao') %}checked{% endif %}>
+            Informar data de emissão
+        </label>
+        <label class="checkbox" style="font-weight: normal;">
+            <input type="checkbox" name="informar_substituto_tributario" value="1" {% if invoice.get('informar_substituto_tributario') %}checked{% endif %}>
+            Informar info do substituto tributário
+        </label>
+        <label class="checkbox" style="font-weight: normal;">
+            <input type="checkbox" name="informar_previsao_entrega" value="1" {% if invoice.get('informar_previsao_entrega') %}checked{% endif %}>
+            Informar data de previsão de entrega
+        </label>
+    </div>
+    
+    <div class="form-grid-4">
+      <label>Data de saída
+        <div style="display:flex; gap: 4px;">
+            <input type="date" name="data_saida" value="{{ invoice.get('data_saida') or work_order.get('data_saida') or '' }}" style="flex:1;">
+            <input type="time" name="hora_saida" value="{{ invoice.get('hora_saida') or '' }}" style="width: 80px;">
+        </div>
+      </label>
       <label>Ordem de compra<input name="ordem_compra" value="{{ invoice.get('ordem_compra') or '' }}"></label>
       <label>Tipo de atendimento<select name="tipo_atendimento"><option value="0">Operação não presencial</option><option value="1" {% if invoice.get('tipo_atendimento') == '1' %}selected{% endif %}>Operação presencial</option></select></label>
       <label>Destino da operação<select name="destino_operacao"><option value="1">Operação interna</option><option value="2" {% if invoice.get('destino_operacao') == '2' %}selected{% endif %}>Operação interestadual</option><option value="3" {% if invoice.get('destino_operacao') == '3' %}selected{% endif %}>Operação com exterior</option></select></label>
     </div>
-    <div class="form-grid-2">
-      <label>Observações<textarea name="observacoes" rows="4" placeholder="Informações que poderão aparecer na nota">{{ invoice.get('observacoes') or work_order.get('observacoes') or '' }}</textarea></label>
-      <label>Informações adicionais do Fisco<textarea name="informacoes_fisco" rows="4" placeholder="Informações adicionais de interesse do Fisco">{{ invoice.get('informacoes_fisco') or '' }}</textarea></label>
+    <div class="form-grid-3" style="margin-top: 12px;">
+        <label>Indicador de intermediador/marketplace<select name="indicador_intermediador">
+            <option value="0">Operação sem intermediador (em site ou plat...)</option>
+            <option value="1">Operação em site ou plataforma de terceiros</option>
+        </select></label>
+        <label>CNPJ do intermediador da transação<input name="cnpj_intermediador" value="{{ invoice.get('cnpj_intermediador') or '' }}"></label>
+        <label>Identificador cadastro intermediador<input name="id_intermediador" value="{{ invoice.get('id_intermediador') or '' }}"></label>
     </div>
-    <label>Observações internas<textarea name="observacoes_internas" rows="3" placeholder="Uso interno; não será enviado ao cliente">{{ invoice.get('observacoes_internas') or '' }}</textarea></label>
+    <div class="form-grid-2" style="margin-top: 12px;">
+        <label>Indicador do local de fornecimento<input name="indicador_local_fornecimento" value="{{ invoice.get('indicador_local_fornecimento') or '' }}"></label>
+        <label>Inscrição do emitente da Suframa<input name="inscricao_suframa" value="{{ invoice.get('inscricao_suframa') or '' }}"></label>
+    </div>
+
+    <div class="form-grid-2" style="margin-top: 16px;">
+      <label>Observações<textarea name="observacoes" rows="4">{{ invoice.get('observacoes') or work_order.get('observacoes') or '' }}</textarea></label>
+      <label>Informações adicionais do Fisco<textarea name="informacoes_fisco" rows="4">{{ invoice.get('informacoes_fisco') or '' }}</textarea></label>
+    </div>
+    <label style="margin-top: 12px;">Observações internas<textarea name="observacoes_internas" rows="3">{{ invoice.get('observacoes_internas') or '' }}</textarea></label>
+    
+    <div style="margin-top: 16px;">
+        <button type="button" class="button secondary" style="background:#5cb85c; color:white; border-color:#4cae4c; margin-bottom: 8px;">Mensagens padrões</button>
+        <div style="background:#f9f9f9; padding: 12px; border: 1px solid #ddd; border-radius: 4px;">
+            <div class="muted small" style="margin-bottom: 4px;">Mensagem</div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size: 13px;">Total aproximado de impostos Federais = 5,30%</span>
+                <span style="color:#2b98d6; cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></span>
+            </div>
+        </div>
+    </div>
   </section>
 
-  <div class="fiscal-footer-actions">
+  <div class="fiscal-footer-actions" style="justify-content: flex-start; gap: 10px; margin-top: 20px;">
+    <button type="submit" class="button primary">Salvar</button>
+    <button type="submit" class="button primary" style="background-color: #2b98d6;" formaction="{{ url_for('web.work_order_invoice_issue', work_order_id=order.id, tipo=payload.document_type) }}">Salvar e emitir</button>
     <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Cancelar</a>
-    <button type="submit">Salvar</button>
-    <button class="success" type="submit" formaction="{{ url_for('web.work_order_invoice_issue', work_order_id=order.id, tipo=payload.document_type) }}">Salvar e emitir</button>
   </div>
 </form>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnGerar = document.getElementById('btn_gerar_parcelas');
+    const inputQtd = document.getElementById('parcelas_input');
+    const hiddenQtd = document.getElementById('hidden_parcelas');
+    const tbody = document.getElementById('parcelas_tbody');
+    
+    function renderParcelas(qtd) {
+        tbody.innerHTML = '';
+        for (let i = 1; i <= qtd; i++) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${i}.</td>
+                <td><input type="date" name="parcela_data_${i}"></td>
+                <td><input type="text" name="parcela_valor_${i}" inputmode="decimal"></td>
+                <td>
+                    <select name="parcela_forma_${i}">
+                        <option value="Dinheiro">Dinheiro</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                        <option value="Cartão de Débito">Cartão de Débito</option>
+                        <option value="Pix">Pix</option>
+                        <option value="Boleto">Boleto</option>
+                    </select>
+                </td>
+                <td><input type="text" name="parcela_obs_${i}"></td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+    
+    btnGerar.addEventListener('click', function() {
+        const qtd = parseInt(inputQtd.value) || 1;
+        hiddenQtd.value = qtd;
+        renderParcelas(qtd);
+    });
+    
+    // Initial render
+    renderParcelas(parseInt(inputQtd.value) || 1);
+});
+</script>
+
 {% if document and document.xml_content %}
-<div class="actions fiscal-document-actions"><a class="button secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">Baixar XML atual</a></div>
+<div class="actions fiscal-document-actions" style="margin-top: 20px;"><a class="button secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">Baixar XML atual</a></div>
 {% endif %}
 <!-- Lista Fixa de CFOPs (Sefaz) -->
 <datalist id="lista-cfop">
@@ -170,6 +296,7 @@
     
     <!-- Saídas (Vendas) -->
     <option value="5102">5102 - Venda de mercadoria de terceiros</option>
+    <option value="5120">5120 - Venda de mercadoria (Venda à ordem)</option>
     <option value="5405">5405 - Venda de mercadoria sujeita a ST</option>
     <option value="6102">6102 - Venda de mercadoria (Interestadual)</option>
     <option value="6404">6404 - Venda de mercadoria sujeita a ST (Interestadual)</option>
@@ -186,6 +313,17 @@
     <option value="5916">5916 - Retorno de mercadoria recebida para conserto</option>
     <option value="5949">5949 - Outra saída (não especificada)</option>
 </datalist>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const clientsData = {{ clients|map(attribute='nome')|list|tojson }};
+    const employeesData = {{ employees|map(attribute='nome')|list|tojson }};
+    const clienteInput = document.querySelector('input[name="cliente_nome"]');
+    const vendedorInput = document.querySelector('input[name="vendedor"]');
+    if (clienteInput) window.attachCustomAutocomplete(clienteInput, clientsData);
+    if (vendedorInput) window.attachCustomAutocomplete(vendedorInput, employeesData);
+});
+</script>
 
 <!-- Lista Fixa de NCMs Específicos para Auto Center (Siscomex) -->
 <datalist id="lista-ncm">

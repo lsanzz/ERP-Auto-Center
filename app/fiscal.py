@@ -8,11 +8,15 @@ from decimal import Decimal
 from typing import Any
 from urllib import request as urlrequest
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from xml.sax.saxutils import escape
 import re
+from datetime import datetime, timezone
 
-from .models import BankAccount, Client, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, Product, WorkOrder, db
+from cryptography.hazmat.primitives.serialization import pkcs12
+from cryptography.x509.oid import NameOID, ObjectIdentifier
+
+from .models import BankAccount, Client, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, Product, SystemSettings, WorkOrder, db
 from .services import next_number
 from .utils import parse_date, parse_decimal
 from .settings import get_system_settings
@@ -53,6 +57,7 @@ def get_fiscal_config() -> FiscalApiConfig | None:
 
 def save_fiscal_config_from_form(form) -> FiscalApiConfig:
     config = get_fiscal_config() or FiscalApiConfig()
+    previous_environment = config.environment
     config.provider_name = (form.get('provider_name') or 'CUSTOM').strip().upper()
     config.environment = (form.get('environment') or 'HOMOLOGACAO').strip().upper()
     api_base_url = (form.get('api_base_url') or '').strip()
@@ -62,14 +67,21 @@ def save_fiscal_config_from_form(form) -> FiscalApiConfig:
     api_token = (form.get('api_token') or '').strip()
     if api_token:
         config.api_token = api_token
-    config.company_name = (form.get('company_name') or '').strip() or None
-    config.company_document = (form.get('company_document') or '').strip() or None
-    config.municipal_registration = (form.get('municipal_registration') or '').strip() or None
-    config.state_registration = (form.get('state_registration') or '').strip() or None
-    config.tax_regime = (form.get('tax_regime') or '').strip() or None
+    elif previous_environment != config.environment:
+        config.api_token = None
+    settings = get_system_settings()
+    config.company_name = settings.trade_name or settings.company_name
+    config.company_document = settings.company_document
+    config.municipal_registration = settings.municipal_registration
+    config.state_registration = None if settings.state_registration_exempt else settings.state_registration
+    config.tax_regime = settings.tax_regime
     config.default_service_code = (form.get('default_service_code') or '').strip() or None
     config.default_nature = (form.get('default_nature') or '').strip() or None
     config.webhook_url = (form.get('webhook_url') or '').strip() or None
+    # Provider id is resolved by document during company onboarding.
+    focus_management_token = (form.get('focus_management_token') or '').strip()
+    if focus_management_token:
+        config.focus_management_token = focus_management_token
     config.active = bool(form.get('active'))
     db.session.add(config)
     db.session.flush()
@@ -294,8 +306,6 @@ def _focus_env_token() -> str | None:
     )
     return (
         environment_token
-        or os.getenv('FOCUS_NFE_TOKEN_PRINCIPAL')
-        or os.getenv('FOCUSNFE_TOKEN_PRINCIPAL')
         or os.getenv('FOCUS_NFE_TOKEN')
         or os.getenv('FOCUSNFE_TOKEN')
     )
@@ -496,7 +506,17 @@ def build_focus_nfe_payload(document: FiscalDocument) -> dict[str, Any]:
 
 def apply_invoice_form(document: FiscalDocument, form) -> None:
     payload = json.loads(document.request_payload or '{}')
-    payload['invoice'] = {
+    
+    if 'cliente_nome' in form:
+        if 'customer' not in payload:
+            payload['customer'] = {}
+        payload['customer']['nome'] = (form.get('cliente_nome') or '').strip()
+        payload['customer']['documento'] = (form.get('cliente_documento') or '').strip()
+        payload['customer']['telefone'] = (form.get('cliente_telefone') or '').strip()
+        payload['customer']['endereco'] = (form.get('cliente_endereco') or '').strip()
+        payload['customer']['email'] = (form.get('cliente_email') or '').strip()
+
+    invoice_data = {
         'natureza_operacao': (form.get('natureza_operacao') or '').strip(),
         'tipo_documento': form.get('tipo_documento') or '1',
         'finalidade_emissao': form.get('finalidade_emissao') or '1',
@@ -505,6 +525,7 @@ def apply_invoice_form(document: FiscalDocument, form) -> None:
         'valor_frete': form.get('valor_frete') or '0',
         'valor_seguro': form.get('valor_seguro') or '0',
         'valor_desconto': form.get('valor_desconto') or '0',
+        'percentual_desconto': form.get('percentual_desconto') or '0',
         'valor_despesas': form.get('valor_despesas') or '0',
         'base_icms': form.get('base_icms') or '0',
         'valor_icms': form.get('valor_icms') or '0',
@@ -538,7 +559,63 @@ def apply_invoice_form(document: FiscalDocument, form) -> None:
         'iss_retido': form.get('iss_retido') or 'false',
         'aliquota': form.get('aliquota') or '0',
         'valor_iss_retido': form.get('valor_iss_retido') or '0',
+        'vendedor': (form.get('vendedor') or '').strip(),
+        'tecnico': (form.get('tecnico') or '').strip(),
+        'serie_rps': (form.get('serie_rps') or '').strip(),
+        'numero_rps': (form.get('numero_rps') or '').strip(),
+        'tomador_nao_identificado': form.get('tomador_nao_identificado') or '',
+        'regime_tributacao': form.get('regime_tributacao') or '',
+        'local_prestacao': form.get('local_prestacao') or '',
+        'modo_prestacao': form.get('modo_prestacao') or '',
+        'construcao_civil': form.get('construcao_civil') or '',
+        'base_calculo': form.get('base_calculo') or '0',
+        'reter_iss': form.get('reter_iss') or '',
+        'valor_deducoes': form.get('valor_deducoes') or '0',
+        'valor_incondicionado': form.get('valor_incondicionado') or '0',
+        'valor_condicionado': form.get('valor_condicionado') or '0',
+        'tributos_federais': form.get('tributos_federais') or '0',
+        'tributos_municipais': form.get('tributos_municipais') or '0',
+        'perc_cofins': form.get('perc_cofins') or '0',
+        'perc_pis': form.get('perc_pis') or '0',
+        'perc_csll': form.get('perc_csll') or '0',
+        'perc_ir': form.get('perc_ir') or '0',
+        'perc_inss': form.get('perc_inss') or '0',
+        'valor_cofins': form.get('valor_cofins') or '0',
+        'valor_pis': form.get('valor_pis') or '0',
+        'valor_csll': form.get('valor_csll') or '0',
+        'valor_ir': form.get('valor_ir') or '0',
+        'valor_inss': form.get('valor_inss') or '0',
+        'reter_cofins': form.get('reter_cofins') or '',
+        'reter_pis': form.get('reter_pis') or '',
+        'reter_csll': form.get('reter_csll') or '',
+        'reter_ir': form.get('reter_ir') or '',
+        'reter_inss': form.get('reter_inss') or '',
+        'informar_data_emissao': form.get('informar_data_emissao') or '',
+        'informar_substituto_tributario': form.get('informar_substituto_tributario') or '',
+        'informar_previsao_entrega': form.get('informar_previsao_entrega') or '',
+        'cnpj_intermediador': form.get('cnpj_intermediador') or '',
+        'id_intermediador': form.get('id_intermediador') or '',
+        'indicador_intermediador': form.get('indicador_intermediador') or '',
+        'indicador_local_fornecimento': form.get('indicador_local_fornecimento') or '',
+        'inscricao_suframa': form.get('inscricao_suframa') or '',
     }
+    
+    # Process installments
+    installments = []
+    qtd_parcelas = int(form.get('quantidade_parcelas') or 1)
+    for i in range(1, qtd_parcelas + 1):
+        if form.get(f'parcela_data_{i}'):
+            installments.append({
+                'data': form.get(f'parcela_data_{i}'),
+                'valor': form.get(f'parcela_valor_{i}') or '0',
+                'forma_pagamento': form.get(f'parcela_forma_{i}') or '',
+                'observacoes': form.get(f'parcela_obs_{i}') or '',
+            })
+    if installments:
+        invoice_data['parcelas_detalhadas'] = installments
+        
+    payload['invoice'] = invoice_data
+    
     ipi_rates = form.getlist('item_ipi_percent')
     icms_rates = form.getlist('item_icms_percent')
     for index, item in enumerate((payload.get('items', {}).get('parts') or []) + (payload.get('items', {}).get('services') or [])):
@@ -737,6 +814,78 @@ def _focus_json_request(config: FiscalApiConfig, path: str, method: str = 'GET',
         raise ValueError(f'Focus NFe retornou HTTP {exc.code}: {body}') from exc
     except URLError as exc:
         raise ValueError(f'Falha ao conectar na Focus NFe: {exc.reason}') from exc
+
+
+def sync_focus_company_certificate(
+    settings: SystemSettings,
+    config: FiscalApiConfig,
+    certificate_data: bytes,
+    password: str,
+) -> dict[str, Any]:
+    """Validate an A1 certificate locally and send it directly to Focus NFe.
+
+    The PFX/P12 bytes and its password are never persisted by this application.
+    """
+    if config.provider_name != 'FOCUSNFE':
+        raise ValueError('Selecione Focus NFe como provedor fiscal antes de enviar o certificado.')
+    management_token = (
+        os.getenv('FOCUS_NFE_TOKEN_PRINCIPAL')
+        or os.getenv('FOCUSNFE_TOKEN_PRINCIPAL')
+        or config.focus_management_token
+    )
+    if not management_token:
+        raise ValueError('Configure o token principal da Focus NFe antes de enviar o certificado.')
+    if not certificate_data:
+        raise ValueError('Selecione o certificado digital A1 no formato PFX ou P12.')
+    if len(certificate_data) > 5 * 1024 * 1024:
+        raise ValueError('O certificado deve ter no máximo 5 MB.')
+    if not password:
+        raise ValueError('Informe a senha do certificado digital.')
+
+    try:
+        _private_key, certificate, _chain = pkcs12.load_key_and_certificates(
+            certificate_data,
+            password.encode('utf-8'),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError('Não foi possível abrir o certificado. Confira o arquivo e a senha.') from exc
+    if certificate is None or _private_key is None:
+        raise ValueError('O arquivo informado não contém um certificado A1 válido.')
+
+    expires_at = getattr(certificate, 'not_valid_after_utc', None)
+    if expires_at is None:
+        expires_at = certificate.not_valid_after.replace(tzinfo=timezone.utc)
+    if expires_at <= datetime.now(timezone.utc):
+        raise ValueError('O certificado digital está vencido.')
+    starts_at = getattr(certificate, 'not_valid_before_utc', None)
+    if starts_at is None:
+        starts_at = certificate.not_valid_before.replace(tzinfo=timezone.utc)
+    if starts_at > datetime.now(timezone.utc):
+        raise ValueError('O certificado digital ainda não está dentro do período de validade.')
+
+    certificate_cnpj = ''
+    for oid in (ObjectIdentifier('2.16.76.1.3.3'), NameOID.SERIAL_NUMBER):
+        attributes = certificate.subject.get_attributes_for_oid(oid)
+        if attributes:
+            digits = _digits(attributes[0].value)
+            if len(digits) >= 14:
+                certificate_cnpj = digits[-14:]
+                break
+    company_document = _digits(settings.company_document)
+    if certificate_cnpj and len(company_document) == 14 and certificate_cnpj != company_document:
+        raise ValueError('O CNPJ do certificado não corresponde ao CNPJ cadastrado para a empresa.')
+
+    from .company_focus import sync_company
+    company_id = sync_company(settings, {
+        'arquivo_certificado_base64': base64.b64encode(certificate_data).decode('ascii'),
+        'senha_certificado': password, 'certificado_especifico': True,
+    })
+    return {
+        'subject': certificate.subject.rfc4514_string()[:255],
+        'serial_number': format(certificate.serial_number, 'X')[:100],
+        'expires_at': expires_at.replace(tzinfo=None),
+        'company_id': company_id,
+    }
 
 
 def _consult_focus_document(document: FiscalDocument, config: FiscalApiConfig, resource: str) -> FiscalDocument:

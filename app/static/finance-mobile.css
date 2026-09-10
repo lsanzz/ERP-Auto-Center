@@ -1,0 +1,56 @@
+@media (max-width: 800px) {
+  .hub-table-wrap {
+    overflow: visible;
+  }
+
+  .hub-table {
+    white-space: normal;
+  }
+
+  .hub-table thead {
+    display: none;
+  }
+
+  .hub-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .hub-table tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 16px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .hub-table td {
+    display: block;
+    padding: 4px 0;
+    border: 0;
+    text-align: left;
+  }
+
+  .hub-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+  }
+
+  .hub-table td.description,
+  .hub-table td[data-label="Ação"],
+  .hub-table td[colspan] {
+    grid-column: 1 / -1;
+  }
+
+  .hub-table td[data-label="Ação"] button {
+    width: 100%;
+  }
+
+  .hub-table .money {
+    text-align: left;
+  }
+}

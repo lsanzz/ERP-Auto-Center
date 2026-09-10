@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-header"><div><h2>{{ 'Editar funcionário' if employee else 'Novo funcionário' }}</h2></div></div>
 <div class="card">
-  <form method="post">
+  <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid-2">
       <label>Nome<input type="text" name="nome" value="{{ employee.nome if employee else '' }}" required></label>
       <label>Função<input type="text" name="funcao" value="{{ employee.funcao if employee else '' }}" required></label>

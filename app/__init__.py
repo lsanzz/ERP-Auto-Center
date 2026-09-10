@@ -1,10 +1,12 @@
 from pathlib import Path
 import os
+import secrets
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask
+from flask import Flask, send_from_directory
 from sqlalchemy import inspect, text
+from sqlalchemy.schema import CreateColumn
 
 from .models import db
 from .seeds import seed_database
@@ -13,14 +15,12 @@ from .utils import date_br, datetime_br, format_currency, iso_today
 
 def _normalize_database_url(raw_url: str | None, instance_path: Path) -> str:
     if not raw_url:
-        return f"sqlite:///{instance_path / 'erp_auto_center.db'}"
-    if raw_url.startswith('postgres://'):
-        return raw_url.replace('postgres://', 'postgresql+psycopg://', 1)
-    if raw_url.startswith('postgresql+psycopg2://'):
-        return raw_url.replace('postgresql+psycopg2://', 'postgresql+psycopg://', 1)
-    if raw_url.startswith('postgresql://'):
-        return raw_url.replace('postgresql://', 'postgresql+psycopg://', 1)
-    return raw_url
+        raise RuntimeError('Configure DATABASE_URL para MySQL (mysql+pymysql://...).')
+    from sqlalchemy.engine import make_url
+    url = make_url(raw_url)
+    if url.get_backend_name() != 'mysql':
+        raise RuntimeError('A aplicação requer MySQL. SQLite é permitido apenas em testes explícitos.')
+    return url.set(drivername='mysql+pymysql').update_query_dict({'charset': 'utf8mb4'}).render_as_string(hide_password=False)
 
 
 def _run_schema_updates(app: Flask) -> None:
@@ -29,24 +29,46 @@ def _run_schema_updates(app: Flask) -> None:
     if 'work_orders' not in table_names:
         return
 
-    is_pg = db.engine.dialect.name == 'postgresql'
     statements = []
+    from .models import FiscalApiConfig, SystemSettings
+    for model in (SystemSettings, FiscalApiConfig):
+        table_name = model.__tablename__
+        if table_name not in table_names:
+            continue
+        current_columns = {column['name'] for column in inspector.get_columns(table_name)}
+        for column in model.__table__.columns:
+            if column.name not in current_columns:
+                definition = str(CreateColumn(column).compile(dialect=db.engine.dialect))
+                statements.append(f'ALTER TABLE {table_name} ADD COLUMN {definition}')
     columns = {column['name'] for column in inspector.get_columns('work_orders')}
+    
     if 'client_nome' not in columns:
         statements.append("ALTER TABLE work_orders ADD COLUMN client_nome VARCHAR(160)")
     if 'emitir_nota' not in columns:
-        if is_pg:
-            statements.append("ALTER TABLE work_orders ADD COLUMN emitir_nota BOOLEAN NOT NULL DEFAULT FALSE")
-        else:
-            statements.append("ALTER TABLE work_orders ADD COLUMN emitir_nota BOOLEAN NOT NULL DEFAULT 0")
+        statements.append("ALTER TABLE work_orders ADD COLUMN emitir_nota BOOLEAN NOT NULL DEFAULT 0")
     if 'estoque_baixado' not in columns:
-        if is_pg:
-            statements.append("ALTER TABLE work_orders ADD COLUMN estoque_baixado BOOLEAN NOT NULL DEFAULT FALSE")
-        else:
-            statements.append("ALTER TABLE work_orders ADD COLUMN estoque_baixado BOOLEAN NOT NULL DEFAULT 0")
+        statements.append("ALTER TABLE work_orders ADD COLUMN estoque_baixado BOOLEAN NOT NULL DEFAULT 0")
+            
     # Controle otimista de concorrência — detecta edições simultâneas na mesma OS
     if 'version' not in columns:
         statements.append("ALTER TABLE work_orders ADD COLUMN version INTEGER NOT NULL DEFAULT 0")
+    if 'promised_at' not in columns:
+        statements.append("ALTER TABLE work_orders ADD COLUMN promised_at DATETIME NULL")
+    if 'workshop_resource_id' not in columns:
+        statements.append("ALTER TABLE work_orders ADD COLUMN workshop_resource_id INTEGER NULL")
+    if 'current_stage' not in columns:
+        statements.append("ALTER TABLE work_orders ADD COLUMN current_stage VARCHAR(30) NOT NULL DEFAULT 'RECEPCAO'")
+    if 'blocking_reason' not in columns:
+        statements.append("ALTER TABLE work_orders ADD COLUMN blocking_reason VARCHAR(255) NULL")
+    index_names = {index['name'] for index in inspector.get_indexes('work_orders')}
+    for column in ('promised_at', 'workshop_resource_id', 'current_stage'):
+        index_name = f'ix_work_orders_{column}'
+        if index_name not in index_names:
+            statements.append(f'CREATE INDEX {index_name} ON work_orders ({column})')
+    if db.engine.dialect.name == 'mysql':
+        foreign_keys = {fk.get('name') for fk in inspector.get_foreign_keys('work_orders')}
+        if 'fk_work_orders_resource' not in foreign_keys:
+            statements.append('ALTER TABLE work_orders ADD CONSTRAINT fk_work_orders_resource FOREIGN KEY (workshop_resource_id) REFERENCES workshop_resources(id)')
 
     if 'products' in table_names:
         product_columns = {column['name'] for column in inspector.get_columns('products')}
@@ -68,8 +90,9 @@ def _run_schema_updates(app: Flask) -> None:
         fiscal_columns = {column['name']: column for column in inspector.get_columns('fiscal_documents')}
         work_order_column = fiscal_columns.get('work_order_id')
         if work_order_column and not work_order_column.get('nullable', True):
-            if is_pg:
-                statements.append('ALTER TABLE fiscal_documents ALTER COLUMN work_order_id DROP NOT NULL')
+            if db.engine.dialect.name == 'mysql':
+                # Sintaxe específica para o MySQL aceitar valores nulos (Corrigida no lugar certo)
+                statements.append('ALTER TABLE fiscal_documents MODIFY work_order_id INTEGER NULL')
             elif db.engine.dialect.name == 'sqlite':
                 with db.engine.begin() as connection:
                     connection.exec_driver_sql('PRAGMA foreign_keys=OFF')
@@ -135,34 +158,76 @@ def create_app(test_config: dict | None = None) -> Flask:
     instance_path = Path(app.instance_path)
     instance_path.mkdir(parents=True, exist_ok=True)
 
-    database_url = _normalize_database_url(os.getenv('DATABASE_URL'), instance_path)
+    explicit = (test_config or {}).get('SQLALCHEMY_DATABASE_URI')
+    if explicit and (test_config or {}).get('TESTING') and str(explicit).startswith('sqlite:'):
+        database_url = explicit
+    else:
+        database_url = _normalize_database_url(explicit or os.getenv('DATABASE_URL'), instance_path)
 
-    is_postgres = database_url.startswith('postgresql')
+    is_mysql = database_url.startswith('mysql')
 
     engine_options: dict = {
-        'pool_pre_ping': True,  # verifica conexão antes de usar (evita broken pipe)
+        'pool_pre_ping': True, 
     }
-    if is_postgres:
-        # Pool robusto para múltiplos usuários simultâneos
+    if is_mysql:
+        # MySQL/InnoDB: conexões verificadas e recicladas.
         engine_options.update({
-            'pool_size': 10,       # conexões permanentes no pool
-            'max_overflow': 20,    # conexões extras permitidas em pico
-            'pool_recycle': 300,   # reciclar a cada 5 min (evita timeout do Render)
-            'pool_timeout': 30,    # timeout ao aguardar conexão disponível
+            'pool_size': 10,       
+            'max_overflow': 20,    
+            'pool_recycle': 300,   # Essencial para não cair no cPanel
+            'pool_timeout': 30,    
         })
 
     app.config.update(
-        SECRET_KEY=os.getenv('SECRET_KEY', 'erp-auto-center-secret'),
+        APP_ENV=os.getenv('APP_ENV', 'development'),
+        SECRET_KEY=os.getenv('SECRET_KEY') or secrets.token_hex(32),
+        TRUSTED_HOSTS=os.getenv('TRUSTED_HOSTS', ''),
         SQLALCHEMY_DATABASE_URI=database_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SQLALCHEMY_ECHO=False,  # nunca logar SQL em produção (performance)
         SQLALCHEMY_ENGINE_OPTIONS=engine_options,
+        MAX_CONTENT_LENGTH=12 * 1024 * 1024,
+        ASYNC_EXTERNAL_CALLS=os.getenv('ASYNC_EXTERNAL_CALLS', 'false').lower() == 'true',
+        TURNSTILE_SITE_KEY=os.getenv('TURNSTILE_SITE_KEY'),
+        TURNSTILE_SECRET_KEY=os.getenv('TURNSTILE_SECRET_KEY'),
     )
 
     if test_config:
         app.config.update(test_config)
+    if app.config.get('APP_ENV') == 'development':
+        # Official Cloudflare keys: always-pass widget for localhost only.
+        app.config['TURNSTILE_SITE_KEY'] = app.config.get('TURNSTILE_SITE_KEY') or '1x00000000000000000000AA'
+        app.config['TURNSTILE_SECRET_KEY'] = app.config.get('TURNSTILE_SECRET_KEY') or '1x0000000000000000000000000000000AA'
+    app.config['TURNSTILE_ENABLED'] = bool(
+        not app.config.get('TESTING')
+        and app.config.get('TURNSTILE_SITE_KEY')
+        and app.config.get('TURNSTILE_SECRET_KEY')
+    )
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+
+    from .security import configure_security
+    configure_security(app)
+    from .observability import configure_observability
+    configure_observability(app)
 
     db.init_app(app)
+    from .fleet import models as fleet_models
+    from .scheduling import models as scheduling_models
+    from .operations import models as operations_models
+    from .operations.audit import configure_automatic_audit
+    configure_automatic_audit()
+    for table in db.metadata.tables.values():
+        table.dialect_options['mysql'].update(engine='InnoDB', charset='utf8mb4')
+    from flask_migrate import Migrate
+    Migrate(app, db, render_as_batch=True, compare_type=True)
+    from .database_cli import register_database_commands
+    register_database_commands(app)
+    from .jobs import register_job_commands
+    register_job_commands(app)
+
+    @app.get('/service-worker.js')
+    def service_worker():
+        return send_from_directory(app.static_folder, 'service-worker.js', mimetype='application/javascript')
 
     @app.template_filter('date_br')
     def _date_br(value):
@@ -174,13 +239,14 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     @app.context_processor
     def utility_context():
-        from .auth import current_user
+        from .auth import current_user, has_permission
         from .settings import get_system_settings
 
         return {
             'format_currency': format_currency,
             'iso_today': iso_today,
             'current_user': current_user,
+            'can': has_permission,
             'system_settings': get_system_settings(),
         }
 
@@ -189,11 +255,29 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     app.register_blueprint(web_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
+    from .fleet.routes import fleet_bp
+    app.register_blueprint(fleet_bp)
+    from .scheduling.routes import scheduling_bp
+    app.register_blueprint(scheduling_bp)
+    from .operations.routes import operations_bp
+    app.register_blueprint(operations_bp)
+    from .management import management_bp
+    app.register_blueprint(management_bp)
+    from .business_reports import business_bp
+    app.register_blueprint(business_bp)
+    from .system_admin import register_system_admin_cli, system_admin_bp
+    app.register_blueprint(system_admin_bp)
+    register_system_admin_cli(app)
 
-    with app.app_context():
-        db.create_all()
-        _run_schema_updates(app)
-        if os.getenv("RUN_DB_SEED", "false").lower() == "true":
-            seed_database()
+    # Explicit migrations are opt-in during the transition from the legacy bootstrap.
+    # Tests and migration commands can disable every startup schema mutation.
+    if app.config.get('AUTO_CREATE_SCHEMA', os.getenv('AUTO_CREATE_SCHEMA', 'false').lower() == 'true'):
+        with app.app_context():
+            db.create_all()
+            _run_schema_updates(app)
+            from .fleet.schema import upgrade_legacy_vehicle_links
+            upgrade_legacy_vehicle_links()
+            if os.getenv("RUN_DB_SEED", "false").lower() == "true":
+                seed_database()
 
     return app

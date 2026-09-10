@@ -1,0 +1,158 @@
+/* Shared ERP design tokens. Source: palette supplied by the product owner. */
+:root {
+  color-scheme: light;
+  --card: #ffffff;
+  --ring: #3b82f6;
+  --input: #e5e7eb;
+  --muted: #f9fafb;
+  --accent: #e0f2fe;
+  --border: #e5e7eb;
+  --radius: 0.375rem;
+  --chart-1: #3b82f6;
+  --chart-2: #2563eb;
+  --chart-3: #1d4ed8;
+  --chart-4: #1e40af;
+  --chart-5: #1e3a8a;
+  --popover: #ffffff;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-active: #1d4ed8;
+  --sidebar: #f9fafb;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Inter', sans-serif;
+  --secondary: #f3f4f6;
+  --background: #ffffff;
+  --font-serif: 'Source Serif 4', serif;
+  --foreground: #333333;
+  --destructive: #ef4444;
+  --sidebar-ring: #3b82f6;
+  --sidebar-accent: #e0f2fe;
+  --sidebar-border: #e5e7eb;
+  --card-foreground: #333333;
+  --sidebar-primary: #3b82f6;
+  --muted-foreground: #6b7280;
+  --accent-foreground: #1e3a8a;
+  --popover-foreground: #333333;
+  --primary-foreground: #ffffff;
+  --sidebar-foreground: #333333;
+  --secondary-foreground: #4b5563;
+  --destructive-foreground: #ffffff;
+  --sidebar-accent-foreground: #1e3a8a;
+  --sidebar-primary-foreground: #ffffff;
+
+  /* Native-CSS equivalents for the project's existing component names. */
+  --color-card: var(--card);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-radius: var(--radius);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-popover: var(--popover);
+  --color-primary: var(--primary);
+  --color-sidebar: var(--sidebar);
+  --color-font-mono: var(--font-mono);
+  --color-font-sans: var(--font-sans);
+  --color-secondary: var(--secondary);
+  --color-background: var(--background);
+  --color-font-serif: var(--font-serif);
+  --color-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-card-foreground: var(--card-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+}
+
+.dark {
+  color-scheme: dark;
+  --card: #262626;
+  --ring: #3b82f6;
+  --input: #404040;
+  --muted: #1f1f1f;
+  --accent: #1e3a8a;
+  --border: #404040;
+  --chart-1: #60a5fa;
+  --chart-2: #3b82f6;
+  --chart-3: #2563eb;
+  --chart-4: #1d4ed8;
+  --chart-5: #1e40af;
+  --popover: #262626;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-active: #1d4ed8;
+  --sidebar: #171717;
+  --secondary: #262626;
+  --background: #171717;
+  --foreground: #e5e5e5;
+  --destructive: #ef4444;
+  --sidebar-ring: #3b82f6;
+  --sidebar-accent: #1e3a8a;
+  --sidebar-border: #404040;
+  --card-foreground: #e5e5e5;
+  --sidebar-primary: #3b82f6;
+  --muted-foreground: #a3a3a3;
+  --accent-foreground: #bfdbfe;
+  --popover-foreground: #e5e5e5;
+  --primary-foreground: #ffffff;
+  --sidebar-foreground: #e5e5e5;
+  --secondary-foreground: #e5e5e5;
+  --destructive-foreground: #ffffff;
+  --sidebar-accent-foreground: #bfdbfe;
+  --sidebar-primary-foreground: #ffffff;
+}
+
+/* Text actions shared by every ERP page. Structural links such as cards,
+   navigation and buttons carry a class and keep their component styling. */
+.main a:not([class]) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: -0.15rem -0.25rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: calc(var(--radius) - 0.125rem);
+  color: var(--primary-active);
+  font-weight: 600;
+  line-height: 1.45;
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+  -webkit-tap-highlight-color: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.main a:not([class]):visited {
+  color: var(--primary-active);
+}
+
+.main a:not([class]):hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.main a:not([class]):active {
+  background: color-mix(in srgb, var(--primary) 18%, var(--background));
+  color: var(--primary-active);
+}
+
+.main a:not([class]):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ring) 45%, transparent);
+  outline-offset: 2px;
+}

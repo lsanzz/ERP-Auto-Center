@@ -23,10 +23,10 @@
   .os-actions { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; min-width:0; }
   .os-actions .button { height:36px; padding:0 12px; font-size:13px; }
   .os-menu { position:relative; }
-  .os-menu summary { list-style:none; cursor:pointer; height:36px; padding:0 13px; display:flex; align-items:center; gap:7px; border:1px solid var(--color-graphite); background:var(--color-graphite); color:#fff; font-size:13px; }
+  .os-menu summary { list-style:none; cursor:pointer; height:36px; padding:0 13px; display:flex; align-items:center; gap:7px; border:1px solid var(--primary); border-radius:10px; background:var(--primary); color:var(--primary-foreground); font-size:13px; font-weight:600; }
   .os-menu summary::-webkit-details-marker { display:none; }
   .os-menu summary::after { content:'⌄'; font-size:16px; }
-  .os-menu[open] summary { background:#000; }
+  .os-menu[open] summary { background:var(--primary-active); border-color:var(--primary-active); }
   .os-menu-panel { position:absolute; right:0; top:calc(100% + 8px); z-index:30; min-width:230px; padding:8px; display:grid; gap:4px; background:#fff; border:1px solid var(--color-mist); border-radius:10px; box-shadow:0 16px 34px rgba(32,32,32,.16); }
   .os-menu-panel a, .os-menu-panel button { width:100%; height:38px; justify-content:flex-start; padding:0 12px; font-size:13px; background:transparent; border:0; color:var(--color-graphite)!important; }
   .os-menu-panel a:hover, .os-menu-panel button:hover { background:var(--color-fog); border-color:transparent; }
@@ -86,7 +86,6 @@
           <!-- Campo de Texto -->
           <input type="text" name="q" class="form-control" 
                 style="flex-grow: 1;" 
-                placeholder="Pesquisar..." 
                 value="{{ request.args.get('q', '') }}">
           
           <!-- Botão Pesquisar -->
@@ -127,7 +126,7 @@
                   <details class="os-menu">
                     <summary>Ações</summary>
                     <div class="os-menu-panel">
-                      <form method="post" action="{{ url_for('web.work_orders_copy', work_order_id=order.id) }}" onsubmit="return confirm('Criar uma nova O.S. copiando os dados desta ordem?');"><button type="submit" class="button secondary">Copiar ordem</button></form>
+                      <form method="post" action="{{ url_for('web.work_orders_copy', work_order_id=order.id) }}" onsubmit="return confirm('Criar uma nova O.S. copiando os dados desta ordem?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="button secondary">Copiar ordem</button></form>
                       <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir ordem</a>
                       <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0, recibo=1) }}" target="_blank">Imprimir recibo completo</a>
                       <button type="button" class="button secondary" onclick="document.getElementById('status-modal-{{ order.id }}').showModal()">Alterar status</button>
@@ -135,15 +134,15 @@
                       <div class="os-menu-separator"></div>
                       {% if order.items|selectattr('item_type', 'equalto', 'SERVICO')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFSE') }}">Emitir NFS-e de serviços</a>{% endif %}
                       {% if order.items|selectattr('item_type', 'equalto', 'PECA')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFE') }}">Emitir NF-e de peças</a>{% endif %}
-                      {% if order.status in ['FINALIZADA', 'ENTREGUE'] and not order.estoque_baixado %}<form method="post" action="{{ url_for('web.work_orders_launch_stock', work_order_id=order.id) }}" onsubmit="return confirm('Lançar as peças desta O.S. no estoque?');"><button type="submit" class="button secondary">Lançar estoque</button></form>{% elif order.estoque_baixado %}<span class="muted small" style="padding:10px 12px;">Estoque já lançado</span>{% endif %}
+                      {% if order.status in ['FINALIZADA', 'ENTREGUE'] and not order.estoque_baixado %}<form method="post" action="{{ url_for('web.work_orders_launch_stock', work_order_id=order.id) }}" onsubmit="return confirm('Lançar as peças desta O.S. no estoque?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="button secondary">Lançar estoque</button></form>{% elif order.estoque_baixado %}<span class="muted small" style="padding:10px 12px;">Estoque já lançado</span>{% endif %}
                       {% if order.status in ['FINALIZADA', 'ENTREGUE'] %}
-                      {% if not has_receivables %}<form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><button type="submit" class="button secondary">Lançar contas</button></form>{% else %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Ver contas</a>{% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary os-menu-danger">Estornar contas</button></form>{% endif %}{% endif %}
+                      {% if not has_receivables %}<form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="button secondary">Lançar contas</button></form>{% else %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Ver contas</a>{% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary os-menu-danger">Estornar contas</button></form>{% endif %}{% endif %}
                       {% endif %}
                       {% endif %}
                       <div class="os-menu-separator"></div>
                       <a class="button secondary" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar ordem</a>
                       {% if current_user().role == 'ADMINISTRADOR' %}
-                      <form method="post" action="{{ url_for('web.work_orders_delete', work_order_id=order.id) }}" style="margin: 0;" onsubmit="return confirm('Excluir esta Ordem de Serviço do sistema?');">
+                      <form method="post" action="{{ url_for('web.work_orders_delete', work_order_id=order.id) }}" style="margin: 0;" onsubmit="return confirm('Excluir esta Ordem de Serviço do sistema?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="button secondary os-menu-danger">Excluir</button>
                       </form>
                       {% endif %}
@@ -152,9 +151,9 @@
                 </div>
                 <dialog id="status-modal-{{ order.id }}" class="status-dialog">
                   <div class="status-dialog-header"><h3>Alterar situação</h3><button type="button" class="status-dialog-close" onclick="this.closest('dialog').close()">×</button></div>
-                  <form method="post" action="{{ url_for('web.work_orders_change_status', work_order_id=order.id) }}">
+                  <form method="post" action="{{ url_for('web.work_orders_change_status', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-grid-2"><label>Nova situação<select name="status" required>{% for status in statuses %}<option value="{{ status }}" {% if status == order.status %}selected{% endif %}>{{ status|replace('_', ' ') }}</option>{% endfor %}</select></label><label>Data de saída<input type="date" name="data_saida" value="{{ order.data_saida.isoformat() if order.data_saida else '' }}"></label></div>
-                    <label>Observação<textarea name="observation" placeholder="Descreva o motivo ou detalhe da alteração"></textarea></label>
+                    <label>Observação<textarea name="observation"></textarea></label>
                     <div class="actions"><button type="submit">Salvar situação</button><button type="button" class="button secondary" onclick="this.closest('dialog').close()">Cancelar</button></div>
                   </form>
                   <div style="margin-top:28px; overflow:auto;"><table class="table"><thead><tr><th>Data</th><th>Observação</th><th>Situação</th><th>Usuário</th></tr></thead><tbody>{% for history in order.status_history %}<tr><td>{{ history.changed_at|datetime_br }}</td><td>{{ history.observation or '-' }}</td><td>{{ history.status|replace('_', ' ') }}</td><td>{{ history.user.nome if history.user else '-' }}</td></tr>{% else %}<tr><td colspan="4" class="muted">Nenhuma alteração registrada.</td></tr>{% endfor %}</tbody></table></div>

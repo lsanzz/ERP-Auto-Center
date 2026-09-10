@@ -13,7 +13,7 @@
     <li>Contas a pagar/receber com vencimento, status e referências</li>
     <li>Contas bancárias com saldos iniciais e atuais</li>
   </ul>
-  <form method="post" action="{{ url_for('web.finance_import_other_system_confirm') }}">
+  <form method="post" action="{{ url_for('web.finance_import_other_system_confirm') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="payload_b64" value="{{ payload_b64 }}">
     <button type="submit">Confirmar importação</button>
     <a class="button secondary" href="{{ url_for('web.finance_index') }}">Cancelar</a>

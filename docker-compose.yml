@@ -1,16 +1,23 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: erp-auto-center-postgres
+  mysql:
+    image: mysql:8.4
+    container_name: erp-auto-center-mysql
     restart: unless-stopped
     environment:
-      POSTGRES_DB: erp_auto_center
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      MYSQL_DATABASE: erp_auto_center
+      MYSQL_USER: erp
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Defina MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Defina MYSQL_ROOT_PASSWORD}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
 volumes:
-  postgres_data:
+  mysql_data:

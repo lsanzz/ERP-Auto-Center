@@ -25,10 +25,11 @@
     </div>
   </div>
 
+  <div class="data-card"><h3>Entradas hoje</h3><p style="font-size:40px">{{ data.entradas_hoje }}</p></div>
   {% if current_user().role == 'ADMINISTRADOR' %}
   <!-- Card financeiro recebe um sutil filete laranja no topo -->
   <div class="data-card" style="border-top: 2px solid var(--color-ember-orange);">
-    <h3 style="font-size: 18px; color: var(--color-graphite); margin-bottom: 8px;">Faturamento Hoje</h3>
+    <h3 style="font-size: 18px; color: var(--color-graphite); margin-bottom: 8px;">Recebido líquido hoje</h3>
     <div style="font-family: var(--font-polysans); font-size: 40px; line-height: 1.2; letter-spacing: -0.8px; color: var(--color-graphite); margin-top: 24px;">
       {{ format_currency(data.faturamento_dia) }}
     </div>
@@ -129,8 +130,8 @@
           <h3 style="margin: 0;">Nova Conta</h3>
           <button type="button" class="dialog-close" onclick="this.closest('dialog').close()">&times;</button>
         </div>
-        <form method="post" action="{{ url_for('web.bank_accounts_new') }}">
-          <label style="margin-bottom: 12px; font-size: 13px;">Nome da Conta <input type="text" name="nome" required placeholder="Caixa, Inter..."></label>
+        <form method="post" action="{{ url_for('web.bank_accounts_new') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label style="margin-bottom: 12px; font-size: 13px;">Nome da Conta <input type="text" name="nome" required></label>
           <label style="margin-bottom: 12px; font-size: 13px;">Banco <input type="text" name="banco"></label>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
             <label style="font-size: 13px;">Agência <input type="text" name="agencia"></label>
@@ -174,7 +175,7 @@
               <h3 style="margin: 0;">Editar Conta</h3>
               <button type="button" class="dialog-close" onclick="this.closest('dialog').close()">&times;</button>
             </div>
-            <form method="post" action="{{ url_for('web.bank_accounts_edit', account_id=account.id) }}">
+            <form method="post" action="{{ url_for('web.bank_accounts_edit', account_id=account.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                <label style="margin-bottom: 12px; font-size: 13px;">Nome <input type="text" name="nome" value="{{ account.nome }}" required></label>
                <label style="margin-bottom: 12px; font-size: 13px;">Banco <input type="text" name="banco" value="{{ account.banco or '' }}"></label>
                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
@@ -191,7 +192,7 @@
                </div>
             </form>
             <!-- Formulário separado para exclusão -->
-            <form method="post" action="{{ url_for('web.bank_accounts_delete', account_id=account.id) }}" style="margin-top: 16px;" onsubmit="return confirm('Tem certeza que deseja excluir esta conta bancária?');">
+            <form method="post" action="{{ url_for('web.bank_accounts_delete', account_id=account.id) }}" style="margin-top: 16px;" onsubmit="return confirm('Tem certeza que deseja excluir esta conta bancária?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                <button type="submit" class="button secondary" style="width: 100%; color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir Conta</button>
             </form>
           </dialog>

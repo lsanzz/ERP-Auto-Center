@@ -109,8 +109,8 @@
         <select name="status">
           <option value="TODOS" {% if not status_filter or 'TODOS' in status_filter %}selected{% endif %}>Todos os status</option>
           <option value="ABERTA" {% if 'ABERTA' in status_filter %}selected{% endif %}>Aberta</option>
-          <option value="EM ANDAMENTO" {% if 'EM ANDAMENTO' in status_filter %}selected{% endif %}>Em Andamento</option>
-          <option value="AGUARDANDO PEÇA" {% if 'AGUARDANDO PEÇA' in status_filter %}selected{% endif %}>Aguardando Peça</option>
+          <option value="EM_ANDAMENTO" {% if 'EM_ANDAMENTO' in status_filter %}selected{% endif %}>Em Andamento</option>
+          <option value="AGUARDANDO_PECA" {% if 'AGUARDANDO_PECA' in status_filter %}selected{% endif %}>Aguardando Peça</option>
           <option value="FINALIZADA" {% if 'FINALIZADA' in status_filter %}selected{% endif %}>Finalizada</option>
           <option value="ENTREGUE" {% if 'ENTREGUE' in status_filter %}selected{% endif %}>Entregue</option>
         </select>
@@ -126,7 +126,7 @@
       </div>
       <div>
         <label>Placa do Veículo</label>
-        <input type="text" name="placa" value="{{ placa }}" placeholder="ABC-1234">
+        <input type="text" name="placa" value="{{ placa }}">
       </div>
       <div>
         <label>Faturamento</label>

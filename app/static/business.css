@@ -1,0 +1,10 @@
+.business-calendar{display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;min-width:920px}
+.calendar-scroll{overflow-x:auto}.calendar-weekday{padding:12px;background:var(--muted);font-size:12px;text-align:center}.calendar-day{padding:12px;background:var(--card);min-height:145px}.calendar-day>strong{font-size:13px}.calendar-day.outside{background:var(--muted);color:var(--muted-foreground)}.calendar-day.today{box-shadow:inset 0 3px var(--primary)}.calendar-day a{display:block;padding:8px;margin-top:8px;border-radius:8px;background:var(--accent);color:var(--accent-foreground);text-decoration:none;font-size:12px}.calendar-day a small{display:block;margin-bottom:4px}.calendar-day a span{font-variant-numeric:tabular-nums;font-weight:600}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){.calendar-day a{transition:transform 150ms ease}.calendar-day a:hover{transform:translateY(-2px)}}
+.main .business-calendar .calendar-day>a{display:block;padding:8px;margin-top:8px;font-size:12px;line-height:1.5}
+.main .business-calendar .calendar-day>a small{display:block;margin-bottom:4px}
+.main .business-calendar .calendar-day>strong{display:block}
+.business-reports>.hub-panel+.hub-panel{margin-top:20px}
+.hub .history-filters{grid-template-columns:repeat(3,minmax(0,1fr))}.history-actions{grid-column:1/-1}
+@media(max-width:700px){.hub .history-filters{grid-template-columns:1fr}.history-actions{gap:12px}}
+@media print{.hub-header .button,.hub-filters{display:none}.calendar-scroll{overflow:visible}.business-calendar{min-width:0;grid-template-columns:repeat(7,1fr)}}

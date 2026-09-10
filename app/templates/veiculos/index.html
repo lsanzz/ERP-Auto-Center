@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><div><h2>Veículos</h2><p class="muted">Cadastro, quilometragem e histórico de atendimentos.</p></div><a class="button" href="{{ url_for('fleet.new') }}">Novo veículo</a></div>
+<form method="get" class="inline-form" style="flex-wrap:wrap; margin-bottom:24px">
+  <label>Buscar<input name="q" value="{{ q }}"></label>
+  <label>Situação<select name="status">{% for value, label in [('ativos','Ativos'),('inativos','Inativos'),('todos','Todos')] %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  {% if request.args.get('client_id') %}<input type="hidden" name="client_id" value="{{ request.args.get('client_id') }}">{% endif %}
+  <button type="submit">Filtrar</button>
+</form>
+<div class="table-card" style="overflow-x:auto"><table class="table"><thead><tr><th>Veículo</th><th>Placa</th><th>Cliente</th><th>Quilometragem</th><th>Situação</th></tr></thead><tbody>
+{% for vehicle in vehicles %}<tr><td><a href="{{ url_for('fleet.show', vehicle_id=vehicle.id) }}">{{ vehicle.descricao }}</a></td><td>{{ vehicle.placa or 'Sem placa' }}</td><td><a href="{{ url_for('web.clients_show', client_id=vehicle.client_id) }}">{{ vehicle.client.nome }}</a></td><td>{{ vehicle.quilometragem if vehicle.quilometragem is not none else 'Não informada' }}</td><td>{{ 'Ativo' if vehicle.ativo else 'Inativo' }}</td></tr>
+{% else %}<tr><td colspan="5">Nenhum veículo encontrado. Cadastre um veículo para iniciar seu prontuário.</td></tr>{% endfor %}
+</tbody></table></div>
+{% include '_pagination.html' %}
+{% endblock %}
