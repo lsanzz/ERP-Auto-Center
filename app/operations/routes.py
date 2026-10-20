@@ -39,6 +39,7 @@ def _uploads_path() -> Path:
 
 @operations_bp.route('/os/<int:work_order_id>/inspecao', methods=['GET', 'POST'])
 @login_required
+@permission_required('inspections.manage')
 def inspection(work_order_id):
     order = db.get_or_404(WorkOrder, work_order_id)
     inspection_model = ensure_inspection(order)
@@ -59,6 +60,7 @@ def inspection(work_order_id):
 
 @operations_bp.post('/os/<int:work_order_id>/inspecao/fotos')
 @login_required
+@permission_required('inspections.manage')
 def inspection_photo(work_order_id):
     order = db.get_or_404(WorkOrder, work_order_id)
     inspection_model = ensure_inspection(order)
@@ -70,8 +72,9 @@ def inspection_photo(work_order_id):
         image = Image.open(upload.stream)
         image.verify()
         upload.stream.seek(0)
-        image = ImageOps.exif_transpose(Image.open(upload.stream))
+        image = Image.open(upload.stream)
         content_type, suffix = IMAGE_FORMATS[image.format]
+        image = ImageOps.exif_transpose(image)
         image.thumbnail((4096, 4096))
     except (UnidentifiedImageError, KeyError, OSError, Image.DecompressionBombError):
         flash('Formato invalido. Envie JPG, PNG ou WEBP.', 'error')
@@ -96,6 +99,7 @@ def inspection_photo(work_order_id):
 
 @operations_bp.get('/inspecao/fotos/<int:photo_id>')
 @login_required
+@permission_required('work_orders.view')
 def inspection_photo_file(photo_id):
     photo = db.get_or_404(InspectionPhoto, photo_id)
     return send_from_directory(_uploads_path(), photo.storage_name, mimetype=photo.content_type)
@@ -123,7 +127,7 @@ def public_budget_approval(token):
         try:
             respond_to_budget_approval(
                 approval, request.form.get('decision'), request.form,
-                request.headers.get('X-Forwarded-For', request.remote_addr), request.user_agent.string,
+                request.remote_addr, request.user_agent.string,
             )
             record_audit('RESPONDER', 'ORCAMENTO', approval.budget_id, None,
                          {'decisao': approval.status, 'nome': approval.response_name}, request.remote_addr)
@@ -181,6 +185,7 @@ def inventory_adjust(product_id):
 
 @operations_bp.post('/os/<int:work_order_id>/reservar-pecas')
 @login_required
+@permission_required('inventory.move')
 def reserve_parts(work_order_id):
     order = db.get_or_404(WorkOrder, work_order_id)
     try:
@@ -195,6 +200,7 @@ def reserve_parts(work_order_id):
 
 @operations_bp.post('/os/<int:work_order_id>/liberar-reservas')
 @login_required
+@permission_required('inventory.move')
 def release_parts(work_order_id):
     order = db.get_or_404(WorkOrder, work_order_id)
     count = release_order_reservations(order)

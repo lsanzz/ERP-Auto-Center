@@ -81,7 +81,7 @@
   <div class="card" style="padding:20px 16px 16px; background:var(--color-fog); margin-bottom:0;">
     <div class="os-table-shell">
       <form method="GET" action="" style="margin-bottom: 25px;">
-        <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
+        <div class="responsive-row" style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
           
           <!-- Campo de Texto -->
           <input type="text" name="q" class="form-control" 
@@ -105,7 +105,7 @@
       </form>
 
       {% if orders %}
-        <table class="table os-table">
+        <table data-mobile-cards class="table os-table">
           <thead><tr><th>O.S.</th><th>Cliente</th><th>Responsável</th><th>Veículo</th><th>Status</th><th>Pagamento</th><th>Total</th><th style="text-align:right;">Ações</th></tr></thead>
           <tbody>
             {% for order in orders %}

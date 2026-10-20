@@ -6,7 +6,7 @@ from functools import wraps
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy.orm.exc import StaleDataError
 
-from .auth import current_user, login_user, logout_user
+from .auth import current_user, has_permission, login_user, logout_user
 from .cnpj import is_cnpj, is_cpf, lookup_cnpj, lookup_cpf
 from .models import BankAccount, Budget, Client, Employee, FinancialEntry, PaymentMethod, Product, Service, User, WorkOrder, XmlInvoiceImport, db
 from .services import (
@@ -26,6 +26,7 @@ from .services import (
     recalculate_budget_totals,
     recalculate_work_order_totals,
     replace_work_order_items,
+    remove_bank_account,
     settle_financial_entry,
     split_installments,
     update_work_order_receivables,
@@ -38,6 +39,34 @@ from .xml_import import parse_nfe_xml
 
 
 api_bp = Blueprint("api", __name__)
+
+
+@api_bp.before_request
+def enforce_endpoint_permissions():
+    """Apply the shared capability model consistently to protected API resources."""
+    if request.method == 'OPTIONS' or not current_user():
+        return None
+    endpoint = (request.endpoint or '').removeprefix('api.')
+    read_only = request.method in {'GET', 'HEAD'}
+    permission = {
+        'clients_collection': 'customers.manage',
+        'client_resource': 'customers.manage',
+        'client_lookup_document': 'customers.manage',
+        'client_lookup_cnpj': 'customers.manage',
+        'budgets_collection': 'estimates.manage',
+        'budget_resource': 'estimates.manage',
+        'budget_add_item': 'estimates.manage',
+        'budget_approve': 'estimates.manage',
+        'budget_convert': 'estimates.manage',
+        'work_orders_collection': 'work_orders.view' if read_only else 'work_orders.manage',
+        'work_order_resource': 'work_orders.view' if read_only else 'work_orders.manage',
+        'work_order_add_item': 'work_orders.manage',
+        'work_order_change_status': 'work_orders.progress',
+        'work_order_finish': 'work_orders.manage',
+        'lookup_placa': 'vehicles.view',
+    }.get(endpoint)
+    if permission and not has_permission(permission):
+        return as_json({'error': 'acesso negado'}, 403)
 
 
 @api_bp.errorhandler(ValueError)
@@ -61,7 +90,10 @@ def as_json(data, status: int = 200):
 
 
 def payload() -> dict:
-    return request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise ValueError('Envie um objeto JSON válido.')
+    return data
 
 
 def api_login_required(view):
@@ -755,9 +787,12 @@ def bank_account_resource(account_id: int):
     if request.method == 'GET':
         return as_json(account.to_dict())
     if request.method == 'DELETE':
-        db.session.delete(account)
+        history_preserved = remove_bank_account(account)
         db.session.commit()
-        return as_json({'message': 'conta bancária removida'})
+        message = 'conta bancária removida'
+        if history_preserved:
+            message = 'conta bancária desativada; histórico financeiro preservado'
+        return as_json({'message': message, 'history_preserved': history_preserved})
     data = payload()
     for field in ['nome', 'banco', 'agencia', 'conta']:
         if field in data:

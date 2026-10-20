@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import wraps
+from urllib.parse import urlsplit
 
 from flask import abort, flash, redirect, request, session, url_for, g
 
@@ -8,14 +9,20 @@ from .models import User, db
 
 
 SESSION_KEY = 'user_id'
+USER_ROLES = ('ADMINISTRADOR', 'RECEPCIONISTA', 'MECANICO', 'ESTOQUISTA', 'FINANCEIRO')
 
 ROLE_PERMISSIONS = {
     'ADMINISTRADOR': {'*'},
     'RECEPCIONISTA': {
-        'dashboard.view', 'customers.manage', 'vehicles.manage', 'scheduling.manage',
-        'estimates.manage', 'work_orders.view', 'approvals.manage',
+        'dashboard.view', 'customers.manage', 'vehicles.view', 'vehicles.manage',
+        'scheduling.view', 'scheduling.manage',
+        'estimates.manage', 'work_orders.view', 'work_orders.manage', 'work_orders.progress',
+        'approvals.manage',
     },
-    'MECANICO': {'dashboard.view', 'work_orders.view', 'inspections.manage', 'time_entries.manage'},
+    'MECANICO': {
+        'dashboard.view', 'vehicles.view', 'scheduling.view', 'work_orders.view',
+        'work_orders.progress', 'inspections.manage', 'time_entries.manage',
+    },
     'ESTOQUISTA': {'dashboard.view', 'inventory.view', 'inventory.move', 'purchases.manage'},
     'FINANCEIRO': {'dashboard.view', 'finance.view', 'finance.settle', 'finance.reconcile', 'reports.view'},
 }
@@ -36,7 +43,21 @@ def login_user(user: User) -> None:
 
 
 def logout_user() -> None:
-    session.pop(SESSION_KEY, None)
+    session.clear()
+    g.pop('csrf_token', None)
+
+
+def safe_next_url(value: str | None, fallback: str) -> str:
+    """Return a same-origin absolute path suitable for a Location header."""
+    if not value or '\\' in value or not value.startswith('/') or value.startswith('//'):
+        return fallback
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return fallback
+    if parsed.scheme or parsed.netloc:
+        return fallback
+    return value
 
 
 def login_required(view):

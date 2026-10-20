@@ -5,7 +5,7 @@
     <h2>Financeiro</h2>
     <p class="muted">Gestão de contas, pagamentos e migração de dados.</p>
   </div>
-  <div class="actions" style="display: flex; gap: 8px;">
+  <div class="actions responsive-row" style="display: flex; gap: 8px;">
      <a class="button secondary" href="{{ url_for('web.finance_index') }}">Lançamentos</a>
      <a class="button secondary" href="{{ url_for('web.finance_new') }}">Novo Lançamento</a>
      <a class="button" href="{{ url_for('web.finance_imports') }}">Migração / Histórico</a>
@@ -27,7 +27,7 @@
 
 <div class="table-card section-card" style="margin-top: 18px;">
   <h4>Últimos XMLs Importados</h4>
-  <table class="table">
+  <table data-mobile-cards class="table">
     <thead>
       <tr>
         <th>NF-e</th>

@@ -138,8 +138,8 @@
       </div>
     </div>
     
-    <div style="display: flex; gap: 24px; align-items: center; justify-content: space-between; border-top: 1px solid var(--color-mist); padding-top: 20px;">
-      <div style="display: flex; gap: 24px;">
+    <div class="responsive-row" style="display: flex; gap: 24px; align-items: center; justify-content: space-between; border-top: 1px solid var(--color-mist); padding-top: 20px;">
+      <div class="responsive-row" style="display: flex; gap: 24px;">
         <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;">
           <input type="radio" name="show_items" value="both" {% if show_items == 'both' %}checked{% endif %}> Peças e serviços
         </label>
@@ -150,7 +150,7 @@
           <input type="radio" name="show_items" value="servicos" {% if show_items == 'servicos' %}checked{% endif %}> Somente serviços
         </label>
       </div>
-      <div style="display: flex; gap: 12px;">
+      <div class="responsive-row" style="display: flex; gap: 12px;">
         <button type="submit" class="button">Pesquisar</button>
         <a href="{{ url_for('web.reports_index') }}" class="button secondary">Limpar</a>
       </div>
@@ -163,7 +163,7 @@
   <div style="margin-bottom: 16px;">
     <h3 style="font-family: var(--font-polysans); color: var(--color-graphite); font-size: 16px;">Exportar Notas Fiscais (XML)</h3>
   </div>
-  <form method="get" action="{{ url_for('web.reports_export_xml') }}" class="no-loader" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+  <form method="get" action="{{ url_for('web.reports_export_xml') }}" class="no-loader responsive-row" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
     <div style="flex: 1; min-width: 150px;">
       <label class="muted" style="display: block; margin-bottom: 8px; font-size: 13px;">Data Inicial</label>
       <input type="date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}" style="width: 100%; padding: 10px; border: 1px solid var(--color-mist); border-radius: 4px;" required>
@@ -194,7 +194,7 @@
     <div class="os-block">
       <div class="os-header">
         <div class="os-header-item">O.S. <strong>#{{ os.numero }}</strong></div>
-        <div class="os-header-item">CLIENTE <strong>{{ os.client.nome if os.client else os.client_nome }}</strong></div>
+        <div class="os-header-item">CLIENTE <strong>{{ os.client_nome or (os.client.nome if os.client else '-') }}</strong></div>
         <div class="os-header-item">DATA <strong>{{ os.data_entrada.strftime('%d/%m/%Y') }}</strong></div>
         <div class="os-header-item">PLACA <strong>{{ os.placa or '-' }}</strong></div>
         <div class="os-header-item" style="text-align: right;">VALOR <strong>{{ format_currency(os.calc_total) }}</strong></div>
@@ -227,7 +227,7 @@
       </table>
       {% else %}
       <div style="padding: 20px; text-align: center; color: var(--color-slate); font-size: 14px;">
-        Nenhum item correspondente aos filtros nesta O.S.
+        {% if not os.items %}Esta OS tem apenas valores consolidados: peças {{ format_currency(os.calc_pecas) }} e serviços {{ format_currency(os.calc_servicos) }}. O detalhamento dos itens não foi informado.{% else %}Nenhum item correspondente aos filtros nesta O.S.{% endif %}
       </div>
       {% endif %}
     </div>

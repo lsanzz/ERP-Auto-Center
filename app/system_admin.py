@@ -38,7 +38,7 @@ def login():
     if current_system_admin():
         return redirect(url_for('system_admin.dashboard'))
     if request.method == 'POST':
-        ip_address = (request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip())[:64]
+        ip_address = (request.remote_addr or '')[:64]
         recent_failures = AuditEvent.query.filter(
             AuditEvent.action == 'SYSTEM_ADMIN_LOGIN_FALHA',
             AuditEvent.ip_address == ip_address,
@@ -104,7 +104,12 @@ def refresh_companies():
 @system_admin_required
 def integration():
     if request.method == 'POST':
-        save_fiscal_config_from_form(request.form)
+        try:
+            save_fiscal_config_from_form(request.form)
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc), 'error')
+            return redirect(url_for('system_admin.integration'))
         db.session.commit()
         flash('Integração fiscal atualizada.', 'success')
         return redirect(url_for('system_admin.integration'))

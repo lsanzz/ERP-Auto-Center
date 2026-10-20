@@ -43,10 +43,13 @@
     color: var(--color-graphite);
     letter-spacing: -0.01em;
   }
+  .arquivo-pill { max-width: 100%; border-radius: var(--radius-pill, 18px); }
   .arquivo-pill strong {
     color: var(--color-ember-orange);
     font-weight: 500;
+    flex-shrink: 0; /* nome de arquivo longo não pode espremer o rótulo */
   }
+  .arquivo-pill span { min-width: 0; overflow-wrap: anywhere; }
 
   /* Cartões com cabeçalho no padrão Ventriloc */
   .system-card {
@@ -385,7 +388,7 @@
           </div>
         </div>
 
-        <div class="field-grid-4" style="grid-template-columns: 2fr 1fr 1fr; margin-bottom: 14px;">
+        <div class="field-grid-4 responsive-grid" style="grid-template-columns: 2fr 1fr 1fr; margin-bottom: 14px;">
           <div class="field-item">
             <span class="field-label">Endereço</span>
             <span class="field-value">{{ parsed.emitente_endereco }}</span>
@@ -468,7 +471,7 @@
                 <span class="field-label">Quantidade</span>
                 <span class="field-value">{{ '%.2f'|format(item.quantidade)|replace('.', ',') }}</span>
               </div>
-              <div style="display: flex; align-items: center; padding-top: 12px;">
+              <div class="responsive-row" style="display: flex; align-items: center; padding-top: 12px;">
                 <label style="font-size: 12px; color: var(--color-steel); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; margin: 0;">
                   <input type="checkbox" name="converter_unidade_{{ loop.index0 }}" value="1"> Converter unidade?
                 </label>
@@ -607,11 +610,11 @@
     <div class="system-card">
       <div class="system-card-header">
         <span>Faturas</span>
-        <div style="display: flex; align-items: center; gap: 24px;">
+        <div class="responsive-row" style="display: flex; align-items: center; gap: 24px;">
           <label style="font-family: var(--font-inter); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin: 0;">
             <input type="checkbox" name="lancar_contas" value="1" checked> Lançar contas
           </label>
-          <div style="display: inline-flex; align-items: center; gap: 8px;">
+          <div class="responsive-row" style="display: inline-flex; align-items: center; gap: 8px;">
             <span style="font-size: 11px; font-weight: 600; color: var(--color-slate); text-transform: uppercase;">Forma de pagto.</span>
             <select name="forma_pagamento" class="system-input-field" style="padding: 4px 8px; width: 150px;">
               <option value="Boleto" {% if parsed.forma_pagamento_sugerida == 'Boleto' %}selected{% endif %}>Boleto</option>
@@ -660,7 +663,7 @@
         <div class="field-grid-4">
           <div class="field-item">
             <span class="field-label">Chave de acesso</span>
-            <span class="field-value" style="font-family: monospace; font-size: 12px;">{{ parsed.chave_acesso }}</span>
+            <span class="field-value" style="font-family: var(--font-geist-mono); font-size: 12px;">{{ parsed.chave_acesso }}</span>
           </div>
           <div class="field-item">
             <span class="field-label">Protocolo</span>

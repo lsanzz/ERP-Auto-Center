@@ -86,11 +86,11 @@
     .login-card button:hover {
       background: var(--primary-hover) !important;
     }
-  .login-body { background: #f5f7fb !important; padding: 48px 16px; font-family: system-ui, sans-serif; }
+  .login-body { background: #f5f7fb !important; padding: 48px 16px; font-family: var(--font-geist); }
 .login-card { width: min(460px, 100%); padding: 40px !important; border-radius: 16px !important; box-shadow: 0 12px 40px #1720330a !important; }
 .login-logo { width: 176px; margin: 0 0 36px; }
 .login-card h1 { font-size: 25px; letter-spacing: -.04em; }
-.login-card button { background: #006bff !important; box-shadow: none; }
+.login-card button { background: linear-gradient(180deg, #3b82f6, var(--color-blue-strong, #1d4ed8)) !important; box-shadow: var(--shadow-blue, none); }
 .login-card input { min-height: 46px; }
 .login-card small { font-weight: 400; }
 .turnstile-shell { width: 100%; min-height: 65px; display: grid; place-items: center; }
@@ -98,7 +98,8 @@
 .login-provider { margin-top: 28px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #667085; text-align: center; width: 100%; }
 @media(max-width:480px) { .login-card { padding: 28px !important; } }
 </style>
-  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='lshub-icon.svg') }}">
+  {% include '_brand_head.html' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}?v=2">
 </head>
 <body class="login-body">
   <div class="login-card">
@@ -122,7 +123,7 @@
       </label>
       {% if config.TURNSTILE_ENABLED %}
       <div class="turnstile-shell">
-        <div class="cf-turnstile" data-sitekey="{{ config.TURNSTILE_SITE_KEY }}" data-action="login" data-language="pt-BR" data-size="flexible" data-theme="light" data-callback="turnstileOk" data-error-callback="turnstileError" data-expired-callback="turnstileExpired"></div>
+        <div class="cf-turnstile" data-sitekey="{{ config.TURNSTILE_SITE_KEY }}" data-action="login" data-language="pt-BR" data-size="compact" data-theme="light" data-callback="turnstileOk" data-error-callback="turnstileError" data-expired-callback="turnstileExpired"></div>
       </div>
       <p class="turnstile-status" id="turnstile-status" role="status" aria-live="polite">Verificação de segurança em andamento…</p>
       {% endif %}
@@ -149,5 +150,6 @@
   </script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   {% endif %}
+{% include '_design_system.html' %}
 </body>
 </html>

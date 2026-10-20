@@ -56,7 +56,10 @@ body :is(button,.button).danger {
 body :is(button,.button).danger:hover {
   background: #fef2f2; border-color: #b91c1c; color: #991b1b !important;
 }
-:is(a,button,summary):focus-visible { outline: 3px solid color-mix(in srgb,var(--primary) 40%,transparent); outline-offset: 3px; }
+:is(a,button,summary):focus-visible { outline: 3px solid var(--primary-active); outline-offset: 3px; }
+.skip-link { position: fixed; top: 12px; left: 12px; z-index: 10000; padding: 12px 18px; background: var(--card); color: var(--foreground); border: 2px solid var(--primary-active); border-radius: 8px; transform: translateY(-180%); }
+.skip-link:focus { transform: translateY(0); }
+#main-content { scroll-margin-top: 20px; }
 .main table { border-collapse: separate; border-spacing: 0; width: 100%; }
 .main table th { background: var(--muted); color: var(--muted-foreground); padding: 14px 16px; font-size: 12px; font-weight: 600; }
 .main table td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
@@ -67,7 +70,7 @@ body :is(button,.button).danger:hover {
 .main .account-code { display: inline-block; margin-right: 12px; }
 .main :is(.badge,.status-pill) { border-radius: 999px; padding: 5px 9px; font-size: 12px; }
 .main :is(.flash,.message) { border-radius: 12px; padding: 16px 20px; animation: ui-enter 240ms var(--ui-ease); }
-.plate-float-button { border-radius: 999px; box-shadow: 0 8px 24px #006bff26; }
+.plate-float-button { border-radius: 999px; box-shadow: 0 8px 24px #2563eb26; }
 .main .mgmt-page { color: var(--foreground); gap: 32px; }
 .main .mgmt-intro h1 { font-size: clamp(32px,4vw,48px); }
 .main .result-board { border-radius: 20px; }
@@ -81,7 +84,7 @@ body :is(button,.button).danger:hover {
 @keyframes ui-pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion:no-preference) {
   .main > :is(section,div,main,form) { animation: ui-enter 280ms var(--ui-ease); }
-  @media(hover:hover) { .button:hover { box-shadow: 0 4px 12px #006bff18; transform: translateY(-1px); } }
+  @media(hover:hover) { .button:hover { box-shadow: 0 4px 12px #2563eb18; transform: translateY(-1px); } }
 }
 @media(max-width:700px) {
   .top-header { padding-block: 16px; margin-bottom: 20px; }

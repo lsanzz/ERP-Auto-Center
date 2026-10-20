@@ -71,3 +71,6 @@ scripts/*.csv
 Thumbs.db
 .vscode/
 .idea/
+
+# Graphify: o grafo (graph.json) é versionado; o cache é regenerável
+graphify-out/cache/

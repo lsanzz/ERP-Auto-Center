@@ -167,7 +167,8 @@ class StructureTest(unittest.TestCase):
             'partner_share[]': ['50.00'],
         }, follow_redirects=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Certificado digital A1'.encode(), response.data)
+        self.assertIn('<summary>Certificado digital</summary>'.encode(), response.data)
+        self.assertIn('Certificado A1 (.pfx ou .p12)'.encode(), response.data)
         settings = SystemSettings.query.one()
         self.assertEqual(settings.company_name, 'Oficina Teste')
         self.assertEqual(settings.state, 'SP')

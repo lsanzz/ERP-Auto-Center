@@ -1,0 +1,213 @@
+/* Responsive layer for the existing LSHub design system. Keep data tables
+   semantic, with scrolling confined to the table instead of the page. */
+html { -webkit-text-size-adjust: 100%; }
+.main, .main :is(section, article, aside, form, fieldset, div, label),
+.top-header > * { min-width: 0; }
+.main :is(input, select, textarea) { min-width: 0; max-width: 100%; }
+.main :is(img, video, canvas) { max-width: 100%; }
+.main img { height: auto; }
+.main :is(h1, h2, h3, p, label, .flash, .hub-row-main, .profile-info) { overflow-wrap: anywhere; }
+.main pre { max-width: 100%; overflow: auto; }
+:is(button, .button, a, summary, input, select, textarea) { touch-action: manipulation; }
+:is(button, .button, a, summary) { -webkit-tap-highlight-color: rgba(37, 99, 235, .12); }
+.mobile-nav-toggle { display: none; }
+.table-scroll { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; }
+.table-scroll:focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
+.table-scroll-hint { display: none; margin: 8px 0; color: var(--muted-foreground); font-size: 12px; }
+.table-scroll-hint.is-visible { display: block; }
+body:has(dialog[open]) { overflow: hidden; }
+dialog { margin: auto; max-width: calc(100% - 32px); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain; }
+.pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-block: 20px; }
+.pagination > span { overflow-wrap: anywhere; }
+.actions { flex-wrap: wrap; }
+
+@media screen and (max-width: 1100px) {
+  .main :is(.form-grid-4, .form-grid-5, .form-grid-6) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media screen and (max-width: 1150px) {
+  .main .os-table { min-width: 1100px; table-layout: auto; }
+  .main .os-table :is(th, td):nth-child(n) { display: table-cell; width: auto; }
+}
+
+@media screen and (max-width: 700px) {
+  .main .responsive-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 16px !important; }
+  .main .responsive-grid > * { grid-column: 1 / -1 !important; }
+  .main .responsive-row { flex-wrap: wrap; gap: 12px; }
+  .main .card { padding: 16px !important; }
+  .main .payment-row { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .main .mobile-item-editor { display: block; }
+  .main .mobile-item-editor thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
+  .main .mobile-item-editor tbody { display: grid; gap: 16px; }
+  .main .mobile-item-editor tr.item-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); }
+  .main .mobile-item-editor tr.item-row td { display: block; padding: 0; border: 0; min-width: 0; }
+  .main .mobile-item-editor tr.item-row td:first-child { grid-column: 1 / -1; }
+  .main .mobile-item-editor td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 6px; font-size: 12px; font-weight: 500; color: var(--muted-foreground); }
+  .main .mobile-item-editor tr.item-row td:last-child { display: flex; align-items: flex-end; }
+  .main .mobile-item-editor tr.item-row td:last-child button { width: 100%; }
+  .main .table-scroll:has(> .mobile-item-editor) { overflow: visible; }
+  .main .custom-suggestions-box { max-width: 100%; max-height: 40dvh; overflow-y: auto; overscroll-behavior: contain; }
+  .main .custom-suggestion-item { white-space: normal !important; }
+  .main :is(.custom-suggestion-copy, .custom-suggestion-copy strong, .custom-suggestion-copy small) { white-space: normal; overflow-wrap: anywhere; }
+  .main :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) { position: static; min-width: 0; margin-top: 8px; box-shadow: none; }
+  .main :is(.os-menu, .product-menu, .finance-menu) summary { min-height: 44px; }
+  .main .finance-table { min-width: 900px; table-layout: auto; }
+  .main .yard { grid-template-columns: minmax(0, 1fr); overflow: visible; }
+  .main .yard-column { min-height: 0; }
+  .main .yard-card { color: var(--foreground); background: var(--card); }
+  .main .yard-card form { display: grid; gap: 10px; margin-top: 12px; }
+  .main .period-filter { flex-wrap: wrap; }
+  .main .period-filter label { width: 100%; }
+  .main .os-header { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .main .arquivo-pill { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .main :is(.field-grid-2, .field-grid-4) { grid-template-columns: minmax(0, 1fr) !important; }
+  .main :is(.item-entry-row, .item-row-1, .item-row-2, .item-row-3, .system-card-header, .products-top-controls, .payment-method-row) { flex-wrap: wrap; }
+  .main .item-content-col { width: 100%; }
+  .main .item-row-1 { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .main .field-item { min-width: 0 !important; max-width: 100%; }
+  .main .period-control { grid-template-columns: minmax(0, 1fr); }
+  .main .item-row-1 > .field-item { width: 100% !important; flex-basis: 100% !important; }
+  .main :is(.system-card-body, .system-card-header) { padding: 16px; }
+  .main .modal-liq-header .info-grid, .main .modal-liq-body :is(.form-row, .form-row-5) { grid-template-columns: minmax(0, 1fr); }
+  .main .modal-liq-footer { flex-wrap: wrap; gap: 12px; }
+  .main .modal-liquidar-completo :is(.modal-liq-body, .modal-liq-header) { padding: 16px; }
+  .main .modal-liq-body .form-group label { white-space: normal; }
+  .main .settings-content .hours-row { grid-template-columns: minmax(0, 1fr); }
+  .main .settings-content .inline-form { flex-wrap: wrap; }
+  .main .mi-actions > .mi-button { flex: 1 1 160px; }
+  .main .mi-mapping :is(thead, tbody, tr, th, td) { display: block; width: 100%; }
+  .main .mi-mapping thead { display: none; }
+  .main .mi-mapping td:first-child { width: 100%; padding-bottom: 0; border-bottom: 0; }
+  .main .mi-mapping td { max-width: none; }
+  body > .container { padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)); }
+  .top-header { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding-block: 16px; margin-bottom: 20px; }
+  .top-header .brand img { width: 118px; height: auto; display: block; }
+  .top-header .user-box { grid-column: 2; grid-row: 1; padding-left: 0; gap: 4px; border-left: 0; }
+  .top-header .nav-settings { width: 44px; height: 44px; flex-shrink: 0; }
+  .profile-menu > summary { min-height: 44px; padding: 8px; }
+  .profile-menu > summary > span:not(.profile-avatar) { display: none; }
+  .profile-menu .nav-dropdown { max-width: calc(100vw - 32px); }
+  .profile-info { overflow-wrap: anywhere; }
+  .mobile-nav-ready .mobile-nav-toggle { display: flex; grid-column: 1 / -1; grid-row: 2; width: 100%; gap: 10px; justify-content: flex-start; min-height: 44px; padding: 10px 14px; }
+  .mobile-nav-state { margin-left: auto; font-size: 22px; line-height: 1; }
+  .top-header .grouped-nav { grid-column: 1 / -1; grid-row: 3; display: flex; flex-direction: column; align-items: stretch; width: 100%; max-width: 100%; overflow: visible; padding: 6px; gap: 2px; }
+  .mobile-nav-ready .grouped-nav:not(.is-open) { display: none; }
+  .grouped-nav > a, .grouped-nav .nav-group > summary { min-height: 44px; padding: 12px; font-size: 14px; white-space: normal; }
+  .grouped-nav .nav-group > summary { justify-content: space-between; }
+  .grouped-nav .nav-dropdown { position: static; min-width: 0; width: 100%; margin-top: 4px; border: 0; border-left: 2px solid var(--border); box-shadow: none; border-radius: 0; padding: 0 0 0 8px; animation: none; }
+  .grouped-nav .nav-group[open] > .nav-dropdown { animation: none; }
+  .grouped-nav .nav-dropdown a { min-height: 44px; display: flex; align-items: center; }
+  .main { padding-bottom: 32px; }
+  .main h1 { font-size: 30px; }
+  .main h2 { font-size: 26px; }
+  .main .display { font-size: clamp(32px, 9vw, 46px); line-height: 1.12; }
+  .main :is(.page-header, .page-heading) { align-items: stretch; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+  .main :is(.page-header, .page-heading) > * { max-width: 100%; }
+  .main :is(.card, .data-card) { padding: 16px; margin-bottom: 24px; }
+  .main .table-card { margin-bottom: 24px; }
+  .main :is(.form-grid-2, .form-grid-3, .form-grid-4, .form-grid-5, .form-grid-6) { grid-template-columns: minmax(0, 1fr) !important; gap: 16px; }
+  .main :is(.form-grid-2, .form-grid-3, .form-grid-4, .form-grid-5, .form-grid-6) > * { grid-column: 1 / -1 !important; }
+  .main :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea) { font-size: 16px; min-height: 44px; }
+  .main input[type=file] { padding: 8px; }
+  .main :is(button, .button) { min-height: 44px; height: auto; padding: 10px 14px; white-space: normal; line-height: 1.4; }
+  .main label.checkbox { min-height: 44px; }
+  .main .actions { margin-top: 20px; gap: 12px; }
+  .main .actions > :is(button, a.button, form) { flex: 1 1 160px; }
+  .main .actions > form > button { width: 100%; }
+  .main :is(.hub-actions, .hub-header, .hub-panel-head) { gap: 12px; }
+  .main .hub-header > .hub-actions { width: 100%; }
+  .main .hub-actions > :is(button, a.button) { flex: 1 1 130px; }
+  .main .hub-filters { grid-template-columns: minmax(0, 1fr); }
+  .main .hub-filters > * { grid-column: auto; }
+  .main .hub-row { flex-wrap: wrap; overflow-wrap: anywhere; }
+  .main .hub-row-main { flex-basis: 140px; }
+  .main .hub-row > .hub-badge { white-space: normal; }
+  .main .hub-chart { gap: 4px; }
+  .main .hub-summary { gap: 16px; }
+  .main .hub-legend { flex-wrap: wrap; gap: 8px 16px; }
+  .main .hub-kpis { gap: 12px; }
+  .main .hub-kpi { padding: 14px; }
+  .main .hub-kpi strong { font-size: 23px; }
+  .main :is(.hub-dialog, .ventriloc-modal) { padding: 16px; }
+  .main .hub-dialog .hub-actions { margin-top: 20px; }
+  .main .ventriloc-autocomplete-dropdown { min-width: 0; width: 100%; max-height: 40dvh; overflow-y: auto; overflow-wrap: anywhere; overscroll-behavior: contain; }
+  .main table :is(th, td) { padding: 12px; }
+  .main table th { white-space: nowrap; }
+  .main .table-scroll table:not(.mobile-item-editor) :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select) { min-width: 120px; }
+  .main .table-scroll .fiscal-items-table td:nth-child(2) input { min-width: 220px; }
+  .main table :is(button, .button) { white-space: nowrap; }
+  .pagination > span { flex: 1 1 100%; order: -1; }
+  .pagination > .button { flex: 1; }
+  .plate-float-button { position: static; width: max-content; max-width: calc(100% - 32px); margin: 0 16px calc(24px + env(safe-area-inset-bottom)); min-height: 44px; padding: 10px 14px; }
+}
+
+/* Independent login, owner administration and customer approval pages. */
+.admin-main, .admin-main :is(div, form, label, input), .mfa-card, .login, .login-card { min-width: 0; box-sizing: border-box; }
+.mfa-card *, .login *, .login-card * { box-sizing: border-box; }
+.mfa-card img, .login-logo { max-width: 100%; }
+.admin-main :is(input, select), .login :is(input, button), .login-card input { font-size: 16px; }
+@media screen and (max-width: 700px) {
+  .admin-main { padding: 16px; }
+  .admin-main .search { flex-wrap: wrap; }
+  .admin-main .search > * { max-width: 100%; }
+  .admin-main .search input { flex-basis: 100%; }
+  .admin-main :is(button, .button), .admin-nav a { min-height: 44px; }
+  .admin-main .card { padding: 16px; }
+  .admin-main .form-grid > * { grid-column: 1 / -1 !important; }
+  .admin-main .actions { flex-wrap: wrap; }
+  .login-body { padding: 20px 16px !important; min-height: 100dvh; }
+  .login-body .login-card { padding: 20px !important; }
+  .mfa-card { padding: 20px; }
+  .mfa-card input { min-width: 0; max-width: 100%; min-height: 44px; }
+  .mfa-card button { min-height: 44px; }
+  .login { margin-block: 16px; padding: 20px; overflow-wrap: anywhere; }
+  .wrap .row { flex-wrap: wrap; gap: 12px; }
+  .wrap :is(h1, p, span, strong) { overflow-wrap: anywhere; }
+  .wrap :is(input, textarea, select) { max-width: 100%; min-height: 44px; font-size: 16px; }
+  .wrap input[type=checkbox] { min-height: 0; }
+  .wrap .row label { flex-basis: 100%; }
+  .wrap .row select { width: 100%; }
+  .wrap :is(button.approve, button.reject) { width: 100%; min-height: 44px; margin-top: 12px; }
+}
+
+@media screen and (max-width: 380px) {
+  .main .hub-kpis { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Operational records: actions stay in the card, never off to the right.
+   Only explicitly marked lists use this layout; item editors and reports retain
+   their own table behavior. Direct-child selectors leave dialog tables intact. */
+@media screen and (max-width: 800px) {
+  .main .os-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .main .os-kpi { padding: 14px; }
+  .main .os-kpi-label { font-size: 11px; margin-bottom: 8px; }
+  .main .os-kpi strong { font-size: 24px; }
+  .main .record-list-wrap { overflow: visible; }
+  .main table[data-mobile-cards] { display: block; width: 100%; min-width: 0 !important; max-width: 100%; table-layout: auto; white-space: normal; }
+  .main table[data-mobile-cards] > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .main table[data-mobile-cards] > tbody { display: grid; gap: 16px; }
+  .main table[data-mobile-cards] > tbody > tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+  .main table[data-mobile-cards] > tbody > tr > td:nth-child(n) { display: block !important; width: auto !important; min-width: 0; max-width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+  .main table[data-mobile-cards] > tbody > tr > td:is(:first-child, :nth-child(2), :last-child, [colspan]) { grid-column: 1 / -1; }
+  .main table[data-mobile-cards] > tbody > tr > td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; line-height: 1.4; font-weight: 500; color: var(--muted-foreground); margin-bottom: 5px; }
+  .main table[data-mobile-cards] > tbody > tr > td:last-child:not(:first-child) { padding-top: 12px; border-top: 1px solid var(--border); }
+  .main table[data-mobile-cards] .os-number { white-space: nowrap; font-size: 20px; }
+  .main table[data-mobile-cards] .os-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .main table[data-mobile-cards] .os-actions:has(details[open]) { grid-template-columns: minmax(0, 1fr); }
+  .main table[data-mobile-cards] :is(.os-menu, .product-menu, .finance-menu) { width: 100%; }
+  .main table[data-mobile-cards] :is(.os-menu, .product-menu, .finance-menu) > summary { min-height: 44px; justify-content: center; }
+  .main table[data-mobile-cards] :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) { position: static; width: 100%; min-width: 0; max-width: 100%; margin-top: 8px; box-shadow: none; }
+  .main table[data-mobile-cards] :is(button, .button) { min-height: 44px; height: auto; white-space: normal; padding: 10px 12px; }
+  .main table[data-mobile-cards] :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) :is(a, button) { text-align: left; justify-content: flex-start; }
+  .main table[data-mobile-cards] > tbody > tr > td > :is(.actions, .hub-actions) { margin: 0; gap: 10px; flex-wrap: wrap; }
+  .main table[data-mobile-cards] > tbody > tr > td > form { max-width: 100%; margin-block: 8px; }
+  .main table[data-mobile-cards] > tbody > tr > td > form :is(input, select) { min-width: 0; max-width: 100%; }
+  .main .status-dialog { padding: 16px; }
+  .main .status-dialog-header { gap: 12px; }
+  .main .status-dialog-close { min-width: 44px; min-height: 44px; }
+}
+
+@media print {
+  .mobile-nav-toggle, .table-scroll-hint, .plate-float-button { display: none !important; }
+  .table-scroll { overflow: visible; }
+}

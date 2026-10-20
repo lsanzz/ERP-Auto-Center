@@ -5,10 +5,15 @@ import json
 from decimal import Decimal
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.dialects.mysql import LONGTEXT
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
 db = SQLAlchemy()
+
+# XMLs and immutable JSON snapshots can exceed MySQL TEXT's 64 KiB capacity.
+# Keep portable TEXT on SQLite/PostgreSQL and preserve full artifacts on MySQL.
+FISCAL_ARTIFACT_TEXT = db.Text().with_variant(LONGTEXT(), 'mysql', 'mariadb')
 
 
 class TimestampMixin:
@@ -139,6 +144,7 @@ class SystemSettings(db.Model, TimestampMixin, SerializableMixin):
     certificate_synced_at = db.Column(db.DateTime)
     focus_sync_status = db.Column(db.String(20))
     focus_synced_at = db.Column(db.DateTime)
+    uninfe_settings_json = db.Column(db.Text)
     budget_prefix = db.Column(db.String(10), nullable=False, default='ORC')
     work_order_prefix = db.Column(db.String(10), nullable=False, default='OS')
     budget_validity_days = db.Column(db.Integer, nullable=False, default=7)
@@ -347,13 +353,47 @@ class FiscalDocument(db.Model, TimestampMixin, SerializableMixin):
     serie = db.Column(db.String(20))
     external_id = db.Column(db.String(80))
     access_key = db.Column(db.String(80))
-    request_payload = db.Column(db.Text)
-    response_payload = db.Column(db.Text)
-    xml_content = db.Column(db.Text)
+    request_payload = db.Column(FISCAL_ARTIFACT_TEXT)
+    response_payload = db.Column(FISCAL_ARTIFACT_TEXT)
+    xml_content = db.Column(FISCAL_ARTIFACT_TEXT)
     pdf_url = db.Column(db.String(255))
     error_message = db.Column(db.Text)
 
     work_order = db.relationship('WorkOrder')
+
+
+class UniNFeSubmission(db.Model, TimestampMixin):
+    """Durable invoice identity and immutable content reserved before file I/O."""
+    __tablename__ = 'uninfe_submissions'
+    id = db.Column(db.Integer, primary_key=True)
+    document_id = db.Column(db.Integer, db.ForeignKey('fiscal_documents.id'), nullable=False, unique=True)
+    issuer_document = db.Column(db.String(14), nullable=False)
+    environment = db.Column(db.String(20), nullable=False)
+    model = db.Column(db.String(2), nullable=False)
+    series = db.Column(db.Integer, nullable=False)
+    number = db.Column(db.Integer, nullable=False)
+    access_key = db.Column(db.String(44), nullable=False, unique=True)
+    issued_at = db.Column(db.String(32), nullable=False)
+    snapshot_json = db.Column(FISCAL_ARTIFACT_TEXT, nullable=False)
+    prepared_xml = db.Column(FISCAL_ARTIFACT_TEXT, nullable=False)
+    xml_sha256 = db.Column(db.String(64), nullable=False)
+    published_at = db.Column(db.DateTime)
+    publication_started_at = db.Column(db.DateTime)
+    cancellation_xml = db.Column(FISCAL_ARTIFACT_TEXT)
+    cancellation_response = db.Column(FISCAL_ARTIFACT_TEXT)
+    cancellation_processed_xml = db.Column(FISCAL_ARTIFACT_TEXT)
+    __table_args__ = (
+        db.UniqueConstraint('issuer_document', 'environment', 'model', 'series', 'number',
+                            name='uq_uninfe_fiscal_number'),
+    )
+
+
+class UniNFeRelayTask(db.Model, TimestampMixin):
+    """One durable remote delivery permission for each reserved invoice."""
+    __tablename__ = 'uninfe_relay_tasks'
+    submission_id = db.Column(db.Integer, db.ForeignKey('uninfe_submissions.id'), primary_key=True)
+    connector_id = db.Column(db.String(80), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='WAITING')
 
 
 class PaymentMethod(db.Model, TimestampMixin, SerializableMixin):

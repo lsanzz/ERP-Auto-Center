@@ -182,7 +182,7 @@
     <div style="display: flex; flex-direction: column; gap: 60px;">
       <!-- Serviços -->
       <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h4 style="font-size: 16px; color: var(--color-graphite);">Serviços Realizados</h4>
           <button type="button" class="button secondary add-item-row" data-target="services-items-body" data-template="service-row-template" style="height: 32px; padding: 0 16px; font-size: 13px;">+ Adicionar Serviço</button>
         </div>
@@ -217,7 +217,7 @@
 
       <!-- Peças -->
       <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h4 style="font-size: 16px; color: var(--color-graphite);">Peças e Produtos</h4>
           <button type="button" class="button secondary add-item-row" data-target="parts-items-body" data-template="part-row-template" style="height: 32px; padding: 0 16px; font-size: 13px;">+ Adicionar Peça</button>
         </div>
@@ -255,19 +255,19 @@
   <!-- BLOCO 3: Resumo e Pagamento -->
   <div class="card" style="margin-bottom: 60px;">
     <h3 style="margin-bottom: 24px;">3. Pagamento e Fechamento</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px;">
+    <div class="responsive-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px;">
       
       <!-- Lado Esquerdo: Totais -->
       <div style="display: flex; flex-direction: column; gap: 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: center;">
           <span class="muted">Total Serviços</span>
           <strong id="preview-services-total" style="font-family: var(--font-polysans); font-size: 18px;">R$ 0,00</strong>
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--color-mist);">
+        <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--color-mist);">
           <span class="muted">Total Peças</span>
           <strong id="preview-parts-total" style="font-family: var(--font-polysans); font-size: 18px;">R$ 0,00</strong>
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+        <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: baseline;">
           <span style="font-size: 18px; color: var(--color-graphite); font-weight: 500;">Total da O.S.</span>
           <strong id="preview-grand-total" style="font-family: var(--font-polysans); font-size: 32px; color: var(--color-ember-orange); letter-spacing: -0.64px;">R$ 0,00</strong>
         </div>
@@ -276,7 +276,7 @@
       <!-- Lado Direito: Formas de Pagamento -->
       {% if current_user().role == 'ADMINISTRADOR' %}
       <div style="display: flex; flex-direction: column; gap: 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 16px; color: var(--color-graphite); font-weight: 500;">Formas de Pagamento</span>
           <button type="button" class="button secondary" id="add-payment-btn" style="height: 32px; padding: 0 16px; font-size: 13px;">+ Pagamento</button>
         </div>
@@ -289,7 +289,7 @@
           
           {% if payments_list %}
             {% for payment in payments_list %}
-            <div class="payment-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: end;">
+            <div class="payment-row responsive-grid" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: end;">
               <label style="margin: 0;">Método
                 <select name="payment_method_id[]" class="payment-method-select">
                   <option value="">Selecione</option>
@@ -304,11 +304,11 @@
               <label style="margin: 0;">Parcelas
                 <input type="number" name="payment_installments[]" class="payment-installments-input" min="1" max="24" value="{{ payment.installment_count or 1 }}">
               </label>
-              <button type="button" class="secondary remove-payment-btn" style="height: 38px; padding: 0 12px; border: 1px solid var(--color-mist);">X</button>
+              <button type="button" aria-label="Remover pagamento" class="secondary remove-payment-btn" style="height: 38px; padding: 0 12px; border: 1px solid var(--color-mist);">X</button>
             </div>
             {% endfor %}
           {% else %}
-            <div class="payment-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: end;">
+            <div class="payment-row responsive-grid" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: end;">
               <label style="margin: 0;">Método
                 <select name="payment_method_id[]" class="payment-method-select">
                   <option value="">Selecione</option>
@@ -323,12 +323,12 @@
               <label style="margin: 0;">Parcelas
                 <input type="number" name="payment_installments[]" class="payment-installments-input" min="1" max="24" value="1">
               </label>
-              <button type="button" class="secondary remove-payment-btn" style="height: 38px; padding: 0 12px; border: 1px solid var(--color-mist);">X</button>
+              <button type="button" aria-label="Remover pagamento" class="secondary remove-payment-btn" style="height: 38px; padding: 0 12px; border: 1px solid var(--color-mist);">X</button>
             </div>
           {% endif %}
         </div>
         
-        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid var(--color-mist); margin-top: 8px;">
+        <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid var(--color-mist); margin-top: 8px;">
           <span class="muted" style="font-size: 13px;">Falta alocar</span>
           <strong id="payment-remaining-preview" style="font-family: var(--font-polysans); font-size: 16px; color: var(--color-ember-orange);">R$ 0,00</strong>
         </div>
@@ -379,7 +379,7 @@
 </template>
 
 <template id="payment-row-template">
-  <div class="payment-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: end;">
+  <div class="payment-row responsive-grid" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: end;">
     <label style="margin: 0;">Método
       <select name="payment_method_id[]" class="payment-method-select">
         <option value="">Selecione</option>
@@ -394,7 +394,7 @@
     <label style="margin: 0;">Parcelas
       <input type="number" name="payment_installments[]" class="payment-installments-input" min="1" max="24" value="1">
     </label>
-    <button type="button" class="secondary remove-payment-btn" style="height: 38px; padding: 0 12px; border: 1px solid var(--color-mist);">X</button>
+    <button type="button" aria-label="Remover pagamento" class="secondary remove-payment-btn" style="height: 38px; padding: 0 12px; border: 1px solid var(--color-mist);">X</button>
   </div>
 </template>
 
@@ -643,7 +643,12 @@
       matches.forEach(([name, price]) => {
         const item = document.createElement('div');
         item.className = 'custom-suggestion-item';
-        item.innerHTML = `<span>${name.toUpperCase()}</span><span class="price">${currency.format(price)}</span>`;
+        const nameLabel = document.createElement('span');
+        nameLabel.textContent = name.toUpperCase();
+        const priceLabel = document.createElement('span');
+        priceLabel.className = 'price';
+        priceLabel.textContent = currency.format(price);
+        item.append(nameLabel, priceLabel);
         item.addEventListener('mousedown', (e) => {
           e.preventDefault();
           input.value = name.toUpperCase();

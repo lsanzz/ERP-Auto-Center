@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from xml.etree import ElementTree as ET
+from defusedxml import ElementTree as ET
 from .utils import parse_decimal
 
 NS = {'nfe': 'http://www.portalfiscal.inf.br/nfe'}
@@ -75,8 +75,8 @@ def _format_date(date_str: str | None) -> str:
         parts = date_str.split('-')
         if len(parts) == 3:
             return f"{parts[2]}/{parts[1]}/{parts[0]}"
-    except Exception:
-        pass
+    except ValueError:
+        return date_str
     return date_str
 
 
@@ -97,8 +97,8 @@ def parse_nfe_xml(xml_bytes: bytes) -> dict:
     if dh_emi_raw:
         try:
             issue_date = datetime.fromisoformat(dh_emi_raw.replace('Z', '+00:00')).date()
-        except Exception:
-            pass
+        except ValueError:
+            issue_date = None
 
     dh_recbto_raw = _text(prot, 'nfe:dhRecbto')
     dh_recbto_fmt = _format_datetime(dh_recbto_raw)

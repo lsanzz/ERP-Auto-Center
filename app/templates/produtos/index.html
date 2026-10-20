@@ -17,7 +17,7 @@
   </div>
   
   {% if current_user().role == 'ADMINISTRADOR' %}
-  <div style="display: flex; gap: 10px; align-items: center;">
+  <div class="responsive-row" style="display: flex; gap: 10px; align-items: center;">
     <button type="button" class="button secondary" onclick="document.getElementById('modal-import-xml').showModal()">Entrada de mercadoria (XML)</button>
     <a class="button" href="{{ url_for('web.products_new') }}">Nova peça</a>
   </div>
@@ -26,7 +26,7 @@
 {% if low_stock_count %}<div class="flash warning" style="margin-bottom:24px;">{{ low_stock_count }} peça(s) estão no estoque mínimo ou abaixo dele.</div>{% endif %}
 <div class="table-card">
 <form method="GET" action="" style="margin-bottom: 25px;">
-    <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
+    <div class="responsive-row" style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
         
         <!-- Campo de Texto -->
         <input type="text" name="q" class="form-control" 
@@ -48,7 +48,7 @@
         
     </div>
 </form>
-  <table class="table">
+  <table data-mobile-cards class="table">
     <thead><tr><th>Código</th><th>Nome</th><th>Categoria</th><th>Estoque</th><th>Venda</th><th>Ativa</th><th style="text-align:right;">Ações</th></tr></thead>
     <tbody>
       {% for product in products %}
@@ -61,7 +61,7 @@
         <td>{{ 'Sim' if product.ativo else 'Não' }}</td>
         <td>
           {% if current_user().role == 'ADMINISTRADOR' %}
-          <div class="product-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+          <div class="product-actions responsive-row" style="display: flex; gap: 10px; justify-content: flex-end;">
             <a class="button secondary" href="{{ url_for('web.products_edit', product_id=product.id) }}">Editar peça</a>
             <form method="post" action="{{ url_for('web.products_delete', product_id=product.id) }}" style="margin: 0;" onsubmit="return confirm('Inativar esta peça?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
@@ -152,7 +152,7 @@
       <input type="file" id="modal-xml-file" name="xml_file" accept=".xml" required style="display: none;" onchange="updateModalFileName()">
     </div>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px;">
+    <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px;">
         <button type="button" class="button secondary" onclick="this.closest('dialog').close()">Cancelar</button>
         <button type="submit" class="button">Importar</button>
       </div>

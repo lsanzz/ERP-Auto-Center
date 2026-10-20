@@ -8,8 +8,8 @@
       <span class="status-dot"></span>{{ order.status|replace('_', ' ') }}
     </span>
   </div>
-<div class="actions" style="margin-top: 0; display: flex; gap: 10px;">
-    <a class="button secondary" href="{{ url_for('operations.inspection', work_order_id=order.id) }}">Inspeção</a>
+<div class="actions responsive-row" style="margin-top: 0; display: flex; gap: 10px;">
+    {% if can('inspections.manage') %}<a class="button secondary" href="{{ url_for('operations.inspection', work_order_id=order.id) }}">Inspeção</a>{% endif %}
     {% if current_user().role == 'ADMINISTRADOR' %}
     <form method="post" action="{{ url_for('web.work_orders_delete', work_order_id=order.id) }}" onsubmit="return confirm('Atenção: Excluir esta O.S. apagará também os recebimentos pendentes atrelados a ela. Deseja continuar?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir O.S.</button>
@@ -31,10 +31,10 @@
   {% if order.warranty %}<p><strong>Garantia:</strong> {{ order.warranty.starts_at|date_br }} até {{ order.warranty.ends_at|date_br }} · {{ order.warranty.status }}</p>{% endif %}
 </div>
 
-<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px; margin-bottom: 60px;">
+<div class="responsive-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px; margin-bottom: 60px;">
   <div class="card asymmetric" style="margin-bottom: 0;">
     <h3 style="margin-bottom: 24px;">Dados do Cliente</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="responsive-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
       <div>
         <span class="muted" style="display: block; margin-bottom: 4px;">Cliente</span>
         <strong style="color: var(--color-graphite);">{{ order.client_nome or (order.client.nome if order.client else '-') }}</strong>
@@ -62,15 +62,15 @@
 
   <div class="card" style="background: var(--color-canvas-white); border: 1px solid var(--color-mist); border-radius: 8px; margin-bottom: 0; padding: 40px;">
     <h3 style="margin-bottom: 24px;">Resumo Financeiro</h3>
-    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+    <div class="responsive-row" style="display: flex; justify-content: space-between; margin-bottom: 12px;">
       <span class="muted">Serviços</span>
       <span style="color: var(--color-graphite);">{{ format_currency(order.total_servicos) }}</span>
     </div>
-    <div style="display: flex; justify-content: space-between; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--color-mist);">
+    <div class="responsive-row" style="display: flex; justify-content: space-between; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--color-mist);">
       <span class="muted">Peças</span>
       <span style="color: var(--color-graphite);">{{ format_currency(order.total_pecas) }}</span>
     </div>
-    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+    <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: baseline;">
       <strong style="color: var(--color-graphite);">Total</strong>
       <strong style="font-family: var(--font-polysans); font-size: 32px; color: var(--color-ember-orange); letter-spacing: -0.64px;">{{ format_currency(order.total_geral) }}</strong>
     </div>
@@ -79,7 +79,7 @@
     <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-mist);">
       <span class="muted" style="display: block; margin-bottom: 12px;">Formas de pagamento</span>
       {% for payment in order.payments %}
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+      <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
         <strong style="color: var(--color-graphite);">{{ payment.payment_method.nome }}</strong>
         <div style="text-align: right;">
           <strong style="color: var(--color-graphite);">{{ format_currency(payment.valor) }}</strong>
@@ -106,9 +106,9 @@
 {% set has_receivables = receivables|length > 0 %}
 {% set all_received = has_receivables and (receivables|selectattr('status', 'equalto', 'RECEBIDO')|list|length == receivables|length) %}
 <div class="card section-card" style="margin-bottom:60px;">
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap;">
+  <div class="responsive-row" style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap;">
     <div><h3>Financeiro desta O.S.</h3><p class="muted" style="margin-top:8px;">{{ 'Recebimento já lançado.' if has_receivables else 'Esta ordem está pronta para entrar em contas a receber.' }}</p></div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <div class="responsive-row" style="display:flex; gap:10px; flex-wrap:wrap;">
       {% if not has_receivables %}
       <form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Lançar contas</button></form>
       {% else %}
@@ -117,7 +117,7 @@
       {% endif %}
     </div>
   </div>
-  {% if has_receivables %}<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:24px;">{% for entry in receivables %}<div style="padding:16px; border:1px solid var(--color-mist); background:var(--color-canvas-white);"><span class="muted">Parcela {{ entry.installment_number }}/{{ entry.installment_total }}</span><strong style="display:block; margin-top:7px;">{{ format_currency(entry.valor) }}</strong><span class="muted small">{{ entry.status }}</span></div>{% endfor %}</div>{% endif %}
+  {% if has_receivables %}<div class="responsive-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:24px;">{% for entry in receivables %}<div style="padding:16px; border:1px solid var(--color-mist); background:var(--color-canvas-white);"><span class="muted">Parcela {{ entry.installment_number }}/{{ entry.installment_total }}</span><strong style="display:block; margin-top:7px;">{{ format_currency(entry.valor) }}</strong><span class="muted small">{{ entry.status }}</span></div>{% endfor %}</div>{% endif %}
 </div>
 {% endif %}
 

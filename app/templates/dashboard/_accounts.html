@@ -16,7 +16,7 @@
       <div class="hub-form-grid"><label>Nome<input name="nome" value="{{ account.nome }}" required></label><label>Banco<input name="banco" value="{{ account.banco or '' }}"></label><label>Agência<input name="agencia" value="{{ account.agencia or '' }}"></label><label>Conta<input name="conta" value="{{ account.conta or '' }}"></label><label>Saldo inicial<input type="number" step="0.01" name="saldo_inicial" value="{{ account.saldo_inicial }}" required></label><label>Saldo atual<input type="number" step="0.01" name="saldo_atual" value="{{ account.saldo_atual }}" required></label></div>
       <div class="hub-actions"><button>Salvar conta</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button></div>
     </form>
-    <form method="post" action="{{ url_for('web.bank_accounts_delete', account_id=account.id) }}" onsubmit="return confirm('Excluir esta conta bancária?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="secondary">Excluir conta</button></form>
+    <form class="bank-account-remove" method="post" action="{{ url_for('web.bank_accounts_delete', account_id=account.id) }}" onsubmit="return confirm('Remover esta conta da lista? O histórico financeiro continuará preservado.')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger">Remover conta</button><small>Se houver movimentações, a conta será apenas desativada para manter o histórico.</small></form>
   </dialog>
   {% else %}<div class="hub-empty bank-account-empty">Nenhuma conta bancária cadastrada.<br>Adicione uma conta para acompanhar o saldo da oficina.</div>{% endfor %}
 </div>

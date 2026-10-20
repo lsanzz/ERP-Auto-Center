@@ -18,8 +18,9 @@
     .login button:hover { background: var(--primary-hover); }
     .message { padding: 11px; background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; }
   </style>
-  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='lshub-icon.svg') }}">
+  {% include '_brand_head.html' %}
 <link rel="stylesheet" href="{{ url_for('static', filename='lshub-ui.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}?v=2">
 </head>
 <body>
   <form class="login" method="post">
@@ -33,5 +34,6 @@
     <label>Senha<input type="password" name="password" autocomplete="current-password" required></label>
     <button type="submit">Entrar</button>
   </form>
+{% include '_design_system.html' %}
 </body>
 </html>

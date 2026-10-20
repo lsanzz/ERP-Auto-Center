@@ -1,0 +1,16 @@
+{% if config and config.provider_name == 'UNINFE' %}
+{% set fiscal_customer = customer if customer is defined else {} %}
+{% set fiscal_invoice = invoice if invoice is defined else {} %}
+{% set fiscal_form = form if form is defined else {} %}
+<section class="card section-card fiscal-section">
+  <div class="fiscal-section-heading"><h3>Dados fiscais do destinatário</h3></div>
+  <p class="muted">Confira o endereço completo e o código IBGE. Esses campos serão usados no XML da nota.</p>
+  <div class="form-grid-2">
+    {% for field, label in [('documento','CPF/CNPJ'), ('inscricao_estadual','Inscrição estadual (ou ISENTO)'), ('zip_code','CEP'), ('address','Logradouro'), ('address_number','Número'), ('address_complement','Complemento'), ('neighborhood','Bairro'), ('city','Município'), ('state','UF'), ('city_code','Código IBGE do município')] %}
+    <label>{{ label }}<input name="fiscal_customer_{{ field }}" value="{{ fiscal_form.get('fiscal_customer_' ~ field, fiscal_customer.get(field, '')) or '' }}" {% if field not in ['address_complement','inscricao_estadual'] %}required{% endif %} {% if field == 'state' %}maxlength="2"{% elif field == 'city_code' %}pattern="[0-9]{7}" maxlength="7" inputmode="numeric"{% endif %}></label>
+    {% endfor %}
+    <label>Consumidor final<select name="consumidor_final" required><option value="">Selecione</option>{% for value,label in [('1','Sim'),('0','Não')] %}<option value="{{ value }}" {% if fiscal_form.get('consumidor_final', fiscal_invoice.get('consumidor_final')) == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Meio de pagamento fiscal<select name="payment_code" required><option value="">Selecione</option>{% for value,label in [('01','Dinheiro'),('02','Cheque'),('03','Cartão de crédito'),('04','Cartão de débito'),('15','Boleto'),('16','Depósito bancário'),('17','PIX dinâmico'),('18','Transferência / carteira digital'),('19','Fidelidade / cashback / crédito virtual'),('20','PIX estático'),('90','Sem pagamento'),('99','Outros')] %}<option value="{{ value }}" {% if fiscal_form.get('payment_code', fiscal_invoice.get('payment_code')) == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  </div>
+</section>
+{% endif %}

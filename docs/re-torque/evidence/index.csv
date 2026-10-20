@@ -1,0 +1,4 @@
+id,date,session,route,shows,masked
+EV-001,2026-10-19,s01,#/floor,Floor screen top: KPI cards and bay row (demo fake data),no (demo data is fictional)
+EV-002,2026-10-19,s01,#/floor,Page text of the whole Floor screen (get_page_text),no (demo data is fictional)
+EV-003,2026-10-19,s01,#/floor,Navigation links list (find link),n/a

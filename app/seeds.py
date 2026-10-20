@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import os
+
+from flask import current_app
 
 from .models import BankAccount, Budget, BudgetItem, ChartOfAccount, Client, CostCenter, Employee, PaymentMethod, Product, Service, StockLocation, User, db
 from .services import recalculate_budget_totals
@@ -21,11 +24,23 @@ def seed_database() -> None:
         db.session.commit()
         return
 
+    admin_password = os.getenv('INITIAL_ADMIN_PASSWORD')
+    mechanic_password = os.getenv('DEMO_MECHANIC_PASSWORD')
+    if current_app.config.get('TESTING'):
+        admin_password = admin_password or 'admin123'
+        mechanic_password = mechanic_password or 'mecanico123'
+    if not admin_password or (not current_app.config.get('TESTING') and len(admin_password) < 12):
+        raise RuntimeError('Defina INITIAL_ADMIN_PASSWORD com pelo menos 12 caracteres antes da carga inicial.')
+
     admin = User(username='admin', role='ADMINISTRADOR', nome='Administrador')
-    admin.set_password('admin123')
-    mechanic_user = User(username='mecanico', role='MECANICO', nome='Mecânico Demo')
-    mechanic_user.set_password('mecanico123')
-    db.session.add_all([admin, mechanic_user])
+    admin.set_password(admin_password)
+    db.session.add(admin)
+    if mechanic_password:
+        if not current_app.config.get('TESTING') and len(mechanic_password) < 12:
+            raise RuntimeError('DEMO_MECHANIC_PASSWORD deve ter pelo menos 12 caracteres.')
+        mechanic_user = User(username='mecanico', role='MECANICO', nome='Mecânico Demo')
+        mechanic_user.set_password(mechanic_password)
+        db.session.add(mechanic_user)
 
     employees = [
         Employee(nome='Administrador', funcao='Gerente', telefone='11999990000', email='admin@autocenter.local'),

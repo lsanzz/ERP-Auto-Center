@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -24,6 +24,12 @@ def lookup_plate(plate: str) -> dict:
         raise RuntimeError('Configure PLATE_API_URL e PLATE_API_TOKEN para consultar placa.')
 
     url = url_template.format(placa=quote(normalized_plate), plate=quote(normalized_plate))
+    try:
+        parsed_url = urlsplit(url)
+    except ValueError as exc:
+        raise RuntimeError('PLATE_API_URL inválida.') from exc
+    if parsed_url.scheme != 'https' or not parsed_url.hostname or parsed_url.username or parsed_url.password:
+        raise RuntimeError('PLATE_API_URL deve usar HTTPS e não pode conter credenciais.')
     headers = {'Accept': 'application/json'}
     api_key = os.getenv('PLATE_API_KEY')
     if api_key:
@@ -33,7 +39,7 @@ def lookup_plate(plate: str) -> dict:
 
     try:
         req = Request(url, headers=headers)
-        with urlopen(req, timeout=int(os.getenv('PLATE_API_TIMEOUT', '10'))) as response:
+        with urlopen(req, timeout=int(os.getenv('PLATE_API_TIMEOUT', '10'))) as response:  # nosec B310
             payload = json.loads(response.read().decode('utf-8'))
     except HTTPError as exc:
         if exc.code == 401:

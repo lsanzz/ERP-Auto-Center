@@ -434,9 +434,10 @@
     @media(max-width:1100px) { .top-header { grid-template-columns:1fr auto; } .grouped-nav { grid-column:1 / -1; grid-row:2; width:max-content; max-width:100%; } }
     @media(max-width:700px) { .top-header{min-width:0}.top-header .grouped-nav { gap:0; width:100%; max-width:calc(100vw - 32px); min-width:0; justify-content:flex-start; flex-wrap:nowrap; overflow-x:auto; overscroll-behavior-inline:contain; scrollbar-width:thin; } .grouped-nav > a, .nav-group > summary { padding:10px 8px; font-size:13px; white-space:nowrap; } .brand strong { font-size:20px; } .grouped-nav .nav-dropdown { position:fixed; top:auto; left:20px; right:20px; min-width:0; } .user-box{min-width:0;padding-left:8px} }
   </style>
-  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='lshub-icon.svg') }}">
+{% include '_brand_head.html' %}
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Ir para o conteúdo</a>
   <div class="container">
     <header class="top-header">
       <div class="brand">
@@ -444,20 +445,26 @@
       </div>
       
       {% if current_user() %}
-      <nav class="nav-pill-container grouped-nav" aria-label="Menu principal">
+      <button class="mobile-nav-toggle secondary" type="button" aria-controls="main-navigation" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <span>Menu do sistema</span><span class="mobile-nav-state" aria-hidden="true">+</span>
+      </button>
+      <nav id="main-navigation" class="nav-pill-container grouped-nav" aria-label="Menu principal">
         <a href="{{ url_for('web.dashboard') }}">Painel</a>
         <details class="nav-group"><summary>Cadastros</summary><div class="nav-dropdown">
-        <a href="{{ url_for('web.clients_index') }}">Clientes</a>
-        <a href="{{ url_for('fleet.index') }}">Veículos</a>
+        {% if can('customers.manage') %}<a href="{{ url_for('web.clients_index') }}">Clientes</a>{% endif %}
+        {% if can('vehicles.view') %}<a href="{{ url_for('fleet.index') }}">Veículos</a>{% endif %}
         <a href="{{ url_for('web.services_index') }}">Serviços</a>
         </div></details>
-        <details class="nav-group"><summary>Atendimento</summary><div class="nav-dropdown">
-        <a href="{{ url_for('scheduling.index') }}">Agenda</a>
-        <a href="{{ url_for('scheduling.board') }}">Pátio</a>
-        <a href="{{ url_for('web.budgets_index') }}">Orçamentos</a>
-        <a href="{{ url_for('web.work_orders_index') }}">Ordens de serviço</a>
-        <a href="{{ url_for('web.work_orders_new') }}">Abrir O.S.</a>
-        </div></details>
+        {% if can('scheduling.view') or can('work_orders.view') or can('estimates.manage') or can('vehicles.view') %}<details class="nav-group"><summary>Atendimento</summary><div class="nav-dropdown">
+        {% if can('scheduling.view') %}<a href="{{ url_for('scheduling.index') }}">Agenda</a>{% endif %}
+        {% if can('work_orders.view') %}<a href="{{ url_for('scheduling.floor') }}">Painel do pátio</a>{% endif %}
+        {% if can('work_orders.view') %}<a href="{{ url_for('scheduling.board') }}">Pátio</a>{% endif %}
+        {% if can('estimates.manage') %}<a href="{{ url_for('web.budgets_index') }}">Orçamentos</a>{% endif %}
+        {% if can('work_orders.view') %}<a href="{{ url_for('web.work_orders_index') }}">Ordens de serviço</a>{% endif %}
+        {% if can('work_orders.manage') %}<a href="{{ url_for('web.work_orders_new') }}">Abrir O.S.</a>{% endif %}
+        {% if can('vehicles.view') %}<a href="{{ url_for('web.plate_lookup_page') }}">Consultar placa</a>{% endif %}
+        </div></details>{% endif %}
         {% if can('inventory.view') %}<details class="nav-group"><summary>Estoque</summary><div class="nav-dropdown">
         <a href="{{ url_for('operations.inventory') }}">Estoque</a>
         <a href="{{ url_for('web.products_index') }}">Peças e produtos</a>
@@ -490,7 +497,8 @@
     </header>
 
     <script>
-      if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js'));
+      // O cache offline é opcional: navegadores que recusam o registro não devem gerar erro no console.
+      if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js').catch(() => {}));
       document.querySelectorAll('.nav-group').forEach(group => {
         group.addEventListener('toggle', () => {
           if (group.open) document.querySelectorAll('.nav-group').forEach(other => { if (other !== group) other.open = false; });
@@ -503,12 +511,12 @@
         if (event.key === 'Escape') document.querySelectorAll('.nav-group[open]').forEach(group => { group.open = false; group.querySelector('summary').focus(); });
       });
     </script>
-    <main class="main">
+    <main class="main" id="main-content" tabindex="-1">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <section class="flash-list">
           {% for category, message in messages %}
-          <div class="flash {{ category }}">{{ message }}</div>
+          <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>
           {% endfor %}
         </section>
         {% endif %}
@@ -719,10 +727,14 @@ window.attachCustomAutocomplete = function(input, dataArray) {
             const div = document.createElement('div');
             div.className = 'ventriloc-autocomplete-item';
             if (val) {
-                const regex = new RegExp(`(${val})`, 'gi');
-                div.innerHTML = match.replace(regex, '<span class="autocomplete-highlight">$1</span>');
+                const start = match.toLowerCase().indexOf(val);
+                const highlight = document.createElement('span');
+                highlight.className = 'autocomplete-highlight';
+                highlight.textContent = match.slice(start, start + val.length);
+                div.append(document.createTextNode(match.slice(0, start)), highlight,
+                    document.createTextNode(match.slice(start + val.length)));
             } else {
-                div.innerHTML = match;
+                div.textContent = match;
             }
             
             div.onmousedown = (e) => { 
@@ -749,7 +761,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const storageKey = 'erp_oficina_historico_pesquisa';
 
     function getRecent() {
-        return JSON.parse(localStorage.getItem(storageKey) || '[]');
+        try {
+            const recent = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            return Array.isArray(recent) ? recent.filter(term => typeof term === 'string').slice(0, 5) : [];
+        } catch { return []; }
     }
 
     function saveRecent(term) {
@@ -758,7 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
         recent = recent.filter(t => t !== term); // Remove se já existir (para não duplicar)
         recent.unshift(term); // Coloca no topo
         if(recent.length > 5) recent.pop(); // Guarda apenas as 5 últimas buscas
-        localStorage.setItem(storageKey, JSON.stringify(recent));
+        try { localStorage.setItem(storageKey, JSON.stringify(recent)); } catch { /* Search works without storage. */ }
     }
 
     searchInputs.forEach(input => {
@@ -796,7 +811,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Modo 1: Usuário está digitando (Igual à imagem enviada)
                 const div = document.createElement('div');
                 div.className = 'ventriloc-autocomplete-item';
-                div.innerHTML = `<span class="autocomplete-highlight">${val}</span>`;
+                const highlight = document.createElement('span');
+                highlight.className = 'autocomplete-highlight';
+                highlight.textContent = val;
+                div.appendChild(highlight);
                 div.onclick = () => { if(form) form.submit(); };
                 dropdown.appendChild(div);
                 hasItems = true;
@@ -810,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 recent.forEach(term => {
                     const div = document.createElement('div');
                     div.className = 'ventriloc-autocomplete-item';
-                    div.innerHTML = `<i class="fas fa-history" style="opacity:0.4; margin-right:8px; font-size:12px;"></i> ${term}`;
+                    div.textContent = term;
                     div.onclick = () => { 
                         input.value = term; 
                         if(form) form.submit(); 
@@ -839,6 +857,9 @@ document.addEventListener('DOMContentLoaded', () => {
 <!-- ================= FIM DO AUTOCOMPLETE ================= -->
   {% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='lshub-ui.css') }}?v=4">
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}?v=2">
+{% include '_design_system.html' %}
   <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=2" defer></script>
+  <script src="{{ url_for('static', filename='responsive.js') }}?v=2" defer></script>
 </body>
 </html>

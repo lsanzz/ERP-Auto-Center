@@ -6,7 +6,7 @@
 </div>
 <div class="table-card">
 <form method="GET" action="" style="margin-bottom: 25px;">
-    <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
+    <div class="responsive-row" style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
         
         <!-- Campo de Texto -->
         <input type="text" name="q" class="form-control" 
@@ -28,7 +28,7 @@
         
     </div>
 </form>
-  <table class="table">
+  <table data-mobile-cards class="table">
     <thead><tr><th>Número</th><th>Cliente</th><th>Veículo</th><th>Status</th><th>Total</th><th>Validade</th><th></th></tr></thead>
     <tbody>
       {% for budget in budgets %}
@@ -40,7 +40,7 @@
         <td>{{ format_currency(budget.total) }}</td>
         <td>{{ budget.validade|date_br }}</td>
         <td>
-          <div style="display: flex; gap: 8px;">
+          <div class="responsive-row" style="display: flex; gap: 8px;">
             <a class="button secondary" href="{{ url_for('web.budgets_edit', budget_id=budget.id) }}">Editar</a>
             <form method="post" action="{{ url_for('web.budgets_delete', budget_id=budget.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este orçamento?');" style="margin:0;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="button secondary danger" type="submit" style="color: var(--color-ember-red); border-color: var(--color-ember-red);">Excluir</button>

@@ -97,7 +97,7 @@
   </div>
   <div class="card section-card">
     <h3>Notas da O.S.</h3>
-    <table class="table">
+    <table data-mobile-cards class="table">
       <thead>
         <tr>
           <th>O.S.</th>
@@ -168,7 +168,7 @@
 </div>
 <div class="table-card section-card" style="margin-top: 18px">
   <h3>Documentos fiscais</h3>
-  <table class="table">
+  <table data-mobile-cards class="table">
     <thead>
       <tr>
         <th>Origem</th>
@@ -188,7 +188,7 @@
         <td>{{ document.status }}</td>
         <td>{{ document.access_key or '-' }}</td>
         <td>
-          <div class="actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <div class="actions responsive-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
             
             {% if document.status in ['PRONTO_PARA_ENVIO', 'ERRO'] %}
               <form method="post" action="{{ url_for('web.fiscal_document_issue', document_id=document.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

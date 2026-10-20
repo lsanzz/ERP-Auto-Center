@@ -73,22 +73,25 @@
 <div class="settings-layout">
 <nav class="settings-sidebar" aria-label="Seções de configurações">
   <span class="settings-group">Oficina</span>
+  <a class="settings-link" href="{{ url_for('data_migration.index') }}">Migração de dados</a>
   <a class="settings-link" href="#empresa" aria-current="page">Dados da empresa</a>
   <a class="settings-link" href="#operacao">Padrões da operação</a>
   <a class="settings-link" href="#cadastros">Cadastros administrativos</a>
   <span class="settings-group">Fiscal</span>
   <a class="settings-link" href="#fiscal-documentos">Documentos fiscais</a>
+  <a class="settings-link" href="#uninfe">UniNFe e regras fiscais</a>
   <span class="settings-group">Conta e segurança</span>
   <a class="settings-link" href="#acessos">Usuários e acessos</a>
   <a class="settings-link" href="#perfil">Meu perfil</a>
   <a class="settings-link" href="#auditoria">Auditoria</a>
 </nav>
 <div class="settings-content">
+{% include 'configuracoes/_uninfe.html' %}
 
 <section id="empresa" class="card">
-  <p class="muted" role="status">Focus NFe: {{ 'empresa sincronizada' if settings.focus_sync_status == 'SINCRONIZADA' else 'sincronização pendente' }}. Ao salvar, o cadastro será criado ou atualizado automaticamente.</p>
+  {% if not uninfe %}<p class="muted" role="status">Focus NFe: {{ 'empresa sincronizada' if settings.focus_sync_status == 'SINCRONIZADA' else 'sincronização pendente' }}. Ao salvar, o cadastro será criado ou atualizado automaticamente.</p>{% endif %}
   <div class="page-header" style="margin-bottom:28px;">
-    <div><h3>Dados da empresa</h3><p class="muted">Cadastro completo da oficina para documentos, emissão fiscal e integração com a Focus NFe.</p></div>
+    <div><h3>Dados da empresa</h3><p class="muted">Cadastro completo da oficina para documentos e emissão fiscal.</p></div>
   </div>
   <form method="post" action="{{ url_for('web.settings_save_company') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <details class="company-block" open>
@@ -160,11 +163,15 @@
     <div class="actions"><button type="submit">Salvar dados da empresa</button></div>
   </form>
   <details class="company-block" open>
-    <summary>Certificado digital A1</summary>
+    <summary>Certificado digital</summary>
     <div class="company-block-content">
+      {% if uninfe %}
+      <p class="muted">Certificado {{ uninfe.get('certificate_type', 'A1') }}: configure-o no UniNFe desta empresa. A identificação está disponível em <a href="#uninfe">UniNFe e regras fiscais</a>.</p>
+      {% else %}
       <p class="muted">Salve primeiro os dados da empresa. O arquivo PFX/P12 e sua senha são usados apenas durante o envio seguro para a Focus NFe; o sistema guarda somente os dados públicos e a validade do certificado.</p>
       {% if settings.certificate_synced_at %}<div class="certificate-status"><div><span class="muted small">Situação</span><strong>Enviado para a Focus NFe</strong></div><div><span class="muted small">Validade</span><strong>{{ settings.certificate_expires_at|datetime_br if settings.certificate_expires_at else '-' }}</strong></div><div><span class="muted small">Último envio</span><strong>{{ settings.certificate_synced_at|datetime_br }}</strong></div></div>{% endif %}
       <form method="post" enctype="multipart/form-data" autocomplete="off" action="{{ url_for('web.settings_upload_focus_certificate') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="company-grid"><label class="span-2">Certificado A1 (.pfx ou .p12)<input type="file" name="certificate_file" accept=".pfx,.p12,application/x-pkcs12" required></label><label>Senha do certificado<input type="password" name="certificate_password" autocomplete="off" required></label></div><div class="actions"><button type="submit">Validar e enviar para Focus NFe</button></div></form>
+      {% endif %}
     </div>
   </details>
 </section>
@@ -182,7 +189,7 @@
 
   <section id="fiscal-documentos" class="card" hidden>
     <div class="page-header" style="margin-bottom:18px;"><div><h3>Documentos fiscais</h3><p class="muted">Consulte, reenvie ou cancele documentos já preparados pela O.S. ou pelo estoque.</p></div></div>
-    <table class="table">
+    <table data-mobile-cards class="table">
       <thead><tr><th>Origem</th><th>Tipo</th><th>Status</th><th>Referência/chave</th><th>Ações</th></tr></thead>
       <tbody>
         {% for document in fiscal_documents %}
@@ -199,7 +206,7 @@
               {% if document.xml_content %}<a class="button small secondary" href="{{ url_for('web.fiscal_document_export_xml', document_id=document.id) }}">XML</a>{% endif %}
             </div>
             {% if document.external_id and document.status == 'AUTORIZADO' %}
-            <form method="post" action="{{ url_for('web.fiscal_document_cancel', document_id=document.id) }}" style="margin-top:8px; display:flex; gap:6px;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="justificativa" minlength="15" maxlength="255" required><button class="small danger" type="submit">Cancelar</button></form>
+            <form class="responsive-row" method="post" action="{{ url_for('web.fiscal_document_cancel', document_id=document.id) }}" style="margin-top:8px; display:flex; gap:6px;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="justificativa" minlength="15" maxlength="255" required><button class="small danger" type="submit">Cancelar</button></form>
             {% endif %}
           </td>
         </tr>
@@ -230,11 +237,11 @@
     <div><h3>Usuários e acessos</h3><p class="muted">Controle quem entra no sistema e quais áreas administrativas cada pessoa pode acessar.</p></div>
     <a class="button" href="{{ url_for('web.settings_users_new') }}">Novo usuário</a>
   </div>
-  <table class="table">
+  <table data-mobile-cards class="table">
     <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Status</th><th></th></tr></thead>
     <tbody>
       {% for user in users %}
-      <tr><td>{{ user.nome }}</td><td>{{ user.username }}</td><td>{{ user.role }}</td><td>{{ 'Ativo' if user.ativo else 'Inativo' }}</td><td><div class="actions" style="margin: 0; display: flex; gap: 8px;"><a class="button secondary small" href="{{ url_for('web.settings_users_edit', user_id=user.id) }}">Editar</a><form method="post" action="{{ url_for('web.settings_users_delete', user_id=user.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este usuário?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="button secondary small" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button></form></div></td></tr>
+      <tr><td>{{ user.nome }}</td><td>{{ user.username }}</td><td>{{ user.role }}</td><td>{{ 'Ativo' if user.ativo else 'Inativo' }}</td><td><div class="actions responsive-row" style="margin: 0; display: flex; gap: 8px;"><a class="button secondary small" href="{{ url_for('web.settings_users_edit', user_id=user.id) }}">Editar</a><form method="post" action="{{ url_for('web.settings_users_delete', user_id=user.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir este usuário?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="button secondary small" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button></form></div></td></tr>
       {% else %}<tr><td colspan="5">Nenhum usuário cadastrado.</td></tr>{% endfor %}
     </tbody>
   </table>

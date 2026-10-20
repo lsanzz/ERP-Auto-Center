@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block page_title %} · Migração de dados{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='migration.css') }}">
+<div class="migration">
+  <a class="mi-back" href="{{ url_for('web.settings_index') }}">← Configurações</a>
+  <div class="page-header"><div><span class="eyebrow">Administração / Dados</span><h1>Migração de dados</h1><p class="muted">Traga os registros do seu antigo sistema e continue de onde parou.</p></div></div>
+  <ol class="mi-steps" aria-label="Etapas da migração"><li aria-current="step"><span>01</span> Enviar arquivos</li><li><span>02</span> Revisar colunas</li><li><span>03</span> Importar e acompanhar</li></ol>
+  <div class="mi-layout">
+    <section class="mi-panel">
+      <h2>De onde vêm os seus dados?</h2><p class="muted">Envie um ou vários arquivos do mesmo cadastro. Você revisará cada arquivo antes da importação.</p>
+      <form action="{{ url_for('data_migration.upload') }}" method="post" enctype="multipart/form-data" data-migration-upload>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mi-grid">
+          <div><label for="entity">O que deseja importar?</label><select id="entity" name="entity" required>{% for key, schema in schemas.items() %}<option value="{{ key }}">{{ schema[1] }}</option>{% endfor %}</select></div>
+          <div><label for="source">Nome do sistema de origem</label><input id="source" name="source" placeholder="Ex.: Sistema anterior" maxlength="80" required><p class="muted">Use sempre o mesmo nome nas próximas importações.</p></div>
+        </div>
+        <div class="mi-drop">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></svg>
+          <label for="files">Selecione suas exportações</label>
+          <p class="muted">CSV, HTML, XLS, XLSX, TSV ou TXT delimitado. Até 20 arquivos e 100 MB no total por envio.</p>
+          <input id="files" type="file" name="files" accept=".csv,.html,.htm,.xls,.xlsx,.tsv,.txt" multiple required aria-describedby="file-feedback">
+          <p id="file-feedback" class="muted" role="status">Até 500.000 registros por arquivo.</p>
+        </div>
+        <details><summary>Opções de leitura do arquivo</summary><div class="mi-grid">
+          <div><label for="encoding">Codificação de CSV / HTML</label><select id="encoding" name="encoding"><option value="utf-8-sig">UTF-8</option><option value="cp1252">Windows-1252 (sistemas antigos)</option><option value="latin-1">Latin-1</option></select></div>
+          <div><label for="delimiter">Separador do CSV / TXT</label><select id="delimiter" name="delimiter"><option value="auto">Detectar automaticamente</option><option value=";">Ponto e vírgula (;)</option><option value=",">Vírgula (,)</option><option value="&#9;">Tabulação</option><option value="|">Barra vertical (|)</option></select></div>
+          <div><label for="table">Número da aba/tabela</label><input type="number" id="table" name="table" min="0" max="100" value="0" required><p class="muted">Use 0 para detectar automaticamente ou informe de 1 a 100.</p></div>
+          <div><label for="header_row">Linha do cabeçalho</label><input type="number" id="header_row" name="header_row" min="1" max="1000" value="1" required></div>
+        </div></details>
+        <div class="mi-actions"><button class="mi-button primary" type="submit">Enviar para revisão →</button><span class="muted" data-upload-status role="status">Os cadastros só serão gravados após sua revisão.</span></div>
+      </form>
+    </section>
+    <aside class="mi-panel mi-guide"><h3>Uma migração por etapas</h3><p>Comece por clientes e veículos. Depois importe produtos, serviços, ordens de serviço e financeiro.</p><h3>Seus cadastros preservados</h3><p>Registros existentes são ignorados. Linhas inválidas aparecem no relatório para correção.</p><h3>Prefere usar um modelo?</h3><p>Baixe o cabeçalho e preencha com os seus dados.</p>{% for key, schema in schemas.items() %}<a href="{{ url_for('data_migration.template', entity=key) }}">↓ {{ schema[1] }}</a>{% endfor %}</aside>
+  </div>
+  <section class="mi-panel"><h2>Histórico de migrações</h2><p class="muted">Acompanhe as leituras, revise os arquivos e consulte os resultados.</p>
+  {% if runs.items %}<div class="mi-scroll"><table data-mobile-cards><thead><tr><th>Arquivo / origem</th><th>Destino</th><th>Situação</th><th>Importados</th><th>Data</th><th><span class="muted">Detalhes</span></th></tr></thead><tbody>
+  {% for run in runs.items %}<tr {% if run.status in ['PREPARANDO','IMPORTANDO'] %}data-history-url="{{ url_for('data_migration.status', migration_id=run.id) }}"{% endif %}><td><a class="mi-file" href="{{ url_for('data_migration.detail', migration_id=run.id) }}">{{ run.filename }}</a><span class="muted">{{ run.source }}</span></td><td>{{ schemas[run.entity][1] }}</td><td><span class="mi-badge">{{ {'PREPARANDO':'Lendo arquivo','PREVIA':'Aguardando revisão','IMPORTANDO':'Importando','CONCLUIDA':'Concluída','ERRO_LEITURA':'Falha na leitura','ERRO_IMPORTACAO':'Importação interrompida'}.get(run.status, run.status) }}</span></td><td>{{ run.imported }} / {{ run.total }}</td><td>{{ run.created_at|datetime_br }}</td><td><a href="{{ url_for('data_migration.detail', migration_id=run.id) }}">Abrir →</a></td></tr>{% endfor %}
+  </tbody></table></div><nav class="mi-actions" aria-label="Páginas do histórico">{% if runs.has_prev %}<a class="mi-button" href="{{ url_for('data_migration.index', page=runs.prev_num) }}">← Anterior</a>{% endif %}<span class="muted">Página {{ runs.page }} de {{ runs.pages }}</span>{% if runs.has_next %}<a class="mi-button" href="{{ url_for('data_migration.index', page=runs.next_num) }}">Próxima →</a>{% endif %}</nav>
+  {% else %}<div class="mi-empty"><h3>Seu primeiro arquivo começa aqui</h3><p class="muted">Os envios e seus resultados ficarão registrados neste histórico.</p></div>{% endif %}
+  </section>
+</div>
+<script src="{{ url_for('static', filename='migration.js') }}" defer></script>
+{% endblock %}

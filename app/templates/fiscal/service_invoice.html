@@ -120,7 +120,7 @@
     
     <div class="form-grid-2" style="margin-top: 16px; align-items: start;">
         <label>Valor líquido da nota
-            <div style="display:flex; gap: 4px;">
+            <div class="responsive-row" style="display:flex; gap: 4px;">
                 <input name="valor_liquido" value="{{ format_currency(totals.get('servicos') or totals.get('geral') or 0) }}" readonly style="flex:1;">
                 <button type="button" class="button secondary" style="padding: 0 10px;">↻</button>
             </div>
@@ -135,7 +135,7 @@
     <div class="fiscal-section-heading"><h3>Pagamento</h3></div>
     <div class="form-grid-4">
         <label>Quantidade de parcelas
-            <div style="display:flex; gap: 4px;">
+            <div class="responsive-row" style="display:flex; gap: 4px;">
                 <input type="number" id="parcelas_input" min="1" value="{{ invoice.get('quantidade_parcelas') or '1' }}" style="flex:1;">
                 <button type="button" class="button secondary" id="btn_gerar_parcelas" style="padding: 0 10px;">↻</button>
                 <input type="hidden" name="quantidade_parcelas" id="hidden_parcelas" value="{{ invoice.get('quantidade_parcelas') or '1' }}">

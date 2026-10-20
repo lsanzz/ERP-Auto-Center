@@ -1,13 +1,14 @@
 import unittest
 import io
 import json
+from datetime import date
 from unittest.mock import patch
 
 from sqlalchemy.pool import StaticPool
 from flask import Flask
 
 from app import create_app
-from app.models import FinancialEntry, PaymentMethod, WorkOrder, db
+from app.models import BankAccount, BankTransaction, FinancialEntry, PaymentMethod, WorkOrder, db
 from app.security import configure_security
 from app.seeds import seed_database
 from flask.testing import FlaskClient
@@ -80,6 +81,82 @@ class ERPAppTestCase(unittest.TestCase):
         self.assertIn('Contas bancárias'.encode(), response.data)
         self.assertIn('Saldo disponível'.encode(), response.data)
 
+    def test_removing_bank_account_with_entries_preserves_history(self):
+        self.login_web()
+        with self.app.app_context():
+            account = BankAccount(nome='Conta com histórico', saldo_inicial=100, saldo_atual=100)
+            db.session.add(account)
+            db.session.flush()
+            entry = FinancialEntry(
+                entry_type='RECEBER',
+                descricao='Recebimento preservado',
+                valor=100,
+                vencimento=date.today(),
+                status='LIQUIDADO',
+                bank_account_id=account.id,
+            )
+            db.session.add(entry)
+            db.session.commit()
+            account_id = account.id
+            entry_id = entry.id
+
+        response = self.client.post(
+            f'/contas-bancarias/{account_id}/remover',
+            follow_redirects=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('histórico financeiro foi preservado'.encode(), response.data)
+        self.assertNotIn('Conta com histórico'.encode(), response.data)
+        with self.app.app_context():
+            account = db.session.get(BankAccount, account_id)
+            self.assertIsNotNone(account)
+            self.assertFalse(account.ativo)
+            self.assertEqual(db.session.get(FinancialEntry, entry_id).bank_account_id, account_id)
+
+    def test_removing_unused_bank_account_deletes_it(self):
+        self.login_web()
+        with self.app.app_context():
+            account = BankAccount(nome='Conta sem uso', saldo_inicial=0, saldo_atual=0)
+            db.session.add(account)
+            db.session.commit()
+            account_id = account.id
+
+        response = self.client.post(
+            f'/contas-bancarias/{account_id}/remover',
+            follow_redirects=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Conta bancária removida.'.encode(), response.data)
+        with self.app.app_context():
+            self.assertIsNone(db.session.get(BankAccount, account_id))
+
+    def test_api_removing_account_with_bank_transactions_preserves_history(self):
+        self.login_api()
+        with self.app.app_context():
+            account = BankAccount(nome='Conta conciliada', saldo_inicial=50, saldo_atual=50)
+            db.session.add(account)
+            db.session.flush()
+            transaction = BankTransaction(
+                bank_account_id=account.id,
+                posted_on=date.today(),
+                description='Movimentação importada',
+                amount=50,
+            )
+            db.session.add(transaction)
+            db.session.commit()
+            account_id = account.id
+            transaction_id = transaction.id
+
+        response = self.client.delete(f'/api/contas-bancarias/{account_id}')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()['history_preserved'])
+        with self.app.app_context():
+            account = db.session.get(BankAccount, account_id)
+            self.assertFalse(account.ativo)
+            self.assertEqual(db.session.get(BankTransaction, transaction_id).bank_account_id, account_id)
     def test_login_uses_turnstile_widget_instead_of_visible_otp(self):
         self.app.config.update(TURNSTILE_ENABLED=True, TURNSTILE_SITE_KEY='site-test')
         response = self.client.get('/login')
@@ -132,7 +209,8 @@ class ERPAppTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('Suas contas'.encode(), response.data)
         self.assertIn('Saldo previsto em 30 dias'.encode(), response.data)
-        self.assertIn('Vencidas'.encode(), response.data)
+        self.assertIn('Contas a receber'.encode(), response.data)
+        self.assertIn('Contas a pagar'.encode(), response.data)
 
         response = self.client.post(
             '/financeiro/novo',
@@ -174,6 +252,66 @@ class ERPAppTestCase(unittest.TestCase):
         self.assertIn('Selecione a conta bancária'.encode(), response.data)
         with self.app.app_context():
             self.assertIsNone(FinancialEntry.query.filter_by(descricao='Receita sem conta').first())
+
+    def test_finance_uses_original_work_order_customer_name(self):
+        self.login_web()
+        with self.app.app_context():
+            payment_method = PaymentMethod.query.filter_by(tipo='PIX').first()
+            order = WorkOrder(
+                client_id=1,
+                numero='OS-NOME-ORIGINAL',
+                client_nome='CLIENTE ORIGINAL TESTE',
+            )
+            db.session.add(order)
+            db.session.flush()
+            db.session.add(FinancialEntry(
+                entry_type='RECEBER',
+                descricao=f'Ordem de Serviço {order.numero}',
+                categoria='Ordens de Serviço',
+                valor=250,
+                vencimento=date.today(),
+                status='PENDENTE',
+                payment_method_id=payment_method.id,
+                reference_type='OS',
+                reference_id=order.id,
+            ))
+            db.session.commit()
+            order_number = order.numero
+            payment_method_name = payment_method.nome
+
+        response = self.client.get('/financeiro?q=CLIENTE+ORIGINAL+TESTE')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'CLIENTE ORIGINAL TESTE', response.data)
+        self.assertIn('Forma de pagamento'.encode(), response.data)
+        self.assertIn(payment_method_name.encode(), response.data)
+        self.assertIn('Contas a receber'.encode(), response.data)
+        self.assertIn('Contas a pagar'.encode(), response.data)
+        self.assertNotIn(b'<span>Vencidas</span>', response.data)
+        self.assertNotIn(f'Ordem de Serviço {order_number}'.encode(), response.data)
+
+    def test_finance_separates_accounts_receivable_and_payable(self):
+        self.login_web()
+        with self.app.app_context():
+            db.session.add_all([
+                FinancialEntry(
+                    entry_type='RECEBER', descricao='RECEITA SEPARADA', valor=100,
+                    vencimento=date.today(), status='PENDENTE',
+                ),
+                FinancialEntry(
+                    entry_type='PAGAR', descricao='DESPESA SEPARADA', valor=80,
+                    vencimento=date.today(), status='PENDENTE',
+                ),
+            ])
+            db.session.commit()
+
+        receivable = self.client.get('/financeiro?kind=RECEBER')
+        payable = self.client.get('/financeiro?kind=PAGAR')
+
+        self.assertIn(b'RECEITA SEPARADA', receivable.data)
+        self.assertNotIn(b'DESPESA SEPARADA', receivable.data)
+        self.assertIn(b'DESPESA SEPARADA', payable.data)
+        self.assertNotIn(b'RECEITA SEPARADA', payable.data)
 
     def test_credit_payment_generates_installments(self):
         self.login_api()

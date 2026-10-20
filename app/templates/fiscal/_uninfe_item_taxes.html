@@ -1,0 +1,21 @@
+{% if config and config.provider_name == 'UNINFE' %}
+{% set fiscal_items = all_items if all_items is defined else invoice_items %}
+<section class="card section-card fiscal-section">
+  <details>
+    <summary>Tributação por item — orientações do contador</summary>
+    <p class="muted">Campos vazios usam os padrões da empresa. Os valores de ST retida são os valores da operação anterior correspondentes à quantidade vendida, informados pelo contador.</p>
+    {% for item in fiscal_items %}
+    {% set item_index = loop.index0 %}
+    <fieldset>
+      <legend>Item {{ loop.index }} — {{ item.get('descricao', '') }}</legend>
+      <div class="form-grid-2">
+        {% for field, label in [('csosn','CSOSN'), ('icms_cst','CST ICMS'), ('cest','CEST'), ('credit_rate','Crédito do Simples (%)'), ('vBCSTRet','Base ST retida anteriormente (R$)'), ('pST','Alíquota ST retida (%)'), ('vICMSSubstituto','ICMS próprio do substituto (R$)'), ('vICMSSTRet','ICMS ST retido anteriormente (R$)')] %}
+        {% set entered = form.getlist('fiscal_item_' ~ field) if form is defined and form.getlist is defined else [] %}
+        <label>{{ label }}<input name="fiscal_item_{{ field }}" value="{{ entered[item_index] if item_index < entered|length else item.get(field, '') }}"></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% endfor %}
+  </details>
+</section>
+{% endif %}

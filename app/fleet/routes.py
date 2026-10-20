@@ -7,7 +7,7 @@ from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import StaleDataError
 
-from ..auth import current_user, login_required, admin_required
+from ..auth import current_user, login_required, admin_required, permission_required
 from ..models import Client, WorkOrder, Budget, db
 from .models import Vehicle
 from .services import CATEGORIES, import_legacy_vehicles, save_vehicle, record_odometer
@@ -17,6 +17,7 @@ fleet_bp = Blueprint('fleet', __name__, url_prefix='/veiculos')
 
 @fleet_bp.get('/')
 @login_required
+@permission_required('vehicles.view')
 def index():
     q = request.args.get('q', '').strip()
     query = Vehicle.query.join(Client)
@@ -37,12 +38,14 @@ def index():
 
 @fleet_bp.route('/novo', methods=['GET', 'POST'])
 @login_required
+@permission_required('vehicles.manage')
 def new():
     return _form(Vehicle())
 
 
 @fleet_bp.route('/<int:vehicle_id>/editar', methods=['GET', 'POST'])
 @login_required
+@permission_required('vehicles.manage')
 def edit(vehicle_id):
     return _form(db.get_or_404(Vehicle, vehicle_id))
 
@@ -72,6 +75,7 @@ def _form(vehicle):
 
 @fleet_bp.get('/<int:vehicle_id>')
 @login_required
+@permission_required('vehicles.view')
 def show(vehicle_id):
     vehicle = db.get_or_404(Vehicle, vehicle_id)
     # One chronological stream, bounded and paginated at the database level.
@@ -94,6 +98,7 @@ def show(vehicle_id):
 
 @fleet_bp.post('/<int:vehicle_id>/quilometragem')
 @login_required
+@permission_required('vehicles.manage')
 def odometer(vehicle_id):
     vehicle = db.get_or_404(Vehicle, vehicle_id)
     try:
@@ -143,6 +148,7 @@ def backfill(aplicar):
 
 @fleet_bp.get('/buscar')
 @login_required
+@permission_required('vehicles.view')
 def lookup():
     client_id = request.args.get('client_id', type=int)
     if not client_id:

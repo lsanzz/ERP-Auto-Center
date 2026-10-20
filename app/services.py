@@ -9,6 +9,7 @@ from sqlalchemy.exc import OperationalError
 
 from .models import (
     BankAccount,
+    BankTransaction,
     Budget,
     BudgetItem,
     FinancialEntry,
@@ -30,16 +31,29 @@ FUEL_OPTIONS = ['NA_RESERVA', '1/4', '1/2', '3/4', 'CHEIO']
 CHECKLIST_FIELDS = ['lataria_ok', 'pneus_ok', 'estepe', 'chave_roda_macaco', 'documentos_ok', 'som_multimidia']
 
 
+def remove_bank_account(account: BankAccount) -> bool:
+    """Remove an unused account or deactivate one that owns financial history.
+
+    Returns True when the account was deactivated so callers can explain that
+    its historical records were preserved.
+    """
+    has_entries = db.session.query(FinancialEntry.id).filter_by(bank_account_id=account.id).first() is not None
+    has_transactions = db.session.query(BankTransaction.id).filter_by(bank_account_id=account.id).first() is not None
+
+    if has_entries or has_transactions:
+        account.ativo = False
+        return True
+
+    db.session.delete(account)
+    return False
+
+
 def next_number(model, prefix: str, field: str = 'numero') -> str:
-    last = model.query.order_by(model.id.desc()).first()
-    if not last:
-        return f'{prefix}-00001'
-    last_value = getattr(last, field, '') or ''
-    try:
-        number = int(last_value.split('-')[-1]) + 1
-    except ValueError:
-        number = last.id + 1
-    return f'{prefix}-{number:05d}'
+    # O maior número do prefixo, não o da última linha: dados importados podem ter números mais altos.
+    column = getattr(model, field)
+    numbers = [int(suffix) for (value,) in db.session.query(column).filter(column.like(f'{prefix}-%'))
+               if (suffix := value.removeprefix(f'{prefix}-')).isdigit()]
+    return f'{prefix}-{max(numbers, default=0) + 1:05d}'
 
 
 def recalculate_budget_totals(budget: Budget) -> Budget:
@@ -261,6 +275,19 @@ def split_installments(total, installment_count: int) -> list[Decimal]:
     return values
 
 
+def work_order_receivable_description(
+    order: WorkOrder,
+    installment_number: int = 1,
+    installment_total: int = 1,
+) -> str:
+    """Use the original customer name from the work order in Finance."""
+    customer_name = (order.client_nome or (order.client.nome if order.client else None) or '').strip()
+    description = customer_name or f'O.S. {order.numero}'
+    if installment_total > 1:
+        description += f' ({installment_number}/{installment_total})'
+    return description
+
+
 def ensure_work_order_receivables(order: WorkOrder) -> list[FinancialEntry]:
     recalculate_work_order_totals(order)
     existing = (FinancialEntry.query.filter_by(reference_type='OS', reference_id=order.id).order_by(FinancialEntry.installment_number.asc(), FinancialEntry.id.asc()).all())
@@ -278,10 +305,7 @@ def ensure_work_order_receivables(order: WorkOrder) -> list[FinancialEntry]:
                 
             installment_values = split_installments(payment.valor, installments)
             for number, value in enumerate(installment_values, start=1):
-                nome_cliente = order.client_nome or (order.client.nome if order.client else None) or order.numero
-                description = f'{nome_cliente}'
-                if installments > 1:
-                    description += f' ({number}/{installments})'
+                description = work_order_receivable_description(order, number, installments)
                 entry = FinancialEntry(
                     entry_type='RECEBER', 
                     descricao=description, 
@@ -306,10 +330,7 @@ def ensure_work_order_receivables(order: WorkOrder) -> list[FinancialEntry]:
             
         installment_values = split_installments(order.total_geral, installments)
         for number, value in enumerate(installment_values, start=1):
-            nome_cliente = order.client_nome or (order.client.nome if order.client else None) or order.numero
-            description = f'{nome_cliente}'
-            if installments > 1:
-                description += f' ({number}/{installments})'
+            description = work_order_receivable_description(order, number, installments)
             entry = FinancialEntry(
                 entry_type='RECEBER', 
                 descricao=description, 
@@ -359,31 +380,6 @@ def deduct_work_order_stock(order: WorkOrder) -> list[str]:
     from .operations.services import consume_order_parts
     return consume_order_parts(order)
 
-    """Baixa estoque das pecas. Usa SELECT FOR UPDATE para evitar baixa dupla."""
-    if _supports_row_locks():
-        locked_order = db.session.query(WorkOrder).filter_by(id=order.id).with_for_update().first()
-    else:
-        locked_order = db.session.get(WorkOrder, order.id)
-    if locked_order is None or locked_order.estoque_baixado:
-        return []
-    warnings = []
-    for item in locked_order.items:
-        if item.item_type != 'PECA' or not item.reference_id:
-            continue
-        if _supports_row_locks():
-            product = db.session.query(Product).filter_by(id=item.reference_id).with_for_update().first()
-        else:
-            product = db.session.get(Product, item.reference_id)
-        if not product:
-            continue
-        quantity = parse_decimal(item.quantidade)
-        product.estoque_atual = parse_decimal(product.estoque_atual) - quantity
-        if product.estoque_atual < parse_decimal(product.estoque_minimo):
-            warnings.append(f'{product.nome}: estoque abaixo do mínimo')
-    locked_order.estoque_baixado = True
-    order.estoque_baixado = True
-    return warnings
-
 
 def settle_financial_entry(
     entry: FinancialEntry,
@@ -402,6 +398,18 @@ def settle_financial_entry(
     O valor creditado/debitado na conta bancaria e o valor liquido:
         valor_baixa + juros - desconto - taxa + acrescimo
     """
+    # Serialize settlement attempts before checking status or changing balances.
+    if entry.id and _supports_row_locks():
+        with db.session.no_autoflush:
+            db.session.refresh(entry, with_for_update=True)
+    if entry.status in {'RECEBIDO', 'PAGO'}:
+        return entry
+    if entry.status == 'CANCELADO':
+        raise ValueError('Não é possível liquidar um lançamento cancelado.')
+    if bank_account_id:
+        account = db.session.get(BankAccount, bank_account_id)
+        if not account or not account.ativo:
+            raise ValueError('Selecione uma conta bancária ativa.')
     entry.payment_receipt_at = parse_date(payment_receipt_at) or date.today()
     if payment_method_id:
         entry.payment_method_id = payment_method_id
@@ -409,11 +417,13 @@ def settle_financial_entry(
         entry.bank_account_id = bank_account_id
 
     # Campos de liquidação detalhada
-    entry.valor_baixa = parse_decimal(valor_baixa) if valor_baixa is not None else parse_decimal(entry.valor)
-    entry.juros = parse_decimal(juros) if juros is not None else Decimal('0')
-    entry.desconto = parse_decimal(desconto) if desconto is not None else Decimal('0')
-    entry.taxa = parse_decimal(taxa) if taxa is not None else Decimal('0')
-    entry.acrescimo = parse_decimal(acrescimo) if acrescimo is not None else Decimal('0')
+    entry.valor_baixa = parse_decimal(valor_baixa, strict=True) if valor_baixa is not None else parse_decimal(entry.valor)
+    entry.juros = parse_decimal(juros, strict=True) if juros is not None else Decimal('0')
+    entry.desconto = parse_decimal(desconto, strict=True) if desconto is not None else Decimal('0')
+    entry.taxa = parse_decimal(taxa, strict=True) if taxa is not None else Decimal('0')
+    entry.acrescimo = parse_decimal(acrescimo, strict=True) if acrescimo is not None else Decimal('0')
+    if any(value < 0 for value in (entry.valor_baixa, entry.juros, entry.desconto, entry.taxa, entry.acrescimo)):
+        raise ValueError('Os valores da liquidação não podem ser negativos.')
     if observacoes_pagamento is not None:
         entry.observacoes_pagamento = observacoes_pagamento
 
@@ -428,9 +438,11 @@ def settle_financial_entry(
         + parse_decimal(entry.acrescimo)
     )
 
+    if valor_liquido < 0:
+        raise ValueError('O valor líquido da liquidação não pode ser negativo.')
     if entry.bank_account_id:
         if _supports_row_locks():
-            account = db.session.query(BankAccount).filter_by(id=entry.bank_account_id).with_for_update().first()
+            account = db.session.query(BankAccount).filter_by(id=entry.bank_account_id).populate_existing().with_for_update().first()
         else:
             account = db.session.get(BankAccount, entry.bank_account_id)
         if account:
@@ -451,11 +463,9 @@ def update_work_order_receivables(order: WorkOrder, status: str, payment_method_
     for entry in entries:
         if normalized == 'RECEBIDO':
             if entry.status == 'RECEBIDO':
-                if payment_method_id:
-                    entry.payment_method_id = payment_method_id
-                if bank_account_id is not None:
-                    entry.bank_account_id = bank_account_id or None
-                entry.payment_receipt_at = parse_date(payment_receipt_at) or entry.payment_receipt_at or date.today()
+                # A repeated confirmation must not move the historical account
+                # pointer without reversing the balance originally credited.
+                continue
             else:
                 settle_financial_entry(entry, payment_method_id=payment_method_id, payment_receipt_at=payment_receipt_at, bank_account_id=bank_account_id)
         else:

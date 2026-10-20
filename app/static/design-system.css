@@ -1,0 +1,330 @@
+/* Design system do ERP: azul e branco. Forma e tipografia do DESIGN.md (pílulas de 18px,
+   cards de 24px, Geist); azul como cor de ação; vermelho só para destrutivo e erro.
+   Carregado por último em todas as páginas: remapeia os tokens que theme.css, base.html e
+   lshub-ui.css já usam, para que telas antigas e novas sigam o mesmo padrão. */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+
+:root {
+  --color-canvas: #f4f7fd;
+  --color-paper: #ffffff;
+  --color-surface-alt: #f8faff;
+  --color-ink: #0b1b3a;
+  --color-ink-soft: #1e2b4a;
+  --color-mid-gray: #64748b;
+  --color-hairline: #e2e8f3;
+  --color-blue: #2563eb;
+  --color-blue-strong: #1d4ed8;
+  --color-blue-deep: #1e40af;
+  --color-blue-soft: #eaf1ff;
+  --color-blue-tint: #f3f7ff;
+  --color-ember: #dc2626;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+
+  --font-geist: 'Geist', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-geist-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  --text-caption: 12px;
+  --text-body: 14px;
+  --text-subheading: 18px;
+  --text-heading-sm: 24px;
+  --text-heading: 30px;
+  --text-heading-lg: 36px;
+  --text-display: 48px;
+
+  --radius-cards: 24px;
+  --radius-nested: 10px;
+  --radius-small: 6px;
+  --radius-pill: 18px;
+  --shadow-card: 0 0 0 1px rgba(15,40,90,.04), 0 1px 3px rgba(15,40,90,.08), 0 1px 2px -1px rgba(15,40,90,.08);
+  --shadow-pop: 0 18px 48px -12px rgba(15,40,90,.28);
+  --shadow-blue: 0 6px 18px -6px rgba(37,99,235,.55);
+  --ease-out: cubic-bezier(.16,1,.3,1);
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+
+  /* Tokens existentes do app apontando para o sistema novo */
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink);
+  --card: var(--color-paper);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-paper);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-blue);
+  --primary-hover: var(--color-blue-strong);
+  --primary-active: var(--color-blue-deep);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-blue-tint);
+  --secondary-foreground: var(--color-blue-strong);
+  --muted: var(--color-surface-alt);
+  --muted-foreground: var(--color-mid-gray);
+  --accent: var(--color-blue-soft);
+  --accent-foreground: var(--color-blue-deep);
+  --border: var(--color-hairline);
+  --input: var(--color-hairline);
+  --ring: var(--color-blue);
+  --destructive: var(--color-ember);
+  --destructive-foreground: #ffffff;
+  --sidebar: var(--color-paper);
+  --sidebar-foreground: var(--color-ink);
+  --sidebar-primary: var(--color-blue);
+  --sidebar-accent: var(--color-blue-soft);
+  --sidebar-accent-foreground: var(--color-blue-deep);
+  --sidebar-border: var(--color-hairline);
+  --chart-1: #2563eb;
+  --chart-2: #3b82f6;
+  --chart-3: #60a5fa;
+  --chart-4: #93c5fd;
+  --chart-5: #1e40af;
+  --radius: var(--radius-pill);
+  --font-sans: var(--font-geist);
+  --font-mono: var(--font-geist-mono);
+  --font-polysans: var(--font-geist);
+  --font-inter: var(--font-geist);
+  --ui-shadow: var(--shadow-card);
+  --color-ember-orange: var(--color-blue);
+}
+
+.dark {
+  --color-canvas: #0a1224;
+  --color-paper: #101b33;
+  --color-surface-alt: #0d1730;
+  --color-ink: #eaf1ff;
+  --color-ink-soft: #cbd7ee;
+  --color-mid-gray: #93a4c3;
+  --color-hairline: #22304f;
+  --color-blue: #4f8cff;
+  --color-blue-strong: #3b7bff;
+  --color-blue-soft: #16264a;
+  --color-blue-tint: #132245;
+  --shadow-card: 0 0 0 1px rgba(255,255,255,.04);
+}
+
+/* Tipografia única: nenhum elemento fica com a fonte padrão do navegador. */
+html, body, button, input, select, textarea, optgroup, table, th, td, label, legend, summary,
+h1, h2, h3, h4, h5, h6, .button, .flash, .nav-dropdown a, .grouped-nav a, .nav-group > summary {
+  font-family: var(--font-geist);
+}
+code, kbd, pre, samp, .mono, .pp-plate, .pp-time { font-family: var(--font-geist-mono); }
+body {
+  font-size: var(--text-body);
+  line-height: 1.5;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-feature-settings: "ss01" on, "cv11" on;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, h5, h6 { font-weight: 600; color: var(--color-ink); }
+h1 { font-size: var(--text-heading); letter-spacing: -0.025em; line-height: 1.2; }
+h2 { font-size: var(--text-heading-sm); letter-spacing: -0.02em; line-height: 1.33; }
+h3 { font-size: var(--text-subheading); letter-spacing: -0.01em; }
+.muted, small { color: var(--color-mid-gray); }
+a { color: var(--color-blue-strong); }
+::selection { background: var(--color-blue-soft); color: var(--color-blue-deep); }
+
+/* Navegação superior */
+.top-header { background: rgba(255,255,255,.82); backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--color-hairline); }
+.top-header .grouped-nav { background: var(--color-paper); border-color: var(--color-hairline); border-radius: var(--radius-cards); box-shadow: var(--shadow-card); }
+.grouped-nav > a, .nav-group > summary { border-radius: var(--radius-pill); color: var(--color-ink); }
+.grouped-nav > a:hover, .nav-group > summary:hover { background: var(--color-blue-tint); color: var(--color-blue-strong); }
+.grouped-nav a[aria-current=page], .nav-group.is-current > summary { background: var(--color-blue); color: #fff; box-shadow: var(--shadow-blue); }
+.nav-dropdown { background: var(--color-paper); border: 1px solid var(--color-hairline); border-radius: 18px; box-shadow: var(--shadow-pop); }
+.nav-dropdown a { border-radius: var(--radius-nested); color: var(--color-ink); }
+.nav-dropdown a:hover { background: var(--color-blue-soft); color: var(--color-blue-deep); }
+.profile-avatar { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; box-shadow: 0 0 0 3px var(--color-paper), 0 0 0 4px var(--color-blue-soft); }
+
+/* Superfícies */
+.main :is(.card, .panel, .table-wrap, .table-shell, .work-queue, .compact-list, .reconcile-list) {
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-card);
+}
+.main .card { padding: 20px; }
+.main :is(.card, .panel, .data-card, .yard-card, .table-card, .work-queue):hover { border-color: color-mix(in srgb, var(--color-blue) 28%, var(--color-hairline)); }
+
+/* Botões: primário azul, secundário azul-claro, contorno, perigo. Todos em pílula. */
+body :is(button, .button) {
+  /* Sem overflow: hidden aqui — em linhas flex ele zera o tamanho mínimo e o botão encolhe abaixo do texto. */
+  position: relative; isolation: isolate; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 38px; padding: 0 16px;
+  border: 1px solid transparent; border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, #3b82f6, var(--color-blue-strong));
+  color: #fff;
+  font: 500 var(--text-body)/1 var(--font-geist);
+  letter-spacing: -0.005em;
+  box-shadow: var(--shadow-blue), inset 0 1px 0 rgba(255,255,255,.18);
+  cursor: pointer;
+  transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms, filter 160ms;
+}
+body .button:not(.secondary):not(.text-button):not(.outline):not(.danger) { color: #fff !important; }
+body :is(button, .button):hover { filter: brightness(1.06); box-shadow: 0 10px 24px -8px rgba(37,99,235,.6), inset 0 1px 0 rgba(255,255,255,.2); }
+body :is(button, .button):active:not(:disabled) { transform: translateY(1px) scale(.98); }
+body :is(button, .button).secondary { background: var(--color-blue-tint); color: var(--color-blue-strong) !important; border-color: var(--color-blue-soft); box-shadow: none; }
+body :is(button, .button).secondary:hover { background: var(--color-blue-soft); filter: none; box-shadow: none; }
+body :is(button, .button).outline { background: var(--color-paper); color: var(--color-ink) !important; border-color: var(--color-hairline); box-shadow: none; }
+body :is(button, .button).outline:hover { border-color: color-mix(in srgb, var(--color-blue) 45%, var(--color-hairline)); color: var(--color-blue-strong) !important; filter: none; box-shadow: none; }
+body :is(button, .button).danger { background: var(--color-paper); border-color: #fecaca; color: var(--color-ember) !important; box-shadow: none; }
+body :is(button, .button).danger:hover { background: #fef2f2; filter: none; box-shadow: none; }
+/* lshub-ui.css força texto branco em .button com especificidade 0,3,1; estas variantes precisam vencer. */
+body .button.secondary:not(.text-button) { color: var(--color-blue-strong) !important; }
+body .button.outline:not(.secondary):not(.text-button) { color: var(--color-ink) !important; }
+body .button.danger:not(.secondary):not(.text-button) { color: var(--color-ember) !important; }
+body :is(button, .button):disabled, body :is(button, .button)[aria-disabled=true] { opacity: .55; cursor: not-allowed; transform: none; filter: grayscale(.2); }
+/* Onda de clique (ui.js adiciona os spans). A caixa recorta a onda sem afetar o tamanho do botão. */
+.ui-ripple-box { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; z-index: -1; }
+.ui-ripple { position: absolute; border-radius: 50%; background: currentColor; opacity: .22; transform: scale(0); pointer-events: none; z-index: -1; animation: ui-ripple 520ms var(--ease-out) forwards; }
+@keyframes ui-ripple { to { transform: scale(2.6); opacity: 0; } }
+/* Estado de envio: evita duplo clique e mostra progresso. */
+body :is(button, .button).is-loading { color: transparent !important; pointer-events: none; }
+body :is(button, .button).is-loading::after {
+  content: ''; position: absolute; inset: 0; margin: auto; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.45); border-top-color: #fff; animation: ui-spin 700ms linear infinite;
+}
+body :is(button, .button).is-loading:is(.secondary, .outline, .danger)::after { border-color: color-mix(in srgb, var(--color-blue) 30%, transparent); border-top-color: var(--color-blue); }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+.plate-float-button { background: linear-gradient(180deg, #3b82f6, var(--color-blue-strong)); color: #fff; border: 0; border-radius: var(--radius-pill); box-shadow: var(--shadow-pop); font-family: var(--font-geist); }
+
+/* Formulários */
+.main :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]), select, textarea) {
+  background: var(--color-paper); border: 1px solid var(--color-hairline); border-radius: 14px;
+  min-height: 40px; padding: 8px 12px; font: 400 var(--text-body) var(--font-geist); color: var(--color-ink);
+  transition: border-color 160ms, box-shadow 160ms, background-color 160ms;
+}
+.main textarea { border-radius: 14px; }
+.main :is(input, select, textarea)::placeholder { color: #94a3b8; }
+.main :is(input, select, textarea):focus { border-color: var(--color-blue); box-shadow: 0 0 0 4px rgba(37,99,235,.14); outline: none; }
+.main :is(input, select, textarea):not(:disabled):not(:focus):hover { border-color: color-mix(in srgb, var(--color-blue) 35%, var(--color-hairline)); }
+.main :is(input, select, textarea)[aria-invalid=true], .main :is(input, select, textarea):user-invalid { border-color: var(--color-ember); box-shadow: 0 0 0 4px rgba(220,38,38,.1); }
+input[type=checkbox], input[type=radio] { accent-color: var(--color-blue); width: 16px; height: 16px; }
+label { color: var(--color-ink); font-weight: 500; }
+:is(a, button, summary, input, select, textarea):focus-visible { outline: 2px solid var(--color-blue); outline-offset: 2px; }
+
+/* Tabelas */
+.main table th { background: var(--color-surface-alt); color: var(--color-mid-gray); font-size: var(--text-caption); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.main table td { border-bottom-color: var(--color-hairline); }
+.main tbody tr:hover, .main tbody tr:hover td { background: var(--color-blue-tint); }
+
+/* Badges */
+.main :is(.badge, .status-pill) { background: var(--color-blue-soft); color: var(--color-blue-deep); border: 0; border-radius: var(--radius-pill); padding: 2px 9px; font-size: var(--text-caption); font-weight: 500; }
+.ds-badge { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-pill); padding: 2px 9px; font-size: var(--text-caption); font-weight: 500; line-height: 1.5; white-space: nowrap; }
+.ds-badge.solid { background: var(--color-blue); color: #fff; }
+.ds-badge.soft { background: var(--color-blue-soft); color: var(--color-blue-deep); }
+.ds-badge.outline { border: 1px solid var(--color-hairline); color: var(--color-ink); background: var(--color-paper); }
+.ds-badge.alert { background: #fef2f2; color: var(--color-ember); }
+
+/* Mensagens: a lista some e cada mensagem vira toast (ui.js). Sem JS, aparece como faixa. */
+.main :is(.flash, .message) { border-radius: 16px; border: 1px solid var(--color-hairline); background: var(--color-paper); color: var(--color-ink); }
+.main .flash.success { border-color: #bbf7d0; background: #f0fdf4; color: var(--color-success); }
+.main .flash.error { border-color: #fecaca; background: #fef2f2; color: var(--color-ember); }
+.main .flash.warning { border-color: #fde68a; background: #fffbeb; color: var(--color-warning); }
+
+.ui-toasts { position: fixed; z-index: 1000; top: 18px; right: 18px; display: grid; gap: 10px; width: min(380px, calc(100vw - 36px)); pointer-events: none; }
+.ui-toast {
+  pointer-events: auto; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start;
+  padding: 14px 14px 14px 16px; border-radius: 18px; background: var(--color-paper); color: var(--color-ink);
+  border: 1px solid var(--color-hairline); box-shadow: var(--shadow-pop); font-size: var(--text-body);
+  animation: ui-toast-in 420ms var(--ease-spring) both; position: relative; overflow: hidden;
+}
+.ui-toast.leaving { animation: ui-toast-out 260ms var(--ease-out) forwards; }
+.ui-toast-icon { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 13px; font-weight: 700; background: var(--color-blue); }
+.ui-toast.success .ui-toast-icon { background: var(--color-success); }
+.ui-toast.error .ui-toast-icon { background: var(--color-ember); }
+.ui-toast.warning .ui-toast-icon { background: var(--color-warning); }
+/* !important: as regras globais de botão (aqui e em lshub-ui.css) têm especificidade maior. */
+body button.ui-toast-close { all: unset; cursor: pointer; color: var(--color-mid-gray) !important; width: 24px; height: 24px; min-height: 0; padding: 0; display: grid; place-items: center; border-radius: 50%; font-size: 16px; background: transparent !important; box-shadow: none !important; transform: none !important; filter: none !important; }
+body button.ui-toast-close:hover { background: var(--color-blue-tint) !important; color: var(--color-ink) !important; }
+.ui-toast-close:focus-visible { outline: 2px solid var(--color-blue); }
+.ui-toast-bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--color-blue); transform-origin: left; animation: ui-toast-bar linear forwards; }
+.ui-toast.success .ui-toast-bar { background: var(--color-success); }
+.ui-toast.error .ui-toast-bar { background: var(--color-ember); }
+.ui-toast:hover .ui-toast-bar { animation-play-state: paused; }
+@keyframes ui-toast-in { from { opacity: 0; transform: translateX(24px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes ui-toast-out { to { opacity: 0; transform: translateX(24px) scale(.96); } }
+@keyframes ui-toast-bar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* Modal de confirmação (substitui o confirm() nativo; ui.js). */
+.ui-dialog { border: 0; padding: 0; border-radius: var(--radius-cards); width: min(440px, calc(100vw - 32px)); background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-pop); }
+.ui-dialog::backdrop { background: rgba(11,27,58,.42); backdrop-filter: blur(3px); }
+.ui-dialog[open] { animation: ui-dialog-in 320ms var(--ease-spring); }
+.ui-dialog[open]::backdrop { animation: ui-fade-in 220ms ease-out; }
+.ui-dialog-body { display: grid; gap: 10px; padding: 24px 24px 8px; }
+.ui-dialog-icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--color-blue-soft); color: var(--color-blue-strong); font-size: 20px; font-weight: 700; }
+.ui-dialog.is-danger .ui-dialog-icon { background: #fef2f2; color: var(--color-ember); }
+.ui-dialog-title { font-size: var(--text-subheading); font-weight: 600; letter-spacing: -0.01em; }
+.ui-dialog-text { color: var(--color-mid-gray); font-size: var(--text-body); line-height: 1.55; }
+.ui-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px 24px; }
+.ui-dialog.is-danger .ui-dialog-confirm { background: linear-gradient(180deg, #ef4444, #dc2626); box-shadow: 0 6px 18px -6px rgba(220,38,38,.55); }
+@keyframes ui-dialog-in { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes ui-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Entrada das páginas: conteúdo sobe em sequência. */
+@media (prefers-reduced-motion: no-preference) {
+  .main > * { animation: ui-rise 460ms var(--ease-out) both; }
+  .main > *:nth-child(2) { animation-delay: 50ms; }
+  .main > *:nth-child(3) { animation-delay: 100ms; }
+  .main > *:nth-child(4) { animation-delay: 150ms; }
+  .main > *:nth-child(n+5) { animation-delay: 200ms; }
+  .main :is(.card, .pp-kpi, .pp-bay) { transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out), border-color 220ms; }
+  .main :is(.pp-kpi, .pp-bay):hover, .main a.card:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -14px rgba(15,40,90,.25); }
+  .nav-group[open] > .nav-dropdown { animation: ui-dialog-in 240ms var(--ease-spring); }
+}
+/* Só deslocamento: se a animação não rodar (aba em segundo plano), o conteúdo continua visível. */
+@keyframes ui-rise { from { transform: translateY(10px); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .ui-toast, .ui-dialog[open], .ui-ripple { animation: none !important; }
+  .ui-toast-bar { display: none; }
+}
+
+/* Menus de ações das linhas (O.S., produtos, financeiro). Um estilo para os três.
+   Especificidade 0,2,x: precisa vencer `.main :is(div) { min-width: 0 }` de responsive.css
+   e a regra global de botão acima, que centraliza e corta o texto. */
+.main :is(.os-menu, .product-menu, .finance-menu) > summary {
+  list-style: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px;
+  border: 1px solid var(--color-blue-soft); border-radius: var(--radius-pill);
+  background: var(--color-blue-tint); color: var(--color-blue-strong); font: 500 var(--text-body)/1 var(--font-geist);
+  cursor: pointer; white-space: nowrap; transition: background-color 160ms, border-color 160ms;
+}
+.main :is(.os-menu, .product-menu, .finance-menu) > summary::-webkit-details-marker { display: none; }
+.main :is(.os-menu, .product-menu, .finance-menu) > summary:hover { background: var(--color-blue-soft); }
+.main :is(.os-menu, .product-menu, .finance-menu)[open] > summary { background: var(--color-blue); border-color: var(--color-blue); color: #fff; }
+.main :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) {
+  min-width: 248px; max-width: 320px; padding: 6px; gap: 2px;
+  background: var(--color-paper); border: 1px solid var(--color-hairline); border-radius: 16px; box-shadow: var(--shadow-pop);
+  text-align: left;
+}
+.main :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) form { margin: 0; display: block; }
+.main :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) :is(a, button, .button) {
+  width: 100%; min-height: 38px; height: auto; padding: 8px 12px; justify-content: flex-start; text-align: left;
+  white-space: nowrap; overflow: visible; border: 0; border-radius: var(--radius-nested);
+  background: transparent; box-shadow: none; filter: none; transform: none;
+  color: var(--color-ink) !important; font: 500 var(--text-body)/1.3 var(--font-geist);
+}
+.main :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) :is(a, button, .button):hover {
+  background: var(--color-blue-tint); color: var(--color-blue-strong) !important; box-shadow: none; filter: none; transform: none;
+}
+.main :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) :is(.os-menu-danger, .product-menu-danger, .finance-menu-danger, .danger) { color: var(--color-ember) !important; }
+.main :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) :is(.os-menu-danger, .product-menu-danger, .finance-menu-danger, .danger):hover { background: #fef2f2; }
+.main :is(.os-menu-separator, .product-menu-separator, .finance-menu-separator, .finance-menu-panel .menu-separator) { height: 1px; margin: 4px 6px; background: var(--color-hairline); }
+@media (max-width: 700px) {
+  .main :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) { min-width: 0; max-width: none; box-shadow: none; }
+  .main :is(.os-menu-panel, .product-menu-panel, .finance-menu-panel) :is(a, button, .button) { white-space: normal; }
+}
+
+/* Coluna de ações das tabelas: no desktop os botões ficam numa linha só e a coluna se ajusta ao
+   conteúdo (width: 1%), em vez de empilhar "Abrir" sobre "Ações". No celular vale o layout em cartões. */
+@media (min-width: 801px) {
+  .main :is(.os-actions, .product-actions, .action-group, .table-actions, td.actions, td > .actions) {
+    display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 8px;
+  }
+  .main td:has(> :is(.os-actions, .product-actions, .action-group, .table-actions, .actions)), .main td.actions { white-space: nowrap; width: 1%; }
+}
+
+/* lshub-ui.css anima a entrada com opacity: 0. Redefinida aqui (a última definição vence) só com
+   deslocamento: se a animação não rodar, o conteúdo continua visível. */
+@keyframes ui-enter { from { transform: translateY(8px); } to { transform: none; } }
+
+/* Este arquivo chega depois que a página já foi pintada; sem isto, as transições de cor do
+   lshub-ui.css animam do tema antigo para o novo a cada carregamento (piscar de cor).
+   ui.js adiciona .ui-ready após o primeiro quadro e as transições voltam para hover e cliques. */
+html:not(.ui-ready) *, html:not(.ui-ready) *::before, html:not(.ui-ready) *::after { transition: none !important; }

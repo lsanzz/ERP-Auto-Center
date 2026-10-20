@@ -2,8 +2,9 @@ import unittest
 from datetime import datetime, timedelta
 
 from app import create_app, _normalize_database_url
-from app.models import Client, Employee, User, WorkOrder, db
+from app.models import Client, Employee, Product, User, WorkOrder, db
 from app.fleet.models import Vehicle
+from app.scheduling.floor import build_floor
 from app.scheduling.models import Appointment, WorkshopResource, WorkOrderStageHistory
 from app.scheduling.services import change_stage, convert_to_work_order, save_appointment
 
@@ -87,6 +88,53 @@ class SchedulingTest(unittest.TestCase):
         response = browser.post('/agenda/novo', data=data, follow_redirects=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn('Revisão'.encode(), response.data)
+
+    def test_floor_panel_groups_bays_stages_and_low_stock(self):
+        now = datetime(2026, 9, 8, 10)
+        free_bay = WorkshopResource(nome='Box 2')
+        part = Product(codigo='OF-1', nome='Filtro de óleo', estoque_atual=1, estoque_minimo=5)
+        in_bay = WorkOrder(client_id=self.client_model.id, numero='OS-BOX', placa='ABC1D23',
+                           employee_id=self.employee.id, workshop_resource_id=self.resource.id,
+                           promised_at=now - timedelta(hours=1))
+        ready = WorkOrder(client_id=self.client_model.id, numero='OS-PRONTA', total_geral=250)
+        db.session.add_all([free_bay, part, in_bay, ready]); db.session.flush()
+        change_stage(in_bay, 'EM_EXECUCAO', self.user.id)
+        change_stage(ready, 'PRONTO', self.user.id)
+        db.session.commit()
+
+        floor = build_floor(now)
+
+        bays = {bay['resource'].nome: bay for bay in floor['bays']}
+        self.assertEqual(bays['Elevador 1']['card']['order'].numero, 'OS-BOX')
+        self.assertTrue(bays['Elevador 1']['card']['overdue'])
+        self.assertEqual(bays['Elevador 1']['card']['action_stage'], 'CONTROLE_QUALIDADE')
+        self.assertIsNone(bays['Box 2']['card'])
+        self.assertEqual(floor['kpis']['busy_bays'], 1)
+        self.assertEqual(floor['kpis']['ready_count'], 1)
+        self.assertEqual(floor['kpis']['ready_total'], 250)
+        columns = {column['stage']: column['cards'] for column in floor['board']}
+        self.assertEqual([c['order'].numero for c in columns['PRONTO']], ['OS-PRONTA'])
+        self.assertEqual([p.codigo for p in floor['low_stock']], ['OF-1'])
+        self.assertEqual(floor['technicians'][0]['working']['order'].numero, 'OS-BOX')
+
+    def test_floor_page_renders_and_stage_action_returns_to_panel(self):
+        order = WorkOrder(client_id=self.client_model.id, numero='OS-PAINEL', workshop_resource_id=self.resource.id)
+        db.session.add(order); db.session.flush()
+        change_stage(order, 'RECEPCAO', self.user.id)
+        db.session.commit()
+        browser = self.app.test_client()
+        token = browser.get('/api/csrf').json['csrf_token']
+        browser.post('/api/session', json={'username': 'agenda', 'password': 'test'}, headers={'X-CSRFToken': token})
+        page = browser.get('/agenda/painel')
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('Painel do pátio'.encode(), page.data)
+        self.assertIn('Iniciar diagnóstico'.encode(), page.data)
+        token = browser.get('/api/csrf').json['csrf_token']
+        response = browser.post(f'/agenda/patio/{order.id}/etapa', data={
+            'csrf_token': token, 'stage': 'DIAGNOSTICO', 'return_to': 'painel'})
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers['Location'].endswith('/agenda/painel'))
+        self.assertEqual(db.session.get(WorkOrder, order.id).current_stage, 'DIAGNOSTICO')
 
 
 if __name__ == '__main__': unittest.main()

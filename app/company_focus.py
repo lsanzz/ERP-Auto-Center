@@ -21,6 +21,9 @@ class NoRedirect(http.HTTPRedirectHandler):
 
 
 def focus_request(token, path, method='GET', payload=None):
+    config = FiscalApiConfig.query.order_by(FiscalApiConfig.id).first()
+    if config and config.provider_name == 'UNINFE':
+        raise ValueError('A integração Focus está desativada. Esta empresa utiliza UniNFe.')
     req = http.Request('https://api.focusnfe.com.br/v2/empresas' + path,
                        data=json.dumps(payload).encode() if payload is not None else None,
                        method=method, headers={

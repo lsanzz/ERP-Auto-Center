@@ -25,7 +25,8 @@ def _read_json(url: str, headers: dict | None = None, timeout: int = 10) -> dict
     }
     request_headers = default_headers | (headers or {})
     request = Request(url, headers=request_headers)
-    with urlopen(request, timeout=timeout) as response:
+    # Callers build the URL exclusively from the HTTPS provider allowlist below.
+    with urlopen(request, timeout=timeout) as response:  # nosec B310
         return json.loads(response.read().decode('utf-8'))
 
 
@@ -49,16 +50,14 @@ def lookup_cnpj(document: str) -> dict:
     if len(cnpj) != 14:
         raise ValueError('Informe um CNPJ com 14 dígitos.')
 
-    # Sua chave da nova API CNPJA
-    api_key = "c2f2b42a-bad4-45f6-91d1-8ae087216728-5005e48c-8077-4db9-92b2-efc80c9401c4"
-
-    # Lista de endpoints, priorizando a CNPJA
+    api_key = (os.getenv('CNPJA_API_KEY') or '').strip()
     endpoints = [
-        (f'https://cnpja.com/api/open?cnpj={cnpj}', {'Authorization': api_key}),
         (f'https://brasilapi.com.br/api/cnpj/v1/{cnpj}', {}),
         (f'https://publica.cnpj.ws/cnpj/{cnpj}', {}),
         (f'https://receitaws.com.br/v1/cnpj/{cnpj}', {}),
     ]
+    if api_key:
+        endpoints.insert(0, (f'https://cnpja.com/api/open?cnpj={cnpj}', {'Authorization': api_key}))
 
     last_error = None
     for url, extra_headers in endpoints:

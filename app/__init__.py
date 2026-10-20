@@ -30,8 +30,8 @@ def _run_schema_updates(app: Flask) -> None:
         return
 
     statements = []
-    from .models import FiscalApiConfig, SystemSettings
-    for model in (SystemSettings, FiscalApiConfig):
+    from .models import FiscalApiConfig, SystemSettings, UniNFeSubmission
+    for model in (SystemSettings, FiscalApiConfig, UniNFeSubmission):
         table_name = model.__tablename__
         if table_name not in table_names:
             continue
@@ -188,6 +188,9 @@ def create_app(test_config: dict | None = None) -> Flask:
         SQLALCHEMY_ENGINE_OPTIONS=engine_options,
         MAX_CONTENT_LENGTH=12 * 1024 * 1024,
         ASYNC_EXTERNAL_CALLS=os.getenv('ASYNC_EXTERNAL_CALLS', 'false').lower() == 'true',
+        UNINFE_TRANSPORT=os.getenv('UNINFE_TRANSPORT', 'local'),
+        UNINFE_CONNECTOR_ID=os.getenv('UNINFE_CONNECTOR_ID', ''),
+        UNINFE_CONNECTOR_TOKEN=os.getenv('UNINFE_CONNECTOR_TOKEN', ''),
         TURNSTILE_SITE_KEY=os.getenv('TURNSTILE_SITE_KEY'),
         TURNSTILE_SECRET_KEY=os.getenv('TURNSTILE_SECRET_KEY'),
     )
@@ -205,6 +208,8 @@ def create_app(test_config: dict | None = None) -> Flask:
     )
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
+    from .data_migration.routes import configure_upload_limit
+    configure_upload_limit(app)
     from .security import configure_security
     configure_security(app)
     from .observability import configure_observability
@@ -224,6 +229,8 @@ def create_app(test_config: dict | None = None) -> Flask:
     register_database_commands(app)
     from .jobs import register_job_commands
     register_job_commands(app)
+    from .data_migration.worker import configure_worker
+    configure_worker(app)
 
     @app.get('/service-worker.js')
     def service_worker():
@@ -254,7 +261,13 @@ def create_app(test_config: dict | None = None) -> Flask:
     from .api import api_bp
 
     app.register_blueprint(web_bp)
+    from .data_migration.routes import migration_bp
+    app.register_blueprint(migration_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
+    from .uninfe_relay import relay_bp
+    app.register_blueprint(relay_bp)
+    # Dedicated bearer authentication; never accepts browser session cookies.
+    app.extensions['csrf'].exempt(relay_bp)
     from .fleet.routes import fleet_bp
     app.register_blueprint(fleet_bp)
     from .scheduling.routes import scheduling_bp

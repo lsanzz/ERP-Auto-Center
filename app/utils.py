@@ -4,16 +4,19 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 
-def parse_decimal(value, default: Decimal | float | int = Decimal('0')) -> Decimal:
+def parse_decimal(value, default: Decimal | float | int = Decimal('0'), *, strict: bool = False) -> Decimal:
     if value in (None, ''):
         return Decimal(str(default))
-    if isinstance(value, Decimal):
-        return value
     text = str(value).strip().replace('.', '').replace(',', '.') if isinstance(value, str) and ',' in str(value) else str(value).strip()
     try:
-        return Decimal(text)
+        result = Decimal(text)
     except (InvalidOperation, ValueError):
+        if strict:
+            raise ValueError('Informe um valor numérico válido.') from None
         return Decimal(str(default))
+    if not result.is_finite():
+        raise ValueError('Informe um número finito válido.')
+    return result
 
 
 def parse_int(value, default: int | None = None) -> int | None:

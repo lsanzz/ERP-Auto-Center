@@ -4,9 +4,10 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import StaleDataError
 
-from ..auth import admin_required, current_user, login_required
+from ..auth import admin_required, current_user, login_required, permission_required
 from ..fleet.models import Vehicle
 from ..models import Client, Employee, WorkOrder, db
+from .floor import build_floor
 from .models import Appointment, WorkshopResource
 from .services import APPOINTMENT_STATUSES, STAGES, change_stage, convert_to_work_order, save_appointment
 
@@ -22,6 +23,7 @@ def _selected_day():
 
 @scheduling_bp.get('/')
 @login_required
+@permission_required('scheduling.view')
 def index():
     day = _selected_day()
     start, end = datetime.combine(day, time.min), datetime.combine(day + timedelta(days=1), time.min)
@@ -32,6 +34,7 @@ def index():
 
 @scheduling_bp.route('/novo', methods=['GET', 'POST'])
 @login_required
+@permission_required('scheduling.manage')
 def new():
     appointment = Appointment(start_at=datetime.now().replace(minute=0, second=0, microsecond=0),
                               end_at=(datetime.now()+timedelta(hours=1)).replace(minute=0, second=0, microsecond=0))
@@ -40,6 +43,7 @@ def new():
 
 @scheduling_bp.route('/<int:appointment_id>/editar', methods=['GET', 'POST'])
 @login_required
+@permission_required('scheduling.manage')
 def edit(appointment_id):
     return _form(db.get_or_404(Appointment, appointment_id))
 
@@ -68,6 +72,7 @@ def _form(appointment):
 
 @scheduling_bp.post('/<int:appointment_id>/converter-os')
 @login_required
+@permission_required('scheduling.manage')
 def convert(appointment_id):
     appointment = db.get_or_404(Appointment, appointment_id)
     order = convert_to_work_order(appointment, current_user().id)
@@ -78,6 +83,7 @@ def convert(appointment_id):
 
 @scheduling_bp.get('/patio')
 @login_required
+@permission_required('work_orders.view')
 def board():
     orders = WorkOrder.query.filter(~WorkOrder.status.in_(['ENTREGUE', 'CANCELADA'])).order_by(WorkOrder.promised_at, WorkOrder.id).all()
     return render_template('agenda/patio.html', orders=orders, stages=STAGES, now=datetime.now())
@@ -85,6 +91,7 @@ def board():
 
 @scheduling_bp.post('/patio/<int:work_order_id>/etapa')
 @login_required
+@permission_required('work_orders.progress')
 def board_stage(work_order_id):
     order = db.get_or_404(WorkOrder, work_order_id)
     try:
@@ -95,7 +102,16 @@ def board_stage(work_order_id):
     except ValueError as exc:
         db.session.rollback()
         flash(str(exc), 'error')
+    if request.form.get('return_to') == 'painel':
+        return redirect(url_for('scheduling.floor'))
     return redirect(url_for('scheduling.board'))
+
+
+@scheduling_bp.get('/painel')
+@login_required
+@permission_required('work_orders.view')
+def floor():
+    return render_template('agenda/painel.html', **build_floor())
 
 
 @scheduling_bp.route('/recursos', methods=['GET', 'POST'])

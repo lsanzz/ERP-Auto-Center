@@ -20,6 +20,11 @@
 </div>
 
 <form method="post" class="fiscal-editor"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% include 'fiscal/_uninfe_customer.html' %}
+  {% include 'fiscal/_uninfe_item_taxes.html' %}
+  {% if config and config.provider_name == 'UNINFE' %}
+  <label>Modelo fiscal<select name="fiscal_model"><option value="55">NF-e (55)</option><option value="65" {% if form.get('fiscal_model') == '65' %}selected{% endif %}>NFC-e (65) — precisa estar habilitada nas configurações</option></select></label>
+  {% endif %}
   {% if selected_product %}<input type="hidden" name="selected_product_id" value="{{ selected_product.id }}">{% endif %}
   <section class="card section-card fiscal-section">
     <div class="fiscal-section-heading"><h3>Dados da nota fiscal</h3></div>
@@ -95,7 +100,7 @@
         <tbody>
           {% for item in invoice_items %}
           <tr>
-            <td><div style="background:#2b98d6; color:white; width:24px; height:24px; border-radius:4px; display:flex; align-items:center; justify-content:center;">{{ loop.index }}</div></td>
+            <td><div class="responsive-row" style="background:#2b98d6; color:white; width:24px; height:24px; border-radius:4px; display:flex; align-items:center; justify-content:center;">{{ loop.index }}</div></td>
             <td><input name="item_descricao" list="pecas-catalogo" value="{{ item.descricao }}" required></td>
             <td><input name="item_quantidade" value="{{ item.quantidade }}" required></td>
             <td><input name="item_ipi_percent" value="{{ item.ipi_percent or '0' }}" inputmode="decimal"></td>
@@ -105,7 +110,7 @@
             <td><input name="item_ncm" list="lista-ncm" value="{{ item.ncm }}" required></td>
             <td><input name="item_unidade" value="{{ item.unidade }}" required></td>
             <td>
-                <div style="display:flex; gap: 6px; justify-content: center;">
+                <div class="responsive-row" style="display:flex; gap: 6px; justify-content: center;">
                     <button type="button" class="button secondary icon-button" style="padding:6px 8px;" title="Editar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
                     <button type="button" class="button secondary icon-button" style="padding:6px 8px; color: #d64a2b;" title="Excluir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
                 </div>
@@ -138,7 +143,7 @@
     </div>
     <div class="form-grid-3" style="margin-top: 12px; align-items: end;">
       <label>Valor total da nota
-          <div style="display:flex; gap: 4px;">
+          <div class="responsive-row" style="display:flex; gap: 4px;">
               <input value="0" readonly style="flex:1;">
               <button type="button" class="button secondary" style="padding: 0 10px;">↻</button>
           </div>
@@ -151,7 +156,7 @@
     <div class="fiscal-section-heading"><h3>Pagamento</h3></div>
     <div class="form-grid-4">
         <label>Quantidade de parcelas
-            <div style="display:flex; gap: 4px;">
+            <div class="responsive-row" style="display:flex; gap: 4px;">
                 <input type="number" id="parcelas_input" min="1" value="{{ form.get('quantidade_parcelas') or '1' }}" style="flex:1;">
                 <button type="button" class="button secondary" id="btn_gerar_parcelas" style="padding: 0 10px;">↻</button>
                 <input type="hidden" name="quantidade_parcelas" id="hidden_parcelas" value="{{ form.get('quantidade_parcelas') or '1' }}">
@@ -218,7 +223,7 @@
     
     <div class="form-grid-4">
       <label>Data de saída
-        <div style="display:flex; gap: 4px;">
+        <div class="responsive-row" style="display:flex; gap: 4px;">
             <input type="date" name="data_saida" value="{{ form.get('data_saida') or form.get('data_emissao') or iso_today() }}" style="flex:1;">
             <input type="time" name="hora_saida" value="{{ form.get('hora_saida') or '' }}" style="width: 80px;">
         </div>
@@ -250,7 +255,7 @@
         <button type="button" class="button secondary" style="background:#5cb85c; color:white; border-color:#4cae4c; margin-bottom: 8px;">Mensagens padrões</button>
         <div style="background:#f9f9f9; padding: 12px; border: 1px solid #ddd; border-radius: 4px;">
             <div class="muted small" style="margin-bottom: 4px;">Mensagem</div>
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="responsive-row" style="display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-size: 13px;">Total aproximado de impostos Federais = 5,30%</span>
                 <span style="color:#2b98d6; cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></span>
             </div>

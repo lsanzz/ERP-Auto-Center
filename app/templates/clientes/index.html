@@ -11,7 +11,7 @@
 <div class="table-card">
   <!-- Barra de Pesquisa Alinhada -->
   <form method="GET" action="" style="margin-bottom: 25px;">
-      <div style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
+      <div class="responsive-row" style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
           
           <input type="text" name="q" class="form-control" 
                  style="flex-grow: 1;" 
@@ -33,7 +33,7 @@
 
   {% if clientes %} 
     <!-- SE ACHOU ALGUMA COISA, MOSTRA A TABELA ORIGINAL -->
-    <table class="table">
+    <table data-mobile-cards class="table">
       <thead>
         <tr>
           <th>Nome</th>
@@ -51,7 +51,7 @@
           <td>{{ client.telefone or '-' }}</td>
           <td>{{ client.email or '-' }}</td>
           <td>
-            <div style="display: flex; gap: 10px;">
+            <div class="responsive-row" style="display: flex; gap: 10px;">
               <a class="button secondary" href="{{ url_for('web.clients_edit', client_id=client.id) }}">Editar</a>
               {% if current_user().role == 'ADMINISTRADOR' %}
               <form method="post" action="{{ url_for('web.clients_delete', client_id=client.id) }}" onsubmit="return confirm('Excluir este cliente do sistema?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

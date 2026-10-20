@@ -1,0 +1,34 @@
+# Segredos
+.env
+.env.*
+*.pem
+*.key
+
+# Ambiente, caches e saída gerada
+.git/
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage
+graphify-out/
+.claude/
+tmp/
+
+# Dados locais (bancos, uploads, backups, migrações de dados)
+instance/
+*.db
+*.backup
+*.gz
+
+# Dumps HTML/SQL/CSV/JSON exportados na raiz (templates em app/ continuam indexados)
+/*.html
+/*.csv
+/*.xml
+/api-1.json
+*.sql
+scripts/*.json
+
+# Arquivos compactados
+*.rar
+*.zip

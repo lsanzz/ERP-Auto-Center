@@ -1,0 +1,36 @@
+<section id="uninfe" class="card">
+  <h3>Emissão com UniNFe</h3>
+  <p class="muted">Configure a emissão desta empresa. Regime tributário, UF e município são preenchidos em Dados da empresa.</p>
+  <p class="muted">Para NFC-e, configure também a versão do QR Code e, quando exigidos, CSC e ID Token no UniNFe. O monitor gera o QR Code após assinar o XML.</p>
+  <form method="post" action="{{ url_for('web.settings_save_uninfe') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="company-grid">
+      <label>Ambiente<select name="environment">{% for value, label in [('HOMOLOGACAO', 'Homologação (testes)'), ('PRODUCAO', 'Produção')] %}<option value="{{ value }}" {% if uninfe.get('environment') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label>Certificado<select name="certificate_type">{% for value in ['A1', 'A3'] %}<option {% if uninfe.get('certificate_type') == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
+      <label>Documentos<select name="document_models"><option value="55" {% if uninfe.get('document_models', '55') == '55' %}selected{% endif %}>NF-e de peças (55)</option><option value="55,65" {% if uninfe.get('document_models') == '55,65' %}selected{% endif %}>NF-e e NFC-e (55 e 65)</option></select></label>
+      <label>Código IBGE do município<input name="city_code" pattern="[0-9]{7}" maxlength="7" required value="{{ uninfe.get('city_code', '') }}"></label>
+      <label class="span-2">Identificação do certificado no UniNFe<input name="certificate_reference" maxlength="1000" value="{{ uninfe.get('certificate_reference', '') }}"></label>
+      <p class="muted span-4">Instale e configure o certificado no computador que executa o UniNFe. Para A3, o dispositivo precisa estar disponível durante a emissão. A chave privada e a senha ficam sob responsabilidade do monitor.</p>
+      {% for field, label in [('send_directory', 'Pasta de envio'), ('return_directory', 'Pasta de retorno'), ('authorized_directory', 'Pasta de XML autorizado'), ('error_directory', 'Pasta de erros')] %}
+      <label class="span-2">{{ label }}<input name="{{ field }}" maxlength="1000" value="{{ uninfe.get(field, '') }}"></label>
+      {% endfor %}
+      {% for prefix, label in [('nfe', 'NF-e'), ('nfce', 'NFC-e')] %}
+      <label>Série {{ label }}<input name="{{ prefix }}_series" type="number" min="0" max="999" required value="{{ uninfe.get(prefix ~ '_series', 1) }}"></label>
+      <label>Próximo número {{ label }}<input name="{{ prefix }}_next_number" type="number" min="1" max="999999999" required value="{{ uninfe.get(prefix ~ '_next_number', 1) }}"></label>
+      {% endfor %}
+    </div>
+    <h4>Regras fornecidas pelo contador</h4>
+    <label>Origem padrão da mercadoria<select name="origin"><option value="">Selecione com o contador</option>{% for value, label in [('0','Nacional'), ('1','Estrangeira — importação direta'), ('2','Estrangeira — adquirida no mercado interno'), ('3','Nacional — conteúdo de importação superior a 40% até 70%'), ('4','Nacional — processos produtivos básicos'), ('5','Nacional — conteúdo de importação até 40%'), ('6','Estrangeira — importação direta sem similar nacional'), ('7','Estrangeira — mercado interno sem similar nacional'), ('8','Nacional — conteúdo de importação superior a 70%')] %}<option value="{{ value }}" {% if uninfe.get('origin') == value %}selected{% endif %}>{{ value }} — {{ label }}</option>{% endfor %}</select></label>
+    <p class="muted">Preencha os códigos e alíquotas aplicáveis às suas operações. Campos vazios significam regra ainda não definida.</p>
+    <div class="company-grid">
+      {% for field, label in [('cfop_internal', 'CFOP dentro do estado'), ('cfop_interstate', 'CFOP interestadual'), ('csosn', 'CSOSN'), ('icms_cst', 'CST ICMS'), ('pis_cst', 'CST PIS'), ('cofins_cst', 'CST COFINS')] %}
+      <label>{{ label }}<input name="{{ field }}" inputmode="numeric" value="{{ uninfe.get(field, '') }}"></label>
+      {% endfor %}
+      {% for field, label in [('icms_rate', 'ICMS (%)'), ('pis_rate', 'PIS (%)'), ('cofins_rate', 'COFINS (%)'), ('credit_rate', 'Crédito do Simples (%) — CSOSN 101')] %}
+      <label>{{ label }}<input type="number" min="0" max="100" step="0.0001" name="{{ field }}" value="{{ uninfe.get(field, '') }}"></label>
+      {% endfor %}
+      <label class="span-4">Orientações e exceções do contador<textarea name="accountant_rules" rows="6" maxlength="20000">{{ uninfe.get('accountant_rules', '') }}</textarea></label>
+    </div>
+    <div class="actions"><button type="submit">Salvar configurações do UniNFe</button></div>
+  </form>
+</section>

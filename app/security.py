@@ -69,7 +69,8 @@ def verify_turnstile(token: str | None, ip_address: str | None, action: str = 'l
         method='POST',
     )
     try:
-        with urlrequest.urlopen(request_data, timeout=6) as response:
+        # The destination is the fixed Cloudflare Siteverify HTTPS endpoint.
+        with urlrequest.urlopen(request_data, timeout=6) as response:  # nosec B310
             result = json.loads(response.read().decode('utf-8'))
     except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError):
         current_app.logger.warning('turnstile_validation_unavailable')
@@ -81,7 +82,7 @@ def verify_turnstile(token: str | None, ip_address: str | None, action: str = 'l
 def configure_security(app):
     if app.config.get('APP_ENV') == 'production':
         secret = app.config.get('SECRET_KEY') or ''
-        if len(secret) < 32 or secret == 'erp-auto-center-secret':
+        if len(secret) < 32:
             raise RuntimeError('Configure SECRET_KEY com pelo menos 32 caracteres em produção.')
         if not app.config.get('TURNSTILE_SITE_KEY') or not app.config.get('TURNSTILE_SECRET_KEY'):
             raise RuntimeError('Configure TURNSTILE_SITE_KEY e TURNSTILE_SECRET_KEY em produção.')
@@ -100,6 +101,9 @@ def configure_security(app):
 
     @app.after_request
     def security_headers(response):
+        # Authenticated documents and JSON must not survive in shared/browser caches.
+        if request.endpoint not in {'static', 'service_worker'} and 'no-store' not in response.headers.get('Cache-Control', ''):
+            response.headers['Cache-Control'] = 'no-store, private'
         response.headers.setdefault('X-Content-Type-Options', 'nosniff')
         response.headers.setdefault('X-Frame-Options', 'DENY')
         response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')

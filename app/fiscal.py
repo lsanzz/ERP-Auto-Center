@@ -8,8 +8,9 @@ from decimal import Decimal
 from typing import Any
 from urllib import request as urlrequest
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode
-from xml.sax.saxutils import escape
+from urllib.parse import quote, urlencode, urlsplit
+# Used only to escape generated XML output; this does not parse untrusted XML.
+from xml.sax.saxutils import escape  # nosec B406
 import re
 from datetime import datetime, timezone
 
@@ -23,40 +24,16 @@ from .settings import get_system_settings
 
 
 def get_fiscal_config() -> FiscalApiConfig | None:
-    config = FiscalApiConfig.query.order_by(FiscalApiConfig.id.asc()).first()
-    if config:
-        env_token = _focus_env_token()
-        if config.provider_name == 'FOCUSNFE' and env_token:
-            config.api_token = env_token
-            config.environment = _focus_env_environment()
-            config.api_base_url = os.getenv('FOCUS_NFE_BASE_URL') or _focus_base_url(config.environment)
-            db.session.add(config)
-            db.session.flush()
-        return config
-    if not _focus_env_token():
-        return None
-    config = FiscalApiConfig(
-        provider_name='FOCUSNFE',
-        environment=_focus_env_environment(),
-        api_base_url=os.getenv('FOCUS_NFE_BASE_URL') or _focus_base_url(_focus_env_environment()),
-        api_token=_focus_env_token(),
-        company_name=os.getenv('FOCUS_NFE_COMPANY_NAME'),
-        company_document=os.getenv('FOCUS_NFE_COMPANY_DOCUMENT'),
-        municipal_registration=os.getenv('FOCUS_NFE_MUNICIPAL_REGISTRATION'),
-        state_registration=os.getenv('FOCUS_NFE_STATE_REGISTRATION'),
-        tax_regime=os.getenv('FOCUS_NFE_TAX_REGIME'),
-        default_service_code=os.getenv('FOCUS_NFE_DEFAULT_SERVICE_CODE'),
-        default_nature=os.getenv('FOCUS_NFE_DEFAULT_NATURE') or 'Venda',
-        webhook_url=os.getenv('FOCUS_NFE_WEBHOOK_URL'),
-        active=True,
-    )
-    db.session.add(config)
-    db.session.flush()
-    return config
+    # Reading settings must not activate a paid provider or overwrite the
+    # company's selected environment using credentials left in a deployment.
+    # UniNFe is selected explicitly by saving the company's monitor settings.
+    return FiscalApiConfig.query.order_by(FiscalApiConfig.id.asc()).first()
 
 
 def save_fiscal_config_from_form(form) -> FiscalApiConfig:
     config = get_fiscal_config() or FiscalApiConfig()
+    if config.provider_name == 'UNINFE':
+        raise ValueError('Configure o emissor em Configurações → UniNFe e regras fiscais. A integração Focus está desativada.')
     previous_environment = config.environment
     config.provider_name = (form.get('provider_name') or 'CUSTOM').strip().upper()
     config.environment = (form.get('environment') or 'HOMOLOGACAO').strip().upper()
@@ -110,7 +87,7 @@ def build_work_order_invoice_payload(order: WorkOrder, config: FiscalApiConfig |
     document_type = document_type or ('NFSE' if service_items else 'NFE')
     if document_type == 'NFSE':
         part_items = []
-    elif document_type == 'NFE':
+    elif document_type in {'NFE', 'NFCE'}:
         service_items = []
     return {
         'document_type': document_type,
@@ -220,6 +197,10 @@ def build_internal_xml(payload: dict[str, Any]) -> str:
 def create_or_update_fiscal_document(order: WorkOrder, config: FiscalApiConfig | None = None, document_type: str | None = None) -> FiscalDocument:
     payload = build_work_order_invoice_payload(order, config, document_type)
     document = FiscalDocument.query.filter_by(work_order_id=order.id, document_type=payload['document_type']).order_by(FiscalDocument.id.desc()).first()
+    if document:
+        from .models import UniNFeSubmission
+        if UniNFeSubmission.query.filter_by(document_id=document.id).first():
+            raise ValueError('A nota já possui numeração reservada. Consulte o documento existente.')
     xml_content = build_internal_xml(payload)
     if not document:
         document = FiscalDocument(
@@ -241,6 +222,9 @@ def create_or_update_fiscal_document(order: WorkOrder, config: FiscalApiConfig |
 
 
 def issue_with_external_api(document: FiscalDocument, config: FiscalApiConfig) -> FiscalDocument:
+    if config.provider_name == 'UNINFE':
+        from .uninfe_dispatch import issue
+        return issue(document.id)
     if config.provider_name == 'FOCUSNFE':
         if document.document_type == 'NFSE':
             return issue_with_focus_nfse(document, config)
@@ -249,10 +233,11 @@ def issue_with_external_api(document: FiscalDocument, config: FiscalApiConfig) -
     if not config.api_base_url:
         raise ValueError('Configure a URL da API fiscal antes de emitir.')
 
+    api_url = _validated_https_url(config.api_base_url, 'URL da API fiscal')
     payload = json.loads(document.request_payload or '{}')
     data = json.dumps(payload).encode('utf-8')
     req = urlrequest.Request(
-        config.api_base_url,
+        api_url,
         data=data,
         headers={
             'Content-Type': 'application/json',
@@ -261,7 +246,8 @@ def issue_with_external_api(document: FiscalDocument, config: FiscalApiConfig) -
         method='POST',
     )
     try:
-        with urlrequest.urlopen(req, timeout=30) as response:
+        # The configured endpoint was validated as HTTPS above.
+        with urlrequest.urlopen(req, timeout=30) as response:  # nosec B310
             body = response.read().decode('utf-8')
     except HTTPError as exc:
         body = exc.read().decode('utf-8', errors='ignore')
@@ -298,21 +284,15 @@ def _focus_base_url(environment: str | None) -> str:
     return 'https://homologacao.focusnfe.com.br'
 
 
-def _focus_env_token() -> str | None:
-    environment = _focus_env_environment()
-    environment_token = (
-        os.getenv(f'FOCUS_NFE_TOKEN_{environment}')
-        or os.getenv(f'FOCUSNFE_TOKEN_{environment}')
-    )
-    return (
-        environment_token
-        or os.getenv('FOCUS_NFE_TOKEN')
-        or os.getenv('FOCUSNFE_TOKEN')
-    )
-
-
-def _focus_env_environment() -> str:
-    return (os.getenv('FOCUS_NFE_ENVIRONMENT') or os.getenv('FOCUSNFE_ENVIRONMENT') or 'HOMOLOGACAO').strip().upper()
+def _validated_https_url(value: str | None, label: str = 'URL') -> str:
+    raw = (value or '').strip()
+    try:
+        parsed = urlsplit(raw)
+    except ValueError as exc:
+        raise ValueError(f'{label} inválida.') from exc
+    if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError(f'{label} deve usar HTTPS e não pode conter credenciais.')
+    return raw
 
 
 def _focus_authorization_header(token: str | None) -> str:
@@ -323,7 +303,11 @@ def _focus_authorization_header(token: str | None) -> str:
 
 
 def _focus_url(config: FiscalApiConfig, path: str, params: dict[str, str] | None = None) -> str:
-    base_url = (config.api_base_url or _focus_base_url(config.environment)).rstrip('/')
+    if config.provider_name == 'UNINFE':
+        raise ValueError('A Focus está desativada para esta empresa. Documentos antigos permanecem disponíveis no histórico local.')
+    base_url = _validated_https_url(
+        config.api_base_url or _focus_base_url(config.environment), 'URL da Focus NFe'
+    ).rstrip('/')
     url = f'{base_url}{path}'
     if params:
         url = f'{url}?{urlencode(params)}'
@@ -505,6 +489,9 @@ def build_focus_nfe_payload(document: FiscalDocument) -> dict[str, Any]:
 
 
 def apply_invoice_form(document: FiscalDocument, form) -> None:
+    from .models import UniNFeSubmission
+    if document.id and UniNFeSubmission.query.filter_by(document_id=document.id).first():
+        raise ValueError('A nota preparada para o UniNFe não pode ser alterada durante o envio.')
     payload = json.loads(document.request_payload or '{}')
     
     if 'cliente_nome' in form:
@@ -615,10 +602,32 @@ def apply_invoice_form(document: FiscalDocument, form) -> None:
         invoice_data['parcelas_detalhadas'] = installments
         
     payload['invoice'] = invoice_data
+    if document.provider_name == 'UNINFE':
+        customer_data = payload.setdefault('customer', {})
+        for field in ('address', 'address_number', 'address_complement', 'neighborhood',
+                      'city', 'city_code', 'state', 'zip_code'):
+            form_field = 'fiscal_customer_' + field
+            if form_field in form:
+                value = (form.get(form_field) or '').strip()
+                customer_data[field] = value.upper() if field == 'state' else value
+        for field in ('documento', 'inscricao_estadual'):
+            if 'fiscal_customer_' + field in form:
+                customer_data[field] = (form.get('fiscal_customer_' + field) or '').strip()
+        for field in ('payment_code', 'consumidor_final'):
+            invoice_data[field] = (form.get(field) or '').strip()
     
     ipi_rates = form.getlist('item_ipi_percent')
     icms_rates = form.getlist('item_icms_percent')
     for index, item in enumerate((payload.get('items', {}).get('parts') or []) + (payload.get('items', {}).get('services') or [])):
+        if document.provider_name == 'UNINFE':
+            for field in ('csosn', 'icms_cst', 'cest', 'credit_rate', 'vBCSTRet', 'pST', 'vICMSSubstituto', 'vICMSSTRet'):
+                values = form.getlist('fiscal_item_' + field)
+                if index < len(values):
+                    value = values[index].strip()
+                    if value:
+                        item[field] = value
+                    else:
+                        item.pop(field, None)
         item['ncm'] = (form.getlist('item_ncm')[index] if index < len(form.getlist('item_ncm')) else '').strip()
         item['cfop'] = (form.getlist('item_cfop')[index] if index < len(form.getlist('item_cfop')) else '5102').strip()
         item['unidade'] = (form.getlist('item_unidade')[index] if index < len(form.getlist('item_unidade')) else 'UN').strip() or 'UN'
@@ -631,6 +640,12 @@ def apply_invoice_form(document: FiscalDocument, form) -> None:
 
 
 def create_parts_fiscal_document(form, config: FiscalApiConfig | None = None) -> FiscalDocument:
+    document_type = 'NFE'
+    if config and config.provider_name == 'UNINFE' and form.get('fiscal_model') == '65':
+        from .uninfe_config import get_config
+        if '65' not in get_config(get_system_settings()).get('document_models', '').split(','):
+            raise ValueError('Habilite NFC-e nas configurações da empresa antes de selecionar o modelo 65.')
+        document_type = 'NFCE'
     descriptions = form.getlist('item_descricao')
     quantities = form.getlist('item_quantidade')
     prices = form.getlist('item_valor_unitario')
@@ -654,7 +669,7 @@ def create_parts_fiscal_document(form, config: FiscalApiConfig | None = None) ->
         })
     total = sum(Decimal(str(item['total'])) for item in items)
     payload = {
-        'document_type': 'NFE',
+        'document_type': document_type,
         'environment': config.environment if config else 'HOMOLOGACAO',
         'provider': config.provider_name if config else 'CUSTOM',
         'company': {},
@@ -675,7 +690,7 @@ def create_parts_fiscal_document(form, config: FiscalApiConfig | None = None) ->
         work_order_id=None,
         provider_name=payload['provider'],
         environment=payload['environment'],
-        document_type='NFE',
+        document_type=document_type,
         numero=next_number(FiscalDocument, 'NF', field='numero'),
         request_payload=json.dumps(payload, ensure_ascii=False, indent=2),
         status='PRONTO_PARA_ENVIO',
@@ -807,7 +822,8 @@ def _focus_json_request(config: FiscalApiConfig, path: str, method: str = 'GET',
         method=method,
     )
     try:
-        with urlrequest.urlopen(req, timeout=30) as response:
+        # _focus_url validates the provider endpoint as HTTPS.
+        with urlrequest.urlopen(req, timeout=30) as response:  # nosec B310
             return response.status, response.read().decode('utf-8')
     except HTTPError as exc:
         body = exc.read().decode('utf-8', errors='ignore')
@@ -969,7 +985,8 @@ def import_nfe_xml_to_focus(xml_content: bytes | str, config: FiscalApiConfig, r
         method='POST',
     )
     try:
-        with urlrequest.urlopen(req, timeout=30) as response:
+        # _focus_url validates the provider endpoint as HTTPS.
+        with urlrequest.urlopen(req, timeout=30) as response:  # nosec B310
             body = response.read().decode('utf-8')
     except HTTPError as exc:
         body = exc.read().decode('utf-8', errors='ignore')
@@ -984,7 +1001,8 @@ def import_nfe_xml_to_focus(xml_content: bytes | str, config: FiscalApiConfig, r
 
 def _send_focus_request(document: FiscalDocument, req: urlrequest.Request) -> FiscalDocument:
     try:
-        with urlrequest.urlopen(req, timeout=30) as response:
+        # _focus_url validates the provider endpoint as HTTPS.
+        with urlrequest.urlopen(req, timeout=30) as response:  # nosec B310
             body = response.read().decode('utf-8')
     except HTTPError as exc:
         body = exc.read().decode('utf-8', errors='ignore')

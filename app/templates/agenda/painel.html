@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% block page_title %} · Painel do pátio{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='painel.css') }}?v=1">
+{% macro stage_form(card, extra_class='') %}
+  {% if card.action_stage and can('work_orders.progress') %}
+  <form method="post" action="{{ url_for('scheduling.board_stage', work_order_id=card.order.id) }}" class="pp-action {{ extra_class }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="stage" value="{{ card.action_stage }}">
+    <input type="hidden" name="return_to" value="painel">
+    <button type="submit" class="{{ 'secondary' if card.waiting else '' }}">{{ card.action_label }}</button>
+  </form>
+  {% endif %}
+{% endmacro %}
+
+<div class="pp">
+  <header class="pp-head">
+    <div>
+      <p class="pp-eyebrow">{{ now|date_br }} · {{ system_settings.company_name if system_settings.company_name else 'Oficina' }}</p>
+      <h1>Painel do pátio</h1>
+    </div>
+    <div class="pp-head-actions">
+      <a class="button outline" href="{{ url_for('scheduling.board') }}">Quadro completo</a>
+      {% if can('scheduling.manage') %}<a class="button" href="{{ url_for('scheduling.new') }}">Novo agendamento</a>{% endif %}
+    </div>
+  </header>
+
+  <section class="pp-kpis" aria-label="Resumo do dia">
+    <article class="pp-kpi">
+      <span class="pp-label">No pátio</span>
+      <strong>{{ kpis.on_site }}</strong>
+      <span class="ds-badge soft">{{ kpis.waiting_bay }} sem box</span>
+    </article>
+    <article class="pp-kpi">
+      <span class="pp-label">Boxes ocupados</span>
+      <strong>{{ kpis.busy_bays }}<small> / {{ kpis.total_bays }}</small></strong>
+      <span class="ds-badge soft">{{ kpis.total_bays - kpis.busy_bays }} livre{{ 's' if kpis.total_bays - kpis.busy_bays != 1 }}</span>
+    </article>
+    <article class="pp-kpi">
+      <span class="pp-label">Prontos para entregar</span>
+      <strong>{{ kpis.ready_count }}</strong>
+      <span class="ds-badge soft">{{ format_currency(kpis.ready_total) }} a receber</span>
+    </article>
+    <article class="pp-kpi">
+      <span class="pp-label">Entregue hoje</span>
+      <strong>{{ format_currency(kpis.delivered_today) }}</strong>
+      {% if kpis.overdue %}<span class="ds-badge alert">{{ kpis.overdue }} em atraso</span>{% else %}<span class="ds-badge soft">Nenhum atraso</span>{% endif %}
+    </article>
+  </section>
+
+  <section class="card pp-section">
+    <div class="pp-section-head"><h2>Boxes</h2><span class="muted">{{ kpis.busy_bays }} de {{ kpis.total_bays }} em uso</span></div>
+    {% if bays %}
+    <div class="pp-bays">
+      {% for bay in bays %}
+      <article class="pp-bay {{ 'is-free' if not bay.card }} {{ 'is-overdue' if bay.card and bay.card.overdue }}">
+        <div class="pp-bay-top">
+          <span class="pp-bay-name">{{ bay.resource.nome }}</span>
+          {% if bay.card %}<span class="ds-badge {{ 'outline' if bay.card.waiting else 'solid' }}">{{ bay.card.stage_label }}</span>{% else %}<span class="ds-badge outline">Livre</span>{% endif %}
+        </div>
+        {% if bay.card %}
+          {% set o = bay.card.order %}
+          <a class="pp-bay-car" href="{{ url_for('web.work_orders_show', work_order_id=o.id) }}">{{ o.veiculo_descricao or 'Veículo sem descrição' }}</a>
+          <div class="pp-meta">
+            <span class="pp-plate">{{ o.placa or 'SEM PLACA' }}</span>
+            <span>{{ o.employee.nome if o.employee else 'Sem técnico' }}</span>
+          </div>
+          <div class="pp-timer">
+            <span>{{ bay.card.elapsed or '—' }} na etapa</span>
+            {% if o.promised_at %}<span class="{{ 'pp-late' if bay.card.overdue }}">Prazo {{ o.promised_at.strftime('%H:%M') if o.promised_at.date() == now.date() else o.promised_at|datetime_br }}</span>{% endif %}
+          </div>
+          {% if bay.queue %}<p class="pp-queue">+{{ bay.queue }} na fila deste box</p>{% endif %}
+          {{ stage_form(bay.card) }}
+        {% else %}
+          <p class="pp-free-text">Pronto para receber um carro.</p>
+          {% if can('scheduling.manage') %}<a class="button secondary" href="{{ url_for('scheduling.new') }}">Agendar neste box</a>{% endif %}
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">Nenhum box cadastrado. {% if can('scheduling.manage') %}<a href="{{ url_for('scheduling.resources') }}">Cadastre os boxes</a> para acompanhar a ocupação.{% endif %}</p>
+    {% endif %}
+  </section>
+
+  <div class="pp-grid">
+    <section class="card pp-section pp-board-wrap">
+      <div class="pp-section-head"><h2>Serviços por etapa</h2><span class="muted">{{ kpis.on_site }} O.S. abertas</span></div>
+      <div class="pp-board">
+        {% for column in board %}
+        <div class="pp-column">
+          <div class="pp-column-head"><span>{{ column.label }}</span><span class="ds-badge soft">{{ column.cards|length }}</span></div>
+          {% for card in column.cards %}
+          {% set o = card.order %}
+          <article class="pp-job {{ 'is-overdue' if card.overdue }}">
+            <div class="pp-job-top">
+              <a href="{{ url_for('web.work_orders_show', work_order_id=o.id) }}" class="pp-plate">{{ o.placa or o.numero }}</a>
+              {% if o.workshop_resource %}<span class="ds-badge outline">{{ o.workshop_resource.nome }}</span>{% endif %}
+            </div>
+            <p class="pp-job-car">{{ o.veiculo_descricao or o.numero }}</p>
+            <p class="muted">{{ card.client_name }}</p>
+            {% if o.blocking_reason %}<p class="pp-block">{{ o.blocking_reason }}</p>{% endif %}
+            <div class="pp-job-foot">
+              <span class="{{ 'pp-late' if card.overdue else 'muted' }}">{% if o.promised_at %}Prazo {{ o.promised_at|datetime_br }}{% else %}Sem prazo{% endif %}</span>
+            </div>
+            {{ stage_form(card, 'compact') }}
+          </article>
+          {% else %}
+          <p class="pp-empty">Vazio</p>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <aside class="pp-side">
+      <section class="card pp-section">
+        <div class="pp-section-head"><h2>Chegadas de hoje</h2><a class="muted" href="{{ url_for('scheduling.index') }}">Agenda</a></div>
+        <ul class="pp-list">
+          {% for a in appointments %}
+          <li>
+            <span class="pp-time">{{ a.start_at.strftime('%H:%M') }}</span>
+            <div class="pp-list-main">
+              <strong>{{ a.vehicle.descricao if a.vehicle else a.client.nome }}</strong>
+              <span class="muted">{{ a.client.nome }} · {{ a.servico_previsto }}</span>
+            </div>
+            {% if can('scheduling.manage') %}
+            <form method="post" action="{{ url_for('scheduling.convert', appointment_id=a.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="outline">Dar entrada</button>
+            </form>
+            {% endif %}
+          </li>
+          {% else %}
+          <li class="pp-empty">Nenhuma chegada pendente hoje.</li>
+          {% endfor %}
+        </ul>
+        <p class="pp-foot muted">{{ booked_count }} agendamento{{ 's' if booked_count != 1 }} hoje · {{ '%.1f'|format(booked_hours) }} h reservadas</p>
+      </section>
+
+      <section class="card pp-section">
+        <div class="pp-section-head"><h2>Técnicos</h2></div>
+        <ul class="pp-list">
+          {% for t in technicians %}
+          <li>
+            <span class="pp-avatar">{{ t.employee.nome[:1]|upper }}</span>
+            <div class="pp-list-main">
+              <strong>{{ t.employee.nome }}</strong>
+              <span class="muted">{% if t.working %}{{ t.working.stage_label }} · {{ t.working.order.placa or t.working.order.numero }}{% else %}Disponível{% endif %}</span>
+            </div>
+            <span class="ds-badge {{ 'solid' if t.working else 'soft' }}">{{ t.open_count }} O.S.</span>
+          </li>
+          {% else %}
+          <li class="pp-empty">Nenhum funcionário ativo.</li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <section class="card pp-section">
+        <div class="pp-section-head"><h2>Estoque baixo</h2>{% if can('inventory.view') %}<a class="muted" href="{{ url_for('web.products_index') }}">Produtos</a>{% endif %}</div>
+        <ul class="pp-list">
+          {% for p in low_stock %}
+          <li>
+            <div class="pp-list-main">
+              <strong>{{ p.nome }}</strong>
+              <span class="muted">{{ p.codigo }}{% if p.marca %} · {{ p.marca }}{% endif %}</span>
+            </div>
+            <span class="ds-badge {{ 'alert' if p.estoque_atual <= 0 else 'soft' }}">{{ p.estoque_atual|round|int }}/{{ p.estoque_minimo|round|int }} {{ p.unidade }}</span>
+          </li>
+          {% else %}
+          <li class="pp-empty">Todos os itens acima do mínimo.</li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <section class="card pp-section">
+        <div class="pp-section-head"><h2>Últimas movimentações</h2></div>
+        <ul class="pp-feed">
+          {% for item in activity %}
+          <li>
+            <span class="pp-dot"></span>
+            <div>
+              <p><strong>{{ item.entry.user.nome if item.entry.user else 'Sistema' }}</strong> moveu {{ item.entry.work_order.placa or item.entry.work_order.numero }} para {{ item.label|lower }}</p>
+              <span class="muted">há {{ item.ago }}</span>
+            </div>
+          </li>
+          {% else %}
+          <li class="pp-empty">Sem movimentações ainda.</li>
+          {% endfor %}
+        </ul>
+      </section>
+    </aside>
+  </div>
+</div>
+{% endblock %}

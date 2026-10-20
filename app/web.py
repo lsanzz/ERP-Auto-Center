@@ -12,7 +12,10 @@ from datetime import datetime
 from flask import abort, Blueprint, current_app, flash, redirect, render_template, request, send_file, session, url_for
 from decimal import Decimal
 
-from .auth import admin_required, current_user, login_required, login_user, logout_user, permission_required
+from .auth import (
+    USER_ROLES, admin_required, current_user, login_required, login_user, logout_user,
+    permission_required, safe_next_url,
+)
 from .cep import lookup_cep
 from .cnpj import is_cnpj, is_cpf, lookup_cnpj, lookup_cpf
 from .models import BankAccount, Budget, ChartOfAccount, Client, CompanyPartner, CostCenter, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, Product, Service, User, WorkOrder, WorkOrderItem, XmlInvoiceImport, db
@@ -32,6 +35,7 @@ from .services import (
     next_number,
     recalculate_budget_totals,
     recalculate_work_order_totals,
+    remove_bank_account,
     replace_work_order_items,
     settle_financial_entry,
     split_installments,
@@ -98,6 +102,14 @@ def not_found(_error):
     return render_template('error.html', code=404, message='Página não encontrada.'), 404
 
 
+@web_bp.app_errorhandler(ValueError)
+def invalid_value(_error):
+    # IDs e números inválidos vindos de formulário/URL viram 400 em vez de 500; a API tem handler próprio.
+    db.session.rollback()
+    current_app.logger.warning('invalid_request_value', exc_info=True)
+    return render_template('error.html', code=400, message='Algum dado enviado é inválido. Confira os campos e tente novamente.'), 400
+
+
 @web_bp.get('/')
 def root():
     return redirect(url_for('web.dashboard' if current_user() else 'web.login'))
@@ -125,14 +137,13 @@ def login():
             if user.mfa_enabled:
                 session['pending_login_user_id'] = user.id
                 session['pending_login_at'] = datetime.now().timestamp()
-                session['pending_login_next'] = request.args.get('next') or ''
+                session['pending_login_next'] = safe_next_url(request.args.get('next'), '')
                 return redirect(url_for('web.login_mfa'))
             record_audit('LOGIN_SUCESSO', 'SESSAO', None, user.id, ip=request.remote_addr)
             db.session.commit()
             login_user(user)
             flash('Login realizado com sucesso.', 'success')
-            next_url = request.args.get('next') or url_for('web.dashboard')
-            return redirect(next_url if next_url.startswith('/') and not next_url.startswith('//') else url_for('web.dashboard'))
+            return redirect(safe_next_url(request.args.get('next'), url_for('web.dashboard')))
         record_audit('LOGIN_FALHA', 'SESSAO', None, user.id if user else None, {'usuario': username}, request.remote_addr)
         db.session.commit()
         flash('Usuário ou senha inválidos.', 'error')
@@ -164,12 +175,12 @@ def login_mfa():
             flash('Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.', 'error')
             return render_template('auth/login_mfa.html'), 429
         if verify_totp(user, request.form.get('otp')):
-            next_url = session.get('pending_login_next') or url_for('web.dashboard')
+            next_url = safe_next_url(session.get('pending_login_next'), url_for('web.dashboard'))
             record_audit('LOGIN_SUCESSO', 'SESSAO', None, user.id, ip=request.remote_addr)
             db.session.commit()
             login_user(user)
             flash('Login realizado com sucesso.', 'success')
-            return redirect(next_url if next_url.startswith('/') and not next_url.startswith('//') else url_for('web.dashboard'))
+            return redirect(next_url)
         record_audit('LOGIN_FALHA', 'SESSAO', None, user.id, {'etapa': 'mfa'}, request.remote_addr)
         db.session.commit()
         flash('Código temporário inválido.', 'error')
@@ -226,6 +237,7 @@ def dashboard():
 
 @web_bp.get('/consultas/placa')
 @login_required
+@permission_required('vehicles.view')
 def plate_lookup_page():
     return render_template('consultas/placa.html')
 
@@ -234,11 +246,13 @@ def plate_lookup_page():
 @login_required
 @admin_required
 def settings_index():
+    from .uninfe_config import get_config
     fiscal_documents_page = paginate_query(FiscalDocument.query.order_by(FiscalDocument.id.desc()))
     users_page = paginate_query(User.query.order_by(User.nome))
     return render_template(
         'configuracoes/index.html',
         settings=get_system_settings(),
+        uninfe=get_config(get_system_settings()),
         fiscal_documents=fiscal_documents_page['items'],
         fiscal_documents_pagination=fiscal_documents_page,
         users=users_page['items'],
@@ -251,6 +265,7 @@ def settings_index():
 @admin_required
 def settings_save_company():
     settings = get_system_settings()
+    previous_city = settings.city
     if settings.id is None:
         db.session.add(settings)
     settings.company_name = request.form.get('company_name', '').strip() or 'Japa Auto Center'
@@ -269,6 +284,13 @@ def settings_save_company():
     settings.state_registration_exempt = bool(request.form.get('state_registration_exempt'))
     settings.state = (request.form.get('state') or '').strip().upper()[:2] or None
     settings.accountant_state = (request.form.get('accountant_state') or '').strip().upper()[:2] or None
+    from .uninfe_config import reconcile_company_config
+    try:
+        municipality_reset = reconcile_company_config(settings, previous_city=previous_city)
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), 'error')
+        return redirect(url_for('web.settings_index') + '#empresa')
     for day in ('weekdays', 'saturday', 'sunday'):
         setattr(settings, f'{day}_open', bool(request.form.get(f'{day}_open')))
         setattr(settings, f'{day}_from', (request.form.get(f'{day}_from') or '08:00')[:5])
@@ -308,6 +330,11 @@ def settings_save_company():
         fiscal_config.tax_regime = settings.tax_regime
         db.session.add(fiscal_config)
     db.session.commit()
+    if not fiscal_config or fiscal_config.provider_name != 'FOCUSNFE' or not fiscal_config.active:
+        flash('Dados da empresa salvos.', 'success')
+        if municipality_reset:
+            flash('A UF ou o município mudou. Informe o código IBGE do novo município nas configurações do UniNFe antes de emitir.', 'warning')
+        return redirect(url_for('web.settings_index') + '#empresa')
     from .company_focus import sync_company
     try:
         sync_company(settings)
@@ -317,6 +344,21 @@ def settings_save_company():
         db.session.rollback()
         flash(str(exc), 'warning')
     return redirect(url_for('web.settings_index') + '#empresa')
+
+
+@web_bp.post('/configuracoes/empresa/uninfe')
+@login_required
+@admin_required
+def settings_save_uninfe():
+    from .uninfe_config import save_config
+    try:
+        save_config(get_system_settings(), request.form)
+        db.session.commit()
+        flash('Configurações do UniNFe salvas.', 'success')
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), 'error')
+    return redirect(url_for('web.settings_index') + '#uninfe')
 
 
 @web_bp.post('/configuracoes/empresa/certificado-focus')
@@ -380,8 +422,8 @@ def settings_save_profile():
         if not user.check_password(request.form.get('current_password') or ''):
             flash('A senha atual não confere.', 'error')
             return redirect(url_for('web.settings_index'))
-        if len(new_password) < 6:
-            flash('A nova senha deve ter pelo menos 6 caracteres.', 'error')
+        if len(new_password) < 12:
+            flash('A nova senha deve ter pelo menos 12 caracteres.', 'error')
             return redirect(url_for('web.settings_index'))
         user.set_password(new_password)
     db.session.commit()
@@ -396,9 +438,11 @@ def settings_users_new():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password') or ''
-        role = request.form.get('role') if request.form.get('role') in {'ADMINISTRADOR', 'MECANICO'} else 'MECANICO'
-        if not username or len(password) < 6:
-            flash('Informe usuário e uma senha com pelo menos 6 caracteres.', 'error')
+        role = request.form.get('role')
+        if not username or len(password) < 12:
+            flash('Informe usuário e uma senha com pelo menos 12 caracteres.', 'error')
+        elif role not in USER_ROLES:
+            flash('Selecione um perfil de acesso válido.', 'error')
         elif User.query.filter_by(username=username).first():
             flash('Este usuário já existe.', 'error')
         else:
@@ -422,11 +466,13 @@ def settings_users_edit(user_id: int):
         username = request.form.get('username', '').strip()
         duplicate = User.query.filter(User.username == username, User.id != user.id).first()
         password = request.form.get('password') or ''
-        role = request.form.get('role') if request.form.get('role') in {'ADMINISTRADOR', 'MECANICO'} else 'MECANICO'
+        role = request.form.get('role')
         if duplicate:
             flash('Este usuário já existe.', 'error')
-        elif not username or (password and len(password) < 6):
-            flash('Usuário inválido ou senha menor que 6 caracteres.', 'error')
+        elif not username or (password and len(password) < 12):
+            flash('Usuário inválido ou senha menor que 12 caracteres.', 'error')
+        elif role not in USER_ROLES:
+            flash('Selecione um perfil de acesso válido.', 'error')
         elif user.role == 'ADMINISTRADOR' and user.ativo and (role != 'ADMINISTRADOR' or not request.form.get('ativo')) and User.query.filter_by(role='ADMINISTRADOR', ativo=True).count() <= 1:
             flash('Mantenha pelo menos um administrador ativo no sistema.', 'error')
         elif user.id == current_user().id and (not request.form.get('ativo') or role != 'ADMINISTRADOR'):
@@ -490,12 +536,17 @@ def bank_accounts_delete(account_id: int):
     account = db.session.get(BankAccount, account_id)
     if not account:
         return redirect(url_for('web.dashboard'))
-    db.session.delete(account)
+    history_preserved = remove_bank_account(account)
     db.session.commit()
-    flash('Conta bancária removida.', 'success')
+    if history_preserved:
+        flash('Conta bancária removida da lista. O histórico financeiro foi preservado.', 'success')
+    else:
+        flash('Conta bancária removida.', 'success')
     return redirect(url_for('web.dashboard'))
 
 @web_bp.route('/clientes')
+@login_required
+@permission_required('customers.manage')
 def clients_index():
     termo_pesquisa = request.args.get('q', '').strip()
     query = Client.query
@@ -515,6 +566,7 @@ def clients_index():
 
 @web_bp.get('/api/cep/<cep>')
 @login_required
+@permission_required('customers.manage')
 def cep_lookup(cep: str):
     try:
         return lookup_cep(cep)
@@ -528,6 +580,7 @@ def cep_lookup(cep: str):
 
 @web_bp.route('/clientes/novo', methods=['GET', 'POST'])
 @login_required
+@permission_required('customers.manage')
 def clients_new():
     if request.method == 'POST':
         client = Client()
@@ -541,6 +594,7 @@ def clients_new():
 
 @web_bp.route('/clientes/<int:client_id>/editar', methods=['GET', 'POST'])
 @login_required
+@permission_required('customers.manage')
 def clients_edit(client_id: int):
     client = db.session.get(Client, client_id)
     if not client:
@@ -555,6 +609,7 @@ def clients_edit(client_id: int):
 
 @web_bp.get('/clientes/<int:client_id>')
 @login_required
+@permission_required('customers.manage')
 def clients_show(client_id: int):
     client = db.session.get(Client, client_id)
     if not client:
@@ -927,6 +982,7 @@ def services_edit(service_id: int):
 
 @web_bp.get('/orcamentos')
 @login_required
+@permission_required('estimates.manage')
 def budgets_index():
     page = paginate_query(Budget.query.order_by(Budget.id.desc()))
     return render_template('orcamentos/index.html', budgets=page['items'], pagination=page)
@@ -934,6 +990,7 @@ def budgets_index():
 
 @web_bp.route('/orcamentos/novo', methods=['GET', 'POST'])
 @login_required
+@permission_required('estimates.manage')
 def budgets_new():
     clients = Client.query.order_by(Client.nome).all()
     if request.method == 'POST':
@@ -965,6 +1022,7 @@ def budgets_delete(budget_id: int):
 
 @web_bp.route('/orcamentos/<int:budget_id>/editar', methods=['GET', 'POST'])
 @login_required
+@permission_required('estimates.manage')
 def budgets_edit(budget_id: int):
     budget = db.session.get(Budget, budget_id)
     if not budget:
@@ -988,6 +1046,7 @@ def budgets_edit(budget_id: int):
 
 @web_bp.get('/orcamentos/<int:budget_id>')
 @login_required
+@permission_required('estimates.manage')
 def budgets_show(budget_id: int):
     budget = db.session.get(Budget, budget_id)
     if not budget:
@@ -999,6 +1058,7 @@ def budgets_show(budget_id: int):
 
 @web_bp.post('/orcamentos/<int:budget_id>/itens')
 @login_required
+@permission_required('estimates.manage')
 def budgets_add_item(budget_id: int):
     budget = db.session.get(Budget, budget_id)
     if not budget:
@@ -1016,6 +1076,7 @@ def budgets_add_item(budget_id: int):
 
 @web_bp.post('/orcamentos/<int:budget_id>/aprovar')
 @login_required
+@permission_required('estimates.manage')
 def budgets_approve(budget_id: int):
     budget = db.session.get(Budget, budget_id)
     if not budget:
@@ -1028,6 +1089,7 @@ def budgets_approve(budget_id: int):
 
 @web_bp.post('/orcamentos/<int:budget_id>/converter-os')
 @login_required
+@permission_required('estimates.manage')
 def budgets_convert(budget_id: int):
     budget = db.session.get(Budget, budget_id)
     if not budget:
@@ -1045,6 +1107,7 @@ def budgets_convert(budget_id: int):
 
 @web_bp.route('/os')
 @login_required
+@permission_required('work_orders.view')
 def work_orders_index():
     termo_pesquisa = request.args.get('q', '').strip()
     
@@ -1090,6 +1153,7 @@ def work_orders_index():
 
 @web_bp.post('/os/<int:work_order_id>/copiar')
 @login_required
+@permission_required('work_orders.manage')
 def work_orders_copy(work_order_id: int):
     source = db.session.get(WorkOrder, work_order_id)
     if not source:
@@ -1129,6 +1193,7 @@ def work_orders_copy(work_order_id: int):
 
 @web_bp.route('/os/nova', methods=['GET', 'POST'])
 @login_required
+@permission_required('work_orders.manage')
 def work_orders_new():
     order = None
     if request.method == 'POST':
@@ -1152,6 +1217,7 @@ def work_orders_new():
 
 @web_bp.route('/os/<int:work_order_id>/editar', methods=['GET', 'POST'])
 @login_required
+@permission_required('work_orders.manage')
 def work_orders_edit(work_order_id: int):
     order = db.session.get(WorkOrder, work_order_id)
     if not order:
@@ -1178,6 +1244,7 @@ def work_orders_edit(work_order_id: int):
 
 @web_bp.get('/os/<int:work_order_id>')
 @login_required
+@permission_required('work_orders.view')
 def work_orders_show(work_order_id: int):
     order = db.session.get(WorkOrder, work_order_id)
     if not order:
@@ -1201,6 +1268,7 @@ def work_orders_show(work_order_id: int):
 
 @web_bp.get('/os/<int:work_order_id>/pdf')
 @login_required
+@permission_required('work_orders.view')
 def work_orders_pdf(work_order_id: int):
     order = db.session.get(WorkOrder, work_order_id)
     if not order:
@@ -1223,6 +1291,7 @@ def work_orders_pdf(work_order_id: int):
 
 @web_bp.post('/os/<int:work_order_id>/itens')
 @login_required
+@permission_required('work_orders.manage')
 def work_orders_add_item(work_order_id: int):
     order = db.session.get(WorkOrder, work_order_id)
     if not order:
@@ -1256,6 +1325,7 @@ def work_orders_add_item(work_order_id: int):
 
 @web_bp.post('/os/<int:work_order_id>/status')
 @login_required
+@permission_required('work_orders.progress')
 def work_orders_change_status(work_order_id: int):
     order = db.session.get(WorkOrder, work_order_id)
     if not order:
@@ -1296,6 +1366,7 @@ def work_orders_launch_stock(work_order_id: int):
 
 @web_bp.post('/os/<int:work_order_id>/finalizar')
 @login_required
+@permission_required('work_orders.manage')
 def work_orders_finish(work_order_id: int):
     order = db.session.get(WorkOrder, work_order_id)
     if not order:
@@ -1512,20 +1583,24 @@ def finance_settle(entry_id: int):
     entry = db.session.get(FinancialEntry, entry_id)
     if not entry:
         return redirect(url_for('web.finance_index'))
-    settle_financial_entry(
-        entry,
-        payment_method_id=int(request.form.get('payment_method_id')) if request.form.get('payment_method_id') else None,
-        payment_receipt_at=request.form.get('payment_receipt_at'),
-        bank_account_id=int(request.form.get('bank_account_id')) if request.form.get('bank_account_id') else None,
-        valor_baixa=request.form.get('valor_baixa'),
-        juros=request.form.get('juros'),
-        desconto=request.form.get('desconto'),
-        taxa=request.form.get('taxa'),
-        acrescimo=request.form.get('acrescimo'),
-        observacoes_pagamento=request.form.get('observacoes_pagamento'),
-    )
-    db.session.commit()
-    flash('Lançamento liquidado.', 'success')
+    try:
+        settle_financial_entry(
+            entry,
+            payment_method_id=int(request.form.get('payment_method_id')) if request.form.get('payment_method_id') else None,
+            payment_receipt_at=request.form.get('payment_receipt_at'),
+            bank_account_id=int(request.form.get('bank_account_id')) if request.form.get('bank_account_id') else None,
+            valor_baixa=request.form.get('valor_baixa'),
+            juros=request.form.get('juros'),
+            desconto=request.form.get('desconto'),
+            taxa=request.form.get('taxa'),
+            acrescimo=request.form.get('acrescimo'),
+            observacoes_pagamento=request.form.get('observacoes_pagamento'),
+        )
+        db.session.commit()
+        flash('Lançamento liquidado.', 'success')
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), 'error')
     return redirect(url_for('web.finance_index'))
 
 
@@ -1622,7 +1697,7 @@ def finance_xml_preview(xml_id: int):
     parsed = parse_nfe_xml(xml_import.raw_xml.encode('utf-8')) if xml_import.raw_xml else xml_import.to_dict()
     parsed['itens'] = parsed.get('itens') or xml_import.get_items()
     document_error = None
-    linked_documents = FiscalDocument.query.filter_by(work_order_id=None, document_type='NFE').order_by(FiscalDocument.id.desc()).limit(PAGE_SIZE).all()
+    linked_documents = FiscalDocument.query.filter(FiscalDocument.work_order_id.is_(None), FiscalDocument.document_type.in_(['NFE', 'NFCE'])).order_by(FiscalDocument.id.desc()).limit(PAGE_SIZE).all()
     for linked_document in linked_documents:
         try:
             linked_payload = json.loads(linked_document.request_payload or '{}')
@@ -1774,9 +1849,9 @@ def fiscal_parts_invoice_new():
                 issue_with_external_api(document, config)
                 db.session.commit()
             if form.get('emitir') and document.status == 'ERRO':
-                flash(f'Emissão recusada pela Focus NFe: {document.error_message or "verifique o documento fiscal"}', 'error')
+                flash(f'Emissão recusada: {document.error_message or "verifique o documento fiscal"}', 'error')
             else:
-                flash('NF-e de peças enviada para a Focus NFe.' if form.get('emitir') else 'NF-e de peças salva como preparada.', 'success')
+                flash(f'NF-e encaminhada. Status: {document.status}.' if form.get('emitir') else 'NF-e de peças salva como preparada.', 'success')
             return redirect(url_for('web.settings_index') + '#fiscal-documentos')
         except Exception as exc:
             db.session.rollback()
@@ -1918,7 +1993,7 @@ def work_order_invoice_issue(work_order_id: int):
         issue_with_external_api(document, config)
         db.session.commit()
         if document.status == 'ERRO':
-            flash(f'Emissão recusada pela Focus NFe: {document.error_message or "verifique o documento fiscal"}', 'error')
+            flash(f'Emissão recusada: {document.error_message or "verifique o documento fiscal"}', 'error')
         else:
             flash('Documento fiscal enviado para a API configurada.', 'success')
     except Exception as exc:
@@ -1955,8 +2030,8 @@ def fiscal_document_export_xml(document_id: int):
 def fiscal_document_consult(document_id: int):
     document = db.session.get(FiscalDocument, document_id)
     config = get_fiscal_config()
-    if not document or not config or config.provider_name != 'FOCUSNFE':
-        flash('Documento ou integração Focus NFe não disponível.', 'error')
+    if not document or not config or document.provider_name not in {'FOCUSNFE', 'UNINFE'}:
+        flash('Documento ou integração fiscal não disponível.', 'error')
         return redirect(url_for('web.fiscal_index'))
     if current_app.config.get('ASYNC_EXTERNAL_CALLS'):
         from .jobs import enqueue
@@ -1965,7 +2040,11 @@ def fiscal_document_consult(document_id: int):
         flash('Consulta adicionada à fila fiscal.', 'success')
         return redirect(url_for('web.fiscal_index'))
     try:
-        consult_focus_nfse(document, config) if document.document_type == 'NFSE' else consult_focus_nfe(document, config)
+        if document.provider_name == 'UNINFE':
+            from .uninfe_dispatch import consult
+            consult(document)
+        else:
+            consult_focus_nfse(document, config) if document.document_type == 'NFSE' else consult_focus_nfe(document, config)
         db.session.commit()
         flash(f'Status atualizado: {document.status}.', 'success')
     except Exception as exc:
@@ -1994,9 +2073,9 @@ def fiscal_document_issue(document_id: int):
         issue_with_external_api(document, config)
         db.session.commit()
         if document.status == 'ERRO':
-            flash(f'Emissão recusada pela Focus NFe: {document.error_message or "verifique o documento fiscal"}', 'error')
+            flash(f'Emissão recusada: {document.error_message or "verifique o documento fiscal"}', 'error')
         else:
-            flash('Nota enviada para a Focus NFe.', 'success')
+            flash(f'Nota encaminhada. Status: {document.status}.', 'success')
     except Exception as exc:
         db.session.rollback()
         flash(f'Falha ao emitir a nota: {exc}', 'error')
@@ -2017,22 +2096,25 @@ def fiscal_document_cancel(document_id: int):
         return redirect(url_for('web.settings_index') + '#fiscal-documentos')
     
     config = get_fiscal_config()
-    if not config or config.provider_name != 'FOCUSNFE':
-        flash('Integração Focus NFe não disponível.', 'error')
+    if not config or config.provider_name not in {'FOCUSNFE', 'UNINFE'}:
+        flash('Integração fiscal não disponível.', 'error')
         if origem == 'financeiro':
             return redirect(url_for('web.finance_index'))
         return redirect(url_for('web.settings_index') + '#fiscal-documentos')
         
     try:
         justificativa = request.form.get('justificativa') or 'Cancelamento solicitado pelo usuario'
-        if document.document_type == 'NFSE':
+        if document.provider_name == 'UNINFE':
+            from .uninfe_events import cancel
+            cancel(document.id, request.form.get('justificativa') or '')
+        elif document.document_type == 'NFSE':
             from .fiscal import cancel_focus_nfse
             cancel_focus_nfse(document, config, justificativa)
         else:
             from .fiscal import cancel_focus_nfe
             cancel_focus_nfe(document, config, justificativa)
         db.session.commit()
-        flash('Nota cancelada com sucesso.', 'success')
+        flash('Nota cancelada com sucesso.' if document.status == 'CANCELADO' else 'Pedido de cancelamento encaminhado. Consulte o retorno para confirmar.', 'success')
     except Exception as exc:
         db.session.rollback()
         flash(f'Falha ao cancelar a nota: {exc}', 'error')
@@ -2682,6 +2764,13 @@ def reports_index():
         o_pecas = sum([i.total for i in filtered_items if i.item_type == 'PECA'])
         o_desconto = sum([i.desconto for i in filtered_items])
         o_total = o_servicos + o_pecas
+
+        if not order.items:
+            o_servicos = (order.total_servicos or Decimal('0')) if show_items != 'pecas' else Decimal('0')
+            o_pecas = (order.total_pecas or Decimal('0')) if show_items != 'servicos' else Decimal('0')
+            o_desconto = max(Decimal('0'), (order.total_servicos or Decimal('0')) +
+                (order.total_pecas or Decimal('0')) - (order.total_geral or Decimal('0'))) if show_items == 'both' else Decimal('0')
+            o_total = (order.total_geral or Decimal('0')) if show_items == 'both' else o_servicos + o_pecas
         
         order.calc_servicos = o_servicos
         order.calc_pecas = o_pecas

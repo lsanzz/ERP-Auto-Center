@@ -1,15 +1,16 @@
 """Read-only financial summaries shared by the home and accounts screens."""
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+import json
 
 from flask import render_template, request, url_for
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
-from .models import BankAccount, BankReconciliation, BankTransaction, FinancialEntry, PaymentMethod, Product, PurchaseRequest, WorkOrder, db
+from .models import BankAccount, BankReconciliation, BankTransaction, Client, FinancialEntry, PaymentMethod, Product, PurchaseRequest, WorkOrder, db
 from .operations.models import BudgetApproval, StockReservation
 from .scheduling.models import Appointment
-from .services import settled_net_amount
+from .services import settled_net_amount, work_order_receivable_description
 
 
 def financial_overview(today=None):
@@ -87,9 +88,20 @@ def render_finance():
     if view == 'overdue': query = query.filter(FinancialEntry.vencimento < today)
     if view == 'received': query = query.filter(FinancialEntry.status.in_(['RECEBIDO', 'PAGO']))
     kind = request.args.get('kind', '')
+    if not kind and view in ('pending', 'overdue'):
+        kind = 'RECEBER'
     if kind in ('RECEBER', 'PAGAR'): query = query.filter_by(entry_type=kind)
     search = request.args.get('q', '').strip()
-    if search: query = query.filter(db.or_(FinancialEntry.descricao.ilike(f'%{search}%'), FinancialEntry.categoria.ilike(f'%{search}%')))
+    if search:
+        term = f'%{search}%'
+        matching_orders = select(WorkOrder.id).outerjoin(Client).where(
+            db.or_(WorkOrder.client_nome.ilike(term), Client.nome.ilike(term))
+        )
+        query = query.filter(db.or_(
+            FinancialEntry.descricao.ilike(term),
+            FinancialEntry.categoria.ilike(term),
+            db.and_(FinancialEntry.reference_type == 'OS', FinancialEntry.reference_id.in_(matching_orders)),
+        ))
     account = request.args.get('account', type=int)
     if account: query = query.filter_by(bank_account_id=account)
     field = FinancialEntry.payment_receipt_at if view == 'received' else FinancialEntry.vencimento
@@ -98,10 +110,32 @@ def render_finance():
         except ValueError: continue
         query = query.filter(field >= day if after else field <= day)
     page = paginate_query(query.order_by(field.desc() if view == 'received' else field.asc(), FinancialEntry.id))
-    def view_url(value):
+    order_ids = {entry.reference_id for entry in page['items'] if entry.reference_type == 'OS' and entry.reference_id}
+    orders = {order.id: order for order in WorkOrder.query.options(joinedload(WorkOrder.client)).filter(WorkOrder.id.in_(order_ids))} if order_ids else {}
+    def entry_description(entry):
+        order = orders.get(entry.reference_id) if entry.reference_type == 'OS' else None
+        if not order:
+            return entry.descricao
+        return work_order_receivable_description(order, entry.installment_number, entry.installment_total)
+    def imported_details(entry):
+        try:
+            raw = json.loads(entry.observacoes_pagamento or '{}')
+        except (ValueError, TypeError):
+            return []
+        if not isinstance(raw, dict):
+            return []
+        return [(label, raw[label]) for label in (
+            'Cliente', 'Fornecedor', 'Código fornecedor', 'Documento', 'Observações',
+            'Data de Agendamento', 'Emissão', 'Data de Cadastro', 'Data de Alteração',
+        ) if raw.get(label)]
+    def view_url(value, selected_kind=None):
         args = request.args.to_dict(); args.pop('page', None); args['view'] = value
+        if selected_kind:
+            args['kind'] = selected_kind
+        else:
+            args.pop('kind', None)
         return url_for('web.finance_index', **args)
     return render_template('financeiro/overview.html', today=today, view=view, view_url=view_url,
-        finance=financial_overview(today), entries=page['items'], pagination=page,
+        kind=kind, finance=financial_overview(today), entries=page['items'], pagination=page,
         payment_methods=PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all(),
-        net_amount=settled_net_amount)
+        net_amount=settled_net_amount, entry_description=entry_description, imported_details=imported_details)

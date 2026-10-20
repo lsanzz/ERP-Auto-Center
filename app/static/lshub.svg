@@ -1,1 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64"><rect width="64" height="64" rx="14" fill="#006bff"/><text x="32" y="43" fill="white" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" font-weight="700">LS</text><text x="78" y="44" fill="#172033" font-family="Arial,sans-serif" font-size="42" font-weight="700">lshub<tspan fill="#006bff">.</tspan></text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 56" role="img" aria-label="LSHub">
+  <defs>
+    <linearGradient id="lsg-w" x1="7" y1="3.5" x2="50.75" y2="54.25" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="56" height="56" rx="14" fill="url(#lsg-w)"/>
+  <g fill="none" stroke="#fff" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round" transform="scale(.875)">
+    <path d="M17.5 18.5V44.5H29.5"/>
+    <path d="M47.5 22.5C46 20 43.6 18.8 41 18.8C37.3 18.8 34.6 21 34.6 24.2C34.6 27.8 37.9 29.1 41.6 30.4C45.4 31.7 48.6 33.2 48.6 37.3C48.6 41.2 45.5 43.9 41.3 43.9C38.4 43.9 35.7 42.6 34.1 40.2"/>
+  </g>
+  <g fill="none" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#0b1b3a">
+      <path d="M72 15V41H86"/>
+      <path d="M107.6 19C106.2 16.6 103.8 15.5 101.1 15.5C97.2 15.5 94.4 17.9 94.4 21.2C94.4 24.9 97.8 26.2 101.6 27.6C105.5 29 108.8 30.5 108.8 34.6C108.8 38.6 105.6 41.3 101.3 41.3C98.3 41.3 95.5 40 93.9 37.5"/>
+    </g>
+    <g stroke="#2563eb">
+      <path d="M117 15V41M135 15V41M117 28H135"/>
+      <path d="M144 24V34C144 38.3 146.5 41 150.4 41C154.3 41 156.8 38.3 156.8 34V24M156.8 34V41"/>
+      <path d="M166 15V41"/>
+      <path d="M166 32.3A8.7 8.7 0 1 0 183.4 32.3A8.7 8.7 0 1 0 166 32.3"/>
+    </g>
+  </g>
+</svg>

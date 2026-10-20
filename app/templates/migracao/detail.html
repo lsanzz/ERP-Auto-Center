@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block page_title %} · Revisão da migração{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='migration.css') }}">
+<div class="migration" {% if migration.status in ['PREPARANDO','IMPORTANDO'] %}data-poll-url="{{ url_for('data_migration.status', migration_id=migration.id) }}" data-status="{{ migration.status }}" data-wake-url="{{ url_for('data_migration.wake_worker') }}" data-csrf="{{ csrf_token() }}"{% endif %}>
+  <a class="mi-back" href="{{ url_for('data_migration.index') }}">← Migração de dados</a>
+  <div class="page-header"><div><span class="eyebrow">Migração #{{ migration.id }} / {{ schema[1] }}</span><h1>{{ migration.filename }}</h1><p class="muted">{{ migration.source }} · Enviado em {{ migration.created_at|datetime_br }}</p></div><a class="mi-button" href="{{ url_for('data_migration.report', migration_id=migration.id) }}">↓ Relatório CSV</a></div>
+  <ol class="mi-steps" aria-label="Etapas da migração"><li {% if migration.status == 'PREPARANDO' %}aria-current="step"{% endif %}><span>01</span> Enviar arquivos</li><li {% if migration.status == 'PREVIA' %}aria-current="step"{% endif %}><span>02</span> Revisar colunas</li><li {% if migration.status in ['IMPORTANDO','CONCLUIDA'] %}aria-current="step"{% endif %}><span>03</span> Importar e acompanhar</li></ol>
+  {% if migration.status == 'PREVIA' %}
+  <div class="mi-notice">{{ migration.total }} registros encontrados. Confira abaixo uma amostra de até 20 registros antes de confirmar. Na importação, todas as linhas serão validadas; as inválidas serão separadas no relatório.</div>
+  {% if migration.entity in ['pagar','receber'] %}<div class="mi-notice">Importe somente títulos em aberto. Eles serão criados como pendentes, sem movimentar contas bancárias. Descrição e identificador são opcionais; quando ausentes, o sistema usa cliente/fornecedor e uma chave calculada a partir da linha.</div>{% endif %}
+  {% if migration.entity == 'veiculos' %}<div class="mi-notice">Importe os clientes primeiro. Cada veículo será vinculado pelo CPF/CNPJ; documentos ausentes ou ambíguos serão rejeitados.</div>{% endif %}
+  {% if migration.entity == 'produtos' %}<div class="mi-notice">O estoque inicial é aplicado somente a produtos novos, com registro da movimentação. Produtos existentes serão ignorados.</div>{% endif %}
+  <section class="mi-panel"><h2>Combine as colunas</h2><p class="muted">À esquerda, os campos do seu sistema. À direita, as colunas encontradas no arquivo.</p>
+    <form method="post" id="migration-mapping"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <table class="mi-mapping"><thead><tr><th>Campo de destino</th><th>Coluna do arquivo</th></tr></thead><tbody>{% for field, label in schema[2].items() %}<tr><td><label for="map-{{ field }}">{{ label }}{% if field in schema[3] %}<span class="mi-required">Obrigatório</span>{% endif %}</label></td><td><select id="map-{{ field }}" name="{{ field }}" {% if field in schema[3] %}required{% endif %}><option value="">Não importar esta coluna</option>{% for header in headers %}<option value="{{ loop.index0 }}" {% if mapping.get(field) == loop.index0 %}selected{% endif %}>{{ loop.index }} · {{ header }}</option>{% endfor %}</select></td></tr>{% endfor %}</tbody></table>
+      <div class="mi-actions"><button class="mi-button" type="submit" name="action" value="preview">Atualizar prévia</button></div>
+    </form>
+  </section>
+  <section class="mi-panel"><h2>Prévia do que será importado</h2><p class="muted">Compare o valor convertido com o valor original de cada campo. Clique em “Atualizar prévia” após alterar as colunas. A verificação de duplicados e vínculos ocorre na importação.</p><div class="mi-scroll"><table class="mi-preview"><thead><tr><th>Registro</th>{% for field, label in schema[2].items() %}{% if field in mapping %}<th>{{ label }}<span class="mi-required">Origem: {{ headers[mapping[field]] }}</span></th>{% endif %}{% endfor %}<th>Validação</th></tr></thead><tbody>{% for item in preview %}<tr><td>{{ item.number }}</td>{% for field in schema[2] %}{% if field in mapping %}<td>{{ item.converted.get(field, '—') }}{% if 0 <= mapping[field] < item['values']|length %}<span class="mi-required">No arquivo: {{ item['values'][mapping[field]] or '—' }}</span>{% endif %}</td>{% endif %}{% endfor %}<td {% if item.error %}class="mi-error"{% endif %}>{{ item.error or 'Formato válido' }}</td></tr>{% endfor %}</tbody></table></div>
+  <details><summary>Ver amostra original do arquivo</summary><div class="mi-scroll"><table class="mi-preview"><thead><tr>{% for header in headers %}<th>{{ header }}</th>{% endfor %}</tr></thead><tbody>{% for item in preview %}<tr>{% for cell in item['values'] %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div></details></section>
+  <section class="mi-panel" id="migration-confirmation"><h2>Confirme depois de conferir a prévia</h2><p class="muted" data-preview-state role="status">Confira os valores acima antes de importar. Nenhum cadastro foi gravado ainda.</p>
+    {% if migration.entity == 'ordens_servico' %}
+    <h3>Informações separadas automaticamente</h3>
+    <div class="mi-scroll"><table class="mi-preview"><thead><tr><th>Registro</th><th>Cliente</th><th>Veículo</th><th>Placa</th><th>Forma de pagamento</th><th>Validação</th></tr></thead><tbody>
+    {% for item in preview %}<tr><td>{{ item.number }}</td><td>{{ item.converted.get('client_nome') or 'Não localizado' }}</td><td>{{ item.converted.get('veiculo_descricao') or 'Não informado' }}</td><td>{{ item.converted.get('placa') or 'Não informada' }}</td><td>{{ item.converted.get('forma_pagamento') or 'Não informada no arquivo' }}</td><td>{{ item.error or 'Pronto para importar' }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% endif %}
+    <label class="mi-check"><input type="checkbox" form="migration-mapping" name="confirmed" value="yes"><span>Conferi a prévia e autorizo importar os registros válidos. Duplicados serão ignorados e os cadastros existentes serão preservados.</span></label>
+    <button class="mi-button primary" form="migration-mapping" type="submit" name="action" value="import">Importar {{ migration.total }} registros →</button>
+  </section>
+  {% else %}
+  <section class="mi-panel" aria-live="polite">
+    <h2>{{ {'PREPARANDO':'Preparando seu arquivo','IMPORTANDO':'Importação em andamento','CONCLUIDA':'Importação concluída','ERRO_LEITURA':'Não foi possível ler o arquivo','ERRO_IMPORTACAO':'Importação interrompida'}.get(migration.status, migration.status) }}</h2>
+    {% if migration.last_error %}<p class="mi-error">{{ migration.last_error }}</p>{% endif %}
+    {% if migration.status in ['PREPARANDO','IMPORTANDO'] %}<p class="muted">Você pode sair desta página. O processamento continuará em segundo plano.</p><progress class="mi-progress" {% if migration.status == 'IMPORTANDO' %}max="{{ migration.total or 1 }}" value="{{ processed }}"{% endif %} aria-label="Progresso da migração"></progress><p class="muted" data-progress-message role="status">{{ processed }} de {{ migration.total }} registros processados.</p><p class="muted">O processamento é iniciado automaticamente. Se a fila não avançar, use o botão abaixo.</p><button type="button" class="mi-button" data-wake-worker>Reativar processamento</button>{% endif %}
+    {% if migration.status == 'CONCLUIDA' %}<p class="muted">{{ migration.imported }} registros importados. Consulte o relatório para revisar duplicados e corrigir as linhas com erro.</p>{% if migration.errors %}<form method="post" action="{{ url_for('data_migration.retry_errors', migration_id=migration.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mi-button primary" type="submit">Processar novamente {{ migration.errors }} linha(s) com erro</button></form>{% endif %}{% endif %}
+    {% if migration.status == 'ERRO_LEITURA' %}<a class="mi-button" href="{{ url_for('data_migration.index') }}">Reenviar com outras opções de leitura</a>{% endif %}
+    {% if migration.status == 'ERRO_IMPORTACAO' %}<p class="muted">Os lotes já gravados foram preservados. A retomada continua do último lote confirmado.</p><form method="post" action="{{ url_for('data_migration.retry', migration_id=migration.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="mi-button primary" type="submit">Retomar importação</button></form>{% endif %}
+  </section>
+  <dl class="mi-stats"><div><dt>Registros encontrados</dt><dd data-count="total">{{ migration.total }}</dd></div><div><dt>Importados</dt><dd data-count="imported">{{ migration.imported }}</dd></div><div><dt>Duplicados ignorados</dt><dd data-count="skipped">{{ migration.skipped }}</dd></div><div><dt>Linhas com erro</dt><dd data-count="errors">{{ migration.errors }}</dd></div></dl>
+  {% endif %}
+</div>
+<script src="{{ url_for('static', filename='migration.js') }}" defer></script>
+{% endblock %}
