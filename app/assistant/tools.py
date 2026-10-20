@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 import secrets
 
-from flask import session
+from flask import g, session
 from sqlalchemy import func
 
 from ..auth import has_permission
@@ -207,6 +207,9 @@ def propor_os(client_id: int | None = None, cliente_nome: str = '', vehicle_id: 
               veiculo_descricao: str = '', itens: list | None = None, payment_method_id: int | None = None,
               parcelas: int = 1, employee_id: int | None = None, observacoes: str = '', cliente_novo: bool = False) -> dict:
     warnings = []
+    spoken = g.get('ai_spoken_plate')
+    if spoken and placa and normalize_plate_or_none(placa) != spoken:
+        placa = spoken
     client = db.session.get(Client, int(client_id)) if client_id else None
     if client_id and not client:
         return {'erro': 'client_id inexistente. Use buscar_cliente.'}

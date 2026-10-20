@@ -7,6 +7,8 @@ import re
 import time
 from datetime import date
 
+from flask import g
+
 from .tools import DECLARATIONS, run_tool
 
 MAX_ROUNDS = 6
@@ -53,7 +55,10 @@ def run_turn(user_text: str, history: list[dict] | None, user_label: str, client
     client = client or make_client()
     model = os.getenv('GROQ_MODEL') or DEFAULT_MODEL
     history = list(history or [])[-HISTORY_MESSAGES:]
-    prompt = f'[Hoje é {date.today().isoformat()}. Usuário: {user_label}. {_context()}]\n{user_text}'
+    plate = spoken_plate(user_text)
+    g.ai_spoken_plate = plate  # propor_os prefere a placa ditada à que o modelo remontar
+    hint = f' Placa detectada no texto: {plate} (use exatamente esta).' if plate else ''
+    prompt = f'[Hoje é {date.today().isoformat()}. Usuário: {user_label}. {_context()}{hint}]\n{user_text}'
     messages = [{'role': 'system', 'content': SYSTEM_INSTRUCTION}, *history, {'role': 'user', 'content': prompt}]
     drafts, timings = [], []
     for _ in range(MAX_ROUNDS):
