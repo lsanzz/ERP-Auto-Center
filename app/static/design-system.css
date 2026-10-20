@@ -2,7 +2,6 @@
    cards de 24px, Geist); azul como cor de ação; vermelho só para destrutivo e erro.
    Carregado por último em todas as páginas: remapeia os tokens que theme.css, base.html e
    lshub-ui.css já usam, para que telas antigas e novas sigam o mesmo padrão. */
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
 
 :root {
   --color-canvas: #f4f7fd;
@@ -54,7 +53,7 @@
   --primary-active: var(--color-blue-deep);
   --primary-foreground: #ffffff;
   --secondary: var(--color-blue-tint);
-  --secondary-foreground: var(--color-blue-strong);
+  --secondary-foreground: var(--color-ink-soft); /* usada pelos templates antigos (--color-steel) como texto secundário */
   --muted: var(--color-surface-alt);
   --muted-foreground: var(--color-mid-gray);
   --accent: var(--color-blue-soft);
@@ -160,8 +159,8 @@ body :is(button, .button) {
 body .button:not(.secondary):not(.text-button):not(.outline):not(.danger) { color: #fff !important; }
 body :is(button, .button):hover { filter: brightness(1.06); box-shadow: 0 10px 24px -8px rgba(37,99,235,.6), inset 0 1px 0 rgba(255,255,255,.2); }
 body :is(button, .button):active:not(:disabled) { transform: translateY(1px) scale(.98); }
-body :is(button, .button).secondary { background: var(--color-blue-tint); color: var(--color-blue-strong) !important; border-color: var(--color-blue-soft); box-shadow: none; }
-body :is(button, .button).secondary:hover { background: var(--color-blue-soft); filter: none; box-shadow: none; }
+body :is(button, .button).secondary { background: var(--color-paper); color: var(--color-blue-strong) !important; border-color: #cfdcf3; box-shadow: 0 1px 2px rgba(15,40,90,.06); }
+body :is(button, .button).secondary:hover { background: var(--color-blue-tint); border-color: #9fbaf0; filter: none; box-shadow: 0 1px 2px rgba(15,40,90,.06); }
 body :is(button, .button).outline { background: var(--color-paper); color: var(--color-ink) !important; border-color: var(--color-hairline); box-shadow: none; }
 body :is(button, .button).outline:hover { border-color: color-mix(in srgb, var(--color-blue) 45%, var(--color-hairline)); color: var(--color-blue-strong) !important; filter: none; box-shadow: none; }
 body :is(button, .button).danger { background: var(--color-paper); border-color: #fecaca; color: var(--color-ember) !important; box-shadow: none; }
@@ -328,3 +327,65 @@ body button.ui-toast-close:hover { background: var(--color-blue-tint) !important
    lshub-ui.css animam do tema antigo para o novo a cada carregamento (piscar de cor).
    ui.js adiciona .ui-ready após o primeiro quadro e as transições voltam para hover e cliques. */
 html:not(.ui-ready) *, html:not(.ui-ready) *::before, html:not(.ui-ready) *::after { transition: none !important; }
+
+/* O botão de menu do celular é <button>: a regra global de botão (0,1,1) vencia o
+   `.mobile-nav-toggle { display: none }` de responsive.css e ele aparecia no desktop,
+   empurrando configurações/perfil para uma segunda linha do cabeçalho. */
+body .top-header .mobile-nav-toggle { display: none; }
+@media (max-width: 700px) {
+  .mobile-nav-ready .top-header .mobile-nav-toggle { display: flex; }
+}
+/* Cabeçalho fixo ao rolar. */
+.top-header { position: sticky; top: 0; z-index: 60; }
+
+/* Seletor de data do financeiro: é um <button> que imita campo; deve parecer os demais campos. */
+body .hub .finance-date-trigger {
+  justify-content: space-between; min-height: 40px; height: 40px; padding: 0 12px;
+  background: var(--color-paper); border: 1px solid var(--color-hairline); border-radius: 14px;
+  color: var(--color-mid-gray); font: 400 var(--text-body) var(--font-geist); box-shadow: none; filter: none; transform: none;
+}
+body .hub .finance-date-trigger.has-value { color: var(--color-ink) !important; }
+body .hub .finance-date-trigger:hover, body .hub .finance-date-field.is-open .finance-date-trigger {
+  background: var(--color-paper); border-color: var(--color-blue); box-shadow: 0 0 0 4px rgba(37,99,235,.14);
+}
+
+/* Título de página único em todas as telas (antes variava de 24 a 66px). */
+body :is(.page-header, .hub-header, .os-toolbar, .pp-head, .mgmt-intro) :is(h1, h2) {
+  font-family: var(--font-geist); font-size: var(--text-heading) !important; font-weight: 600;
+  letter-spacing: -0.025em !important; line-height: 1.2 !important; color: var(--color-ink);
+}
+@media (max-width: 640px) {
+  body :is(.page-header, .hub-header, .os-toolbar, .pp-head, .mgmt-intro) :is(h1, h2) { font-size: var(--text-heading-sm) !important; }
+}
+
+/* Pares rótulo/valor (.kv): antes "SubtotalR$ 0,00" grudado. */
+.main .kv { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--color-hairline); }
+.main .kv:last-child { border-bottom: 0; }
+.main .kv > strong { color: var(--color-mid-gray); font-weight: 500; }
+.main .kv > span { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Espaço entre cards: base.html dava 80px (pensado para seções de site, não para o sistema). */
+.main .card { margin-bottom: 20px; }
+.main :is(.grid, .grid-2, .grid-3, .grid-4, .cards-grid) > .card { margin-bottom: 0; }
+.main :is(.grid, .grid-2, .grid-3, .grid-4) { margin-bottom: 20px; }
+
+/* Card com vários formulários de um botão só (ex.: Ações do orçamento): botões lado a lado. */
+.main .card:has(> form:only-of-type ~ form, > form ~ form) > form:has(> button):not(:has(input:not([type=hidden]), select, textarea)) {
+  display: inline-flex; margin: 0 8px 8px 0; vertical-align: top;
+}
+.main .card > form:has(> button):not(:has(input:not([type=hidden]), select, textarea)) > button.full { width: auto; }
+
+/* Grades .grid-2/3/4 eram usadas nos templates mas não existiam em nenhuma folha de estilo.
+   :where() mantém especificidade zero para não brigar com grades próprias das telas. */
+:where(.main) :where(.grid-2, .grid-3, .grid-4) { display: grid; gap: 20px; align-items: start; }
+:where(.main) :where(.grid-2) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+:where(.main) :where(.grid-3) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+:where(.main) :where(.grid-4) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { :where(.main) :where(.grid-2, .grid-3, .grid-4) { grid-template-columns: minmax(0, 1fr); } }
+
+/* .table-card (tabelas com título) ficava sem fundo, solta na página. */
+.main .table-card { background: var(--color-paper); border: 1px solid var(--color-hairline); border-radius: var(--radius-cards); box-shadow: var(--shadow-card); padding: 20px; margin-bottom: 20px; overflow-x: auto; }
+.main .table-card > h3 { margin-bottom: 12px; }
+
+/* Horário da agenda no dashboard: a pílula tinha largura fixa menor que o texto "00:08". */
+.hub .hub-time { flex: none; width: max-content; min-width: 64px; text-align: center; padding-inline: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
