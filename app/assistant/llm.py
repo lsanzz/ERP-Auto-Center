@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from datetime import date
 
 from .tools import DECLARATIONS, run_tool
@@ -15,7 +16,8 @@ SYSTEM_INSTRUCTION = """Você é o assistente do LS Hub, sistema de gestão de u
 Você pode consultar dados e PROPOR ações. Você nunca grava nada: propor_os e propor_alteracao_os só montam um resumo que o usuário confirma na tela. Depois de propor, diga apenas para conferir o resumo e clicar em Confirmar.
 
 Regras para não errar:
-- Nunca invente ids, clientes, placas, preços ou valores. Use as ferramentas para descobrir ids (buscar_cliente, buscar_veiculo_por_placa, buscar_catalogo, listar_formas_pagamento, listar_funcionarios).
+- Seja rápido: para abrir O.S., chame propor_os direto com o nome do cliente, a placa e os nomes dos itens como o usuário falou; ela localiza tudo e devolve erro com opções se houver dúvida. Formas de pagamento e funcionários já vêm em cada mensagem: use os ids de lá. Só use as ferramentas de busca quando precisar esclarecer algo. Quando precisar de várias consultas independentes, faça-as na mesma rodada.
+- Nunca invente ids, clientes, placas, preços ou valores.
 - Se houver mais de um cliente, veículo, serviço ou peça possível, pergunte qual é antes de propor. Se faltar algo essencial (cliente ou itens), pergunte.
 - Placas ditadas por voz podem vir separadas ("d s p 2 e 32"): junte as letras e números antes de buscar.
 - Use o preço do catálogo, a menos que o usuário diga outro valor.
@@ -42,21 +44,24 @@ def enabled() -> bool:
     return bool(os.getenv('GEMINI_API_KEY'))
 
 
-def run_turn(user_text: str, previous_id: str | None, user_label: str, client=None) -> tuple[str, str | None, list[dict]]:
+def run_turn(user_text: str, previous_id: str | None, user_label: str, client=None) -> tuple[str, str | None, list[dict], list[float]]:
     """Executa um turno: devolve (texto, id da interação, resultados de ferramentas com draft)."""
     client = client or make_client()
     model = os.getenv('GEMINI_MODEL') or DEFAULT_MODEL
-    step_input = f'[Hoje é {date.today().isoformat()}. Usuário: {user_label}.]\n{user_text}'
-    drafts = []
+    step_input = f'[Hoje é {date.today().isoformat()}. Usuário: {user_label}. {_context()}]\n{user_text}'
+    drafts, timings = [], []
     for _ in range(MAX_ROUNDS):
-        kwargs = dict(model=model, input=step_input, tools=DECLARATIONS, system_instruction=SYSTEM_INSTRUCTION)
+        kwargs = dict(model=model, input=step_input, tools=DECLARATIONS, system_instruction=SYSTEM_INSTRUCTION,
+                      generation_config={'thinking_level': os.getenv('GEMINI_THINKING') or 'low'})
         if previous_id:
             kwargs['previous_interaction_id'] = previous_id
+        started = time.monotonic()
         interaction = client.interactions.create(**kwargs)
+        timings.append(round(time.monotonic() - started, 1))
         previous_id = interaction.id
         calls = [step for step in (interaction.steps or []) if getattr(step, 'type', None) == 'function_call']
         if not calls:
-            return (interaction.output_text or '').strip() or 'Pronto.', previous_id, drafts
+            return (interaction.output_text or '').strip() or 'Pronto.', previous_id, drafts, timings
         results = []
         for call in calls:
             result = run_tool(call.name, dict(call.arguments or {}))
@@ -65,4 +70,12 @@ def run_turn(user_text: str, previous_id: str | None, user_label: str, client=No
             results.append({'type': 'function_result', 'name': call.name, 'call_id': call.id,
                             'result': json.dumps(result, ensure_ascii=False, default=str)})
         step_input = results
-    return 'Não consegui concluir em poucas etapas. Tente dizer o pedido de outro jeito.', previous_id, drafts
+    return 'Não consegui concluir em poucas etapas. Tente dizer o pedido de outro jeito.', previous_id, drafts, timings
+
+
+def _context() -> str:
+    """Listas curtas enviadas em toda mensagem para evitar rodadas extras de ferramenta."""
+    from .tools import listar_formas_pagamento, listar_funcionarios
+    methods = ', '.join(f"{m['nome']}={m['payment_method_id']}" for m in listar_formas_pagamento()['formas'])
+    employees = ', '.join(f"{e['nome']}={e['employee_id']}" for e in listar_funcionarios()['funcionarios'])
+    return f'Formas de pagamento (nome=id): {methods}. Funcionários (nome=id): {employees}.'

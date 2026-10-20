@@ -154,15 +154,35 @@ def contas_vencendo(tipo: str = 'RECEBER', dias: int = 7) -> dict:
          'vencida': e.vencimento < date.today()} for e in entries]}
 
 
+def _catalog_match(kind: str, text: str):
+    """Acha o item do catálogo pelo nome dito: nome exato, ou um único resultado; vários viram pergunta."""
+    model = Service if kind == 'SERVICO' else Product
+    query = model.query.filter_by(ativo=True)
+    exact = query.filter(func.lower(model.nome) == (text or '').strip().lower()).first()
+    if exact:
+        return exact.id, []
+    for word in (text or '').split():
+        query = query.filter(model.nome.ilike(f'%{word}%'))
+    found = query.order_by(model.nome).limit(6).all()
+    if len(found) == 1:
+        return found[0].id, []
+    price = 'preco_base' if model is Service else 'preco_venda'
+    return None, [f'{item.nome} (R$ {_money(getattr(item, price)):.2f})' for item in found]
+
+
 def _resolve_items(itens: list) -> tuple[list[dict], list[str]]:
     """Valida os itens como a tela faz e devolve o payload da API + avisos."""
     payload, warnings = [], []
     for raw in itens or []:
         kind = 'SERVICO' if str(raw.get('tipo', '')).upper().startswith('SERV') else 'PECA'
         reference = raw.get('catalogo_id') or None
+        if not reference and raw.get('valor_unitario') in (None, ''):
+            reference, options = _catalog_match(kind, raw.get('descricao'))
+            if options:
+                raise ValueError(f'Mais de um item parecido com "{raw.get("descricao")}". Pergunte qual: ' + '; '.join(options))
         reference_id, descricao, qty, unit, discount, total = _build_item_values(
-            kind, reference, raw.get('quantidade') or 1, raw.get('desconto') or 0, raw.get('descricao'),
-            raw.get('valor_unitario'), None)
+            kind, reference, raw.get('quantidade') or 1, raw.get('desconto') or 0,
+            None if reference else raw.get('descricao'), raw.get('valor_unitario'), None)
         if reference_id is None:
             warnings.append(f'"{descricao}" não está no catálogo; será lançado como item avulso.')
         if unit == 0:
@@ -190,6 +210,11 @@ def propor_os(client_id: int | None = None, cliente_nome: str = '', vehicle_id: 
     client = db.session.get(Client, int(client_id)) if client_id else None
     if client_id and not client:
         return {'erro': 'client_id inexistente. Use buscar_cliente.'}
+    if not client and placa and not vehicle_id:
+        # Placa ditada já identifica o dono na maioria dos casos.
+        owners = Vehicle.query.filter_by(placa=normalize_plate_or_none(placa)).all() if normalize_plate_or_none(placa) else []
+        if len(owners) == 1 and not cliente_novo:
+            client, vehicle_id = owners[0].client, owners[0].id
     if not client:
         nome = (cliente_nome or '').strip().upper()
         if not nome:
@@ -198,6 +223,8 @@ def propor_os(client_id: int | None = None, cliente_nome: str = '', vehicle_id: 
         similar = buscar_cliente(nome).get('clientes', [])
         if same:
             client = same[0]
+        elif len(similar) == 1 and not cliente_novo:
+            client = db.session.get(Client, similar[0]['client_id'])
         elif similar and not cliente_novo:
             return {'erro': 'Existem clientes parecidos. Pergunte ao usuário qual é, ou se é um cliente novo.',
                     'candidatos': [c['nome'] for c in similar]}
@@ -311,8 +338,8 @@ DECLARATIONS = [
         {'inicio': {'type': 'string'}, 'fim': {'type': 'string'}}),
     _fn('contas_vencendo', 'Contas a receber ou a pagar em aberto que vencem nos próximos N dias (inclui vencidas).',
         {'tipo': {'type': 'string', 'enum': ['RECEBER', 'PAGAR']}, 'dias': {'type': 'integer'}}),
-    _fn('propor_os', 'Monta uma PROPOSTA de nova O.S. para o usuário confirmar. Não grava nada.',
-        {'client_id': {'type': 'integer'}, 'cliente_nome': {'type': 'string', 'description': 'só para cliente novo'},
+    _fn('propor_os', 'Monta uma PROPOSTA de nova O.S. para o usuário confirmar. Não grava nada. Pode ser chamada direto com o nome do cliente, a placa e os nomes dos itens: ela localiza cliente, veículo e catálogo sozinha e devolve erro com opções quando houver dúvida.',
+        {'client_id': {'type': 'integer'}, 'cliente_nome': {'type': 'string', 'description': 'nome do cliente como o usuário falou'},
          'vehicle_id': {'type': 'integer'}, 'placa': {'type': 'string'}, 'veiculo_descricao': {'type': 'string'},
          'itens': {'type': 'array', 'items': _ITEM}, 'payment_method_id': {'type': 'integer'},
          'parcelas': {'type': 'integer'}, 'employee_id': {'type': 'integer'}, 'observacoes': {'type': 'string'},

@@ -144,5 +144,16 @@ class AssistantTest(unittest.TestCase):
             self.assertEqual((order.total_geral, len(order.items)), (Decimal('140.00'), 2))
 
 
+    def test_one_call_proposal_resolves_client_and_catalog_by_name(self):
+        response, fake = self.send([
+            [('propor_os', {'cliente_nome': 'ely', 'itens': [{'tipo': 'SERVICO', 'descricao': 'alinhamento teste'}],
+                            'payment_method_id': self.pix})],
+            'Confira e confirme.'])
+        card = response.get_json()['cartoes'][0]
+        self.assertEqual((card['cliente'], card['itens'][0]['descricao'], card['total']), ('ELY COROLLA DSP-2E32', 'ALINHAMENTO TESTE', 100.0))
+        self.assertEqual(response.get_json()['tempos'].__len__(), 2)
+        self.assertIn('Formas de pagamento', fake.calls[0]['input'])
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -57,7 +57,7 @@ def message():
     if _rate_limited(user.id):
         return jsonify(erro='Muitas mensagens seguidas. Aguarde um minuto.'), 429
     try:
-        reply, interaction_id, drafts = llm.run_turn(text, session.get('ai_interaction_id'), f'{user.nome} ({user.role})')
+        reply, interaction_id, drafts, timings = llm.run_turn(text, session.get('ai_interaction_id'), f'{user.nome} ({user.role})')
     except llm.AssistantUnavailable as exc:
         return jsonify(erro=str(exc)), 503
     except Exception as exc:  # erros do provedor não podem derrubar a página
@@ -66,7 +66,8 @@ def message():
     finally:
         db.session.rollback()  # ferramentas só leem; garante que nada pendente seja gravado
     session['ai_interaction_id'] = interaction_id
-    return jsonify(texto=reply, cartoes=drafts)
+    current_app.logger.info('assistant_turn rounds=%s seconds=%s', len(timings), timings)
+    return jsonify(texto=reply, cartoes=drafts, tempos=timings)
 
 
 @assistant_bp.post('/nova')
