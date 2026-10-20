@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from datetime import date
 
@@ -87,6 +88,23 @@ def run_turn(user_text: str, history: list[dict] | None, user_label: str, client
                              'content': json.dumps(result, ensure_ascii=False, default=str)})
     reply = 'Não consegui concluir em poucas etapas. Tente dizer o pedido de outro jeito.'
     return reply, history, drafts, timings
+
+
+def spoken_plate(text: str) -> str | None:
+    """Junta a placa ditada depois da palavra "placa" ("placa e g w 5785" -> EGW5785); "e" ditado é a letra E."""
+    match = re.search(r'\bplaca\b[\s:]*(.+)', text or '', re.IGNORECASE)
+    if not match:
+        return None
+    joined = ''
+    for token in re.split(r'[\s\-.,]+', match.group(1)):
+        if not token:
+            continue
+        if not token.isalnum() or len(joined) + len(token) > 7:
+            break
+        joined += token.upper()
+        if len(joined) == 7:
+            break
+    return joined if re.fullmatch(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}', joined) else None
 
 
 def _context() -> str:

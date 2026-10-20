@@ -170,5 +170,12 @@ class AssistantTest(unittest.TestCase):
         self.assertIn('Formas de pagamento', fake.calls[0]['messages'][-1]['content'])
 
 
+    def test_spoken_plate_detection(self):
+        cases = {'Fox placa e g w 5785, alinhamento': 'EGW5785', 'placa d s p 2 e 3 2': 'DSP2E32',
+                 'placa ABC-1D23 ok': 'ABC1D23', 'sem placa aqui': None, 'troca o óleo': None}
+        for text, plate in cases.items():
+            self.assertEqual(llm.spoken_plate(text), plate, text)
+
+
 if __name__ == '__main__':
     unittest.main()
