@@ -858,5 +858,6 @@ document.addEventListener('DOMContentLoaded', () => {
 {% include '_design_system.html' %}
   <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=2" defer></script>
   <script src="{{ url_for('static', filename='responsive.js') }}?v=2" defer></script>
+  {% if assistant_enabled and current_user() and can('work_orders.manage') %}{% include '_assistant.html' %}{% endif %}
 </body>
 </html>

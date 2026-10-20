@@ -1,0 +1,18 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='assistant.css') }}?v=1">
+<button type="button" class="ai-launcher" data-ai-open aria-controls="ai-panel" aria-expanded="false"><span aria-hidden="true">✦</span> Assistente</button>
+<aside class="ai-panel" id="ai-panel" hidden aria-label="Assistente de I.A." data-csrf="{{ csrf_token() }}"
+       data-send="{{ url_for('assistant.message') }}" data-new="{{ url_for('assistant.new_conversation') }}"
+       data-confirm="{{ url_for('assistant.confirm', draft_id='__ID__') }}" data-cancel="{{ url_for('assistant.cancel', draft_id='__ID__') }}">
+  <header class="ai-head">
+    <strong>Assistente</strong>
+    <div><button type="button" class="ai-link" data-ai-new>Nova conversa</button><button type="button" class="ai-close" data-ai-close aria-label="Fechar">×</button></div>
+  </header>
+  <div class="ai-log" aria-live="polite">
+    <p class="ai-msg ai-bot">Diga o que precisa, por exemplo: <em>“abre uma O.S. pro Ely, Corolla placa DSP2E32, alinhamento e balanceamento, Pix”</em> ou <em>“quanto faturei este mês?”</em>. Nada é salvo sem você confirmar.</p>
+  </div>
+  <form class="ai-form" data-ai-form>
+    <textarea name="texto" rows="2" placeholder="Digite ou use o microfone do teclado…" aria-label="Mensagem para o assistente" required></textarea>
+    <div class="ai-actions"><button type="button" class="ai-mic" data-ai-mic hidden aria-label="Falar">🎤</button><button type="submit">Enviar</button></div>
+  </form>
+</aside>
+<script src="{{ url_for('static', filename='assistant.js') }}?v=1" defer></script>

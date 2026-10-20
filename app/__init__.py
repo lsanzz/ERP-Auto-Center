@@ -312,6 +312,8 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.register_blueprint(management_bp)
     from .business_reports import business_bp
     app.register_blueprint(business_bp)
+    from .assistant.routes import assistant_bp
+    app.register_blueprint(assistant_bp)
     from .system_admin import register_system_admin_cli, system_admin_bp
     app.register_blueprint(system_admin_bp)
     register_system_admin_cli(app)

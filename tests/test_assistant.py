@@ -1,0 +1,148 @@
+from decimal import Decimal
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+
+from sqlalchemy.pool import StaticPool
+
+from app import create_app
+from app.assistant import llm
+from app.models import Client, PaymentMethod, Service, User, WorkOrder, db
+from app.seeds import seed_database
+
+
+class FakeInteractions:
+    """Devolve respostas roteirizadas: cada item é uma lista de chamadas de ferramenta ou um texto final."""
+
+    def __init__(self, script):
+        self.script, self.calls = list(script), []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        step = self.script.pop(0)
+        number = len(self.calls)
+        if isinstance(step, str):
+            return SimpleNamespace(id=f'it-{number}', steps=[], output_text=step)
+        steps = [SimpleNamespace(type='function_call', name=name, arguments=args, id=f'call-{number}-{i}')
+                 for i, (name, args) in enumerate(step)]
+        return SimpleNamespace(id=f'it-{number}', steps=steps, output_text='')
+
+
+class AssistantTest(unittest.TestCase):
+    def setUp(self):
+        self.app = create_app({'TESTING': True, 'WTF_CSRF_ENABLED': False, 'SQLALCHEMY_DATABASE_URI': 'sqlite://',
+                               'SQLALCHEMY_ENGINE_OPTIONS': {'poolclass': StaticPool, 'connect_args': {'check_same_thread': False}}})
+        self.client = self.app.test_client()
+        with self.app.app_context():
+            db.create_all()
+            seed_database()
+            db.session.add_all([Client(nome='ELY COROLLA DSP-2E32'), Client(nome='ALEXANDRE BMW'), Client(nome='ALEXANDRE BMW 320')])
+            db.session.add(Service(nome='ALINHAMENTO TESTE', preco_base=Decimal('100'), ativo=True))
+            db.session.commit()
+            self.ely = Client.query.filter_by(nome='ELY COROLLA DSP-2E32').one().id
+            self.service = Service.query.filter_by(nome='ALINHAMENTO TESTE').one().id
+            self.pix = PaymentMethod.query.filter_by(tipo='PIX').first().id
+        self.client.post('/login', data={'username': 'admin', 'password': 'admin123'})
+
+    def send(self, script, text='abre uma O.S.'):
+        fake = SimpleNamespace(interactions=FakeInteractions(script))
+        with patch.object(llm, 'make_client', return_value=fake):
+            response = self.client.post('/assistente/mensagem', json={'texto': text})
+        return response, fake.interactions
+
+    def os_count(self):
+        with self.app.app_context():
+            return WorkOrder.query.count()
+
+    def test_proposal_is_not_saved_until_confirmed(self):
+        before = self.os_count()
+        response, fake = self.send([
+            [('buscar_cliente', {'texto': 'ely'})],
+            [('propor_os', {'client_id': self.ely, 'placa': 'dsp 2e32',
+                            'itens': [{'tipo': 'SERVICO', 'catalogo_id': self.service, 'descricao': 'alinhamento', 'quantidade': 1}],
+                            'payment_method_id': self.pix})],
+            'Confira o resumo e clique em Confirmar.',
+        ])
+        data = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        card = data['cartoes'][0]
+        self.assertEqual((card['cliente'], card['placa'], card['total']), ('ELY COROLLA DSP-2E32', 'DSP2E32', 100.0))
+        self.assertEqual(self.os_count(), before)
+        # Second model call carries the function result linked to the first interaction.
+        self.assertEqual(fake.calls[1]['previous_interaction_id'], 'it-1')
+        self.assertEqual(fake.calls[1]['input'][0]['type'], 'function_result')
+
+        confirm = self.client.post(f"/assistente/confirmar/{card['draft_id']}")
+        self.assertEqual(confirm.status_code, 200, confirm.get_json())
+        with self.app.app_context():
+            order = WorkOrder.query.filter_by(numero=confirm.get_json()['numero']).one()
+            self.assertEqual((order.client_id, order.placa, order.total_geral, order.payment_method_id),
+                             (self.ely, 'DSP2E32', Decimal('100.00'), self.pix))
+        # A proposta só pode ser usada uma vez.
+        self.assertEqual(self.client.post(f"/assistente/confirmar/{card['draft_id']}").status_code, 404)
+
+    def test_ambiguous_client_returns_question_not_draft(self):
+        response, fake = self.send([
+            [('propor_os', {'cliente_nome': 'alexandre bmw x', 'itens': [{'tipo': 'SERVICO', 'descricao': 'alinhamento'}]})],
+            'Qual Alexandre?',
+        ])
+        self.assertEqual(response.get_json()['cartoes'], [])
+        result = fake.calls[1]['input'][0]['result']
+        self.assertIn('candidatos', result)
+
+    def test_invalid_plate_and_unknown_draft(self):
+        response, fake = self.send([
+            [('propor_os', {'client_id': self.ely, 'placa': '12', 'itens': [{'tipo': 'SERVICO', 'descricao': 'x', 'valor_unitario': 10}]})],
+            'Placa inválida.',
+        ])
+        self.assertIn('inválida', fake.calls[1]['input'][0]['result'])
+        self.assertEqual(self.client.post('/assistente/confirmar/forjado').status_code, 404)
+
+    def test_finance_report_blocked_for_receptionist(self):
+        with self.app.app_context():
+            user = User(username='recep', role='RECEPCIONISTA', nome='Recepção')
+            user.set_password('recep-pass-123')
+            db.session.add(user)
+            db.session.commit()
+        self.client.post('/logout')
+        self.client.post('/login', data={'username': 'recep', 'password': 'recep-pass-123'})
+        response, fake = self.send([[('relatorio_periodo', {})], 'Sem acesso.'], 'quanto faturei?')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('não tem acesso', fake.calls[1]['input'][0]['result'])
+
+    def test_admin_report_uses_system_numbers(self):
+        response, fake = self.send([[('relatorio_periodo', {'inicio': '2026-10-01', 'fim': '2026-10-31'})], 'ok'], 'resumo do mês')
+        self.assertIn('saldo_atual_contas', fake.calls[1]['input'][0]['result'])
+
+    def test_missing_key_is_reported(self):
+        with patch.dict('os.environ', {'GEMINI_API_KEY': ''}):
+            response = self.client.post('/assistente/mensagem', json={'texto': 'oi'})
+        self.assertEqual(response.status_code, 503)
+
+    def test_provider_quota_error_is_friendly(self):
+        boom = SimpleNamespace(interactions=SimpleNamespace(create=lambda **_: (_ for _ in ()).throw(RuntimeError('429 RESOURCE_EXHAUSTED'))))
+        with patch.object(llm, 'make_client', return_value=boom):
+            response = self.client.post('/assistente/mensagem', json={'texto': 'oi'})
+        self.assertEqual(response.status_code, 502)
+        self.assertIn('Limite gratuito', response.get_json()['erro'])
+
+
+    def test_edit_open_work_order_after_confirmation(self):
+        response, _ = self.send([
+            [('propor_os', {'client_id': self.ely, 'itens': [{'tipo': 'SERVICO', 'catalogo_id': self.service, 'descricao': 'x'}]})], 'ok'])
+        numero = self.client.post(f"/assistente/confirmar/{response.get_json()['cartoes'][0]['draft_id']}").get_json()['numero']
+        response, _ = self.send([
+            [('propor_alteracao_os', {'numero': numero, 'adicionar_itens': [{'tipo': 'PECA', 'descricao': 'Bico de roda', 'valor_unitario': 20, 'quantidade': 2}]})],
+            'ok'], 'adiciona 2 bicos')
+        card = response.get_json()['cartoes'][0]
+        self.assertEqual((card['total_antes'], card['total']), (100.0, 140.0))
+        with self.app.app_context():
+            self.assertEqual(WorkOrder.query.filter_by(numero=numero).one().total_geral, Decimal('100.00'))
+        self.assertEqual(self.client.post(f"/assistente/confirmar/{card['draft_id']}").status_code, 200)
+        with self.app.app_context():
+            order = WorkOrder.query.filter_by(numero=numero).one()
+            self.assertEqual((order.total_geral, len(order.items)), (Decimal('140.00'), 2))
+
+
+if __name__ == '__main__':
+    unittest.main()

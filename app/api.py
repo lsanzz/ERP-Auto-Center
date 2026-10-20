@@ -564,6 +564,36 @@ def budget_convert(budget_id: int):
         return as_json({'error': str(exc)}, 400)
 
 
+def create_work_order_from_payload(data: dict) -> WorkOrder:
+    """Create an O.S. from an API-style payload; shared by the JSON API and the assistant. Caller commits."""
+    items_payload = _collect_work_order_item_payloads(data)
+    client = _resolve_or_create_client_from_payload(data)
+    order = WorkOrder(
+        client_id=client.id,
+        client_nome=(data.get('client_nome') or data.get('nome_cliente') or client.nome),
+        employee_id=int(data.get('employee_id')) if data.get('employee_id') else None,
+        budget_id=int(data.get('budget_id')) if data.get('budget_id') else None,
+        payment_method_id=int(data.get('payment_method_id')) if data.get('payment_method_id') else None,
+        numero=next_number(WorkOrder, get_system_settings().work_order_prefix or 'OS'),
+        status=data.get('status') or 'ABERTA',
+        data_entrada=parse_date(data.get('data_entrada')) or date.today(),
+        placa=(data.get('placa') or '').upper() or None,
+        veiculo_descricao=data.get('veiculo_descricao') or None,
+        observacoes=data.get('observacoes') or None,
+        installment_count=normalize_installment_count(data.get('payment_method_id'), data.get('installment_count')),
+        emitir_nota=True,
+    )
+    db.session.add(order)
+    link_vehicle(order, data)
+    db.session.flush()
+    record_work_order_status(order, order.status, current_user().id, 'O.S. cadastrada')
+    if items_payload:
+        replace_work_order_items(order, items_payload)
+    else:
+        recalculate_work_order_totals(order)
+    return order
+
+
 @api_bp.route('/os', methods=['GET', 'POST'])
 @api_login_required
 def work_orders_collection():
@@ -572,31 +602,7 @@ def work_orders_collection():
 
     data = payload()
     try:
-        items_payload = _collect_work_order_item_payloads(data)
-        client = _resolve_or_create_client_from_payload(data)
-        order = WorkOrder(
-            client_id=client.id,
-            client_nome=(data.get('client_nome') or data.get('nome_cliente') or client.nome),
-            employee_id=int(data.get('employee_id')) if data.get('employee_id') else None,
-            budget_id=int(data.get('budget_id')) if data.get('budget_id') else None,
-            payment_method_id=int(data.get('payment_method_id')) if data.get('payment_method_id') else None,
-            numero=next_number(WorkOrder, get_system_settings().work_order_prefix or 'OS'),
-            status=data.get('status') or 'ABERTA',
-            data_entrada=parse_date(data.get('data_entrada')) or date.today(),
-            placa=(data.get('placa') or '').upper() or None,
-            veiculo_descricao=data.get('veiculo_descricao') or None,
-            observacoes=data.get('observacoes') or None,
-            installment_count=normalize_installment_count(data.get('payment_method_id'), data.get('installment_count')),
-            emitir_nota=True,
-        )
-        db.session.add(order)
-        link_vehicle(order, data)
-        db.session.flush()
-        record_work_order_status(order, order.status, current_user().id, 'O.S. cadastrada')
-        if items_payload:
-            replace_work_order_items(order, items_payload)
-        else:
-            recalculate_work_order_totals(order)
+        order = create_work_order_from_payload(data)
         db.session.commit()
         return as_json(serialize_work_order(order), 201)
     except ValueError as exc:
