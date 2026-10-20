@@ -1,5 +1,5 @@
-<link rel="stylesheet" href="{{ url_for('static', filename='assistant.css') }}?v=3">
-<button type="button" class="ai-launcher" data-ai-open aria-controls="ai-panel" aria-expanded="false"><span aria-hidden="true">✦</span> Assistente</button>
+<link rel="stylesheet" href="{{ url_for('static', filename='assistant.css') }}?v=4">
+<button type="button" class="ai-launcher" data-ai-open aria-controls="ai-panel" aria-expanded="false" aria-label="Abrir assistente"><span class="ai-spark" aria-hidden="true">✦</span><span class="ai-label">Assistente</span></button>
 <aside class="ai-panel" id="ai-panel" hidden aria-label="Assistente de I.A." data-csrf="{{ csrf_token() }}"
        data-send="{{ url_for('assistant.message') }}" data-new="{{ url_for('assistant.new_conversation') }}"
        data-confirm="{{ url_for('assistant.confirm', draft_id='__ID__') }}" data-cancel="{{ url_for('assistant.cancel', draft_id='__ID__') }}">
