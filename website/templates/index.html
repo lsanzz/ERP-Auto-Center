@@ -32,12 +32,12 @@
   <div class="hero-pin">
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <p class="label"><span class="tick"></span> Sistema de gestão para oficinas</p>
+        <p class="label"><span class="tick"></span> Sistema para oficina mecânica</p>
         <h1 class="hero-title"><span class="line"><span>A oficina</span></span><span class="line"><span>inteira</span></span><span class="line"><span>em uma tela<em>.</em></span></span></h1>
-        <p class="hero-lead">Agenda, pátio, orçamentos, ordens de serviço, estoque e financeiro no mesmo lugar. Do agendamento à entrega das chaves.</p>
+        <p class="hero-lead">O.S., agenda, peças e dinheiro da oficina num lugar só. Fácil de usar, no computador ou no celular.</p>
         <div class="hero-actions">
           <a class="btn" href="#contato">Agendar demonstração</a>
-          <a class="btn btn-line" href="#recursos">Ver o sistema</a>
+          <a class="btn btn-line" href="#recursos">Ver como funciona</a>
         </div>
       </div>
       <div class="hero-stage" aria-hidden="true">
@@ -55,21 +55,21 @@
 
 <section class="ticker" aria-label="Módulos do sistema" data-scroll>
   <div class="ticker-track">
-    {% for item in ['Clientes', 'Veículos', 'Agenda', 'Pátio ao vivo', 'Orçamentos', 'Aprovação digital', 'Ordens de serviço', 'Inspeção com fotos', 'Estoque', 'Financeiro', 'Fiscal'] %}<span>{{ item }}</span>{% endfor %}
-    {% for item in ['Clientes', 'Veículos', 'Agenda', 'Pátio ao vivo', 'Orçamentos', 'Aprovação digital', 'Ordens de serviço', 'Inspeção com fotos', 'Estoque', 'Financeiro', 'Fiscal'] %}<span aria-hidden="true">{{ item }}</span>{% endfor %}
+    {% for item in ['Ordem de serviço', 'Orçamento', 'Agenda', 'Pátio', 'Estoque', 'Financeiro', 'Clientes', 'Nota fiscal'] %}<span>{{ item }}</span>{% endfor %}
+    {% for item in ['Ordem de serviço', 'Orçamento', 'Agenda', 'Pátio', 'Estoque', 'Financeiro', 'Clientes', 'Nota fiscal'] %}<span aria-hidden="true">{{ item }}</span>{% endfor %}
   </div>
 </section>
 
 <section class="statement" data-sticky>
   <div class="statement-pin wrap">
     <p class="label">01 — O problema</p>
-    <p class="statement-text" data-words>Um orçamento no WhatsApp. Uma peça anotada no papel. O financeiro em outra planilha. Quando tudo fica separado, a oficina trabalha mais para saber menos. O LS Hub junta essas pontas.</p>
+    <p class="statement-text" data-words>Orçamento no WhatsApp, peça no papel, conta na planilha. Assim as coisas se perdem. Aqui fica tudo junto.</p>
   </div>
 </section>
 
 <section class="tour" id="recursos">
   <div class="wrap">
-    <div class="sec-head"><p class="label">02 — O sistema</p><h2 class="sec-title">Cada etapa no lugar certo.</h2></div>
+    <div class="sec-head"><p class="label">02 — O sistema</p><h2 class="sec-title">Simples assim.</h2></div>
     <div class="tour-grid">
       <div class="tour-stage" aria-hidden="true">
         <div class="device">
@@ -88,11 +88,11 @@
         </div>
       </div>
       <ol class="tour-steps">
-        <li class="step is-active" data-step="0"><span class="step-n">2.1</span><h3>Pátio ao vivo</h3><p>Etapa, técnico, prazo e próxima ação de cada carro. Um clique avança a etapa e toda a equipe vê na hora. Atrasos aparecem destacados.</p></li>
-        <li class="step" data-step="1"><span class="step-n">2.2</span><h3>Ordem de serviço completa</h3><p>Peças, serviços, inspeção de entrada com fotos, pagamentos e histórico do veículo. PDF da ordem e do recibo em um clique.</p></li>
-        <li class="step" data-step="2"><span class="step-n">2.3</span><h3>Aprovação pelo celular</h3><p>O cliente recebe um link, vê o orçamento e aprova ou recusa. A resposta fica registrada e o orçamento vira O.S.</p></li>
-        <li class="step" data-step="3"><span class="step-n">2.4</span><h3>Financeiro conectado</h3><p>O serviço entregue vira conta a receber. Contas a pagar, parcelamentos, baixas, saldo por conta e caixa do dia.</p></li>
-        <li class="step" data-step="4"><span class="step-n">2.5</span><h3>Estoque que não some</h3><p>Peça reservada pela O.S. sai do disponível. Mínimo, curva ABC e histórico de cada movimentação.</p></li>
+        <li class="step is-active" data-step="0"><span class="step-n">2.1</span><h3>Pátio</h3><p>Veja onde está cada carro e o que falta fazer.</p></li>
+        <li class="step" data-step="1"><span class="step-n">2.2</span><h3>Ordem de serviço</h3><p>Peças, serviços e fotos do carro. Imprime em um clique.</p></li>
+        <li class="step" data-step="2"><span class="step-n">2.3</span><h3>Orçamento pelo celular</h3><p>O cliente recebe um link e aprova na hora.</p></li>
+        <li class="step" data-step="3"><span class="step-n">2.4</span><h3>Financeiro</h3><p>Carro entregue já entra no caixa. Sem digitar duas vezes.</p></li>
+        <li class="step" data-step="4"><span class="step-n">2.5</span><h3>Estoque</h3><p>Avisa quando a peça está acabando.</p></li>
       </ol>
     </div>
   </div>
@@ -100,13 +100,13 @@
 
 <section class="flow" id="como-funciona" data-scroll>
   <div class="wrap">
-    <div class="sec-head"><p class="label">03 — O fluxo</p><h2 class="sec-title">Da entrada à entrega.</h2></div>
+    <div class="sec-head"><p class="label">03 — O fluxo</p><h2 class="sec-title">Do carro chegando ao carro saindo.</h2></div>
     <div class="flow-line"><i></i></div>
     <ol class="flow-steps">
-      <li class="reveal"><span>01</span><h3>Agende e receba</h3><p>Agenda por box e técnico, cadastro do veículo e inspeção de entrada.</p></li>
-      <li class="reveal"><span>02</span><h3>Orce e aprove</h3><p>Peças e serviços no orçamento e link para o cliente aprovar.</p></li>
-      <li class="reveal"><span>03</span><h3>Execute</h3><p>Etapas do pátio, reservas de peças e ordem de serviço.</p></li>
-      <li class="reveal"><span>04</span><h3>Entregue</h3><p>Pagamento, faturamento e histórico do atendimento.</p></li>
+      <li class="reveal"><span>01</span><h3>Recebe</h3><p>Agenda e cadastra o carro.</p></li>
+      <li class="reveal"><span>02</span><h3>Orça</h3><p>Cliente aprova pelo celular.</p></li>
+      <li class="reveal"><span>03</span><h3>Faz o serviço</h3><p>Acompanha tudo pelo pátio.</p></li>
+      <li class="reveal"><span>04</span><h3>Entrega</h3><p>Recebe e fica no histórico.</p></li>
     </ol>
   </div>
 </section>
@@ -115,27 +115,27 @@
 
 <section class="plans" id="planos">
   <div class="wrap">
-    <div class="sec-head"><p class="label">05 — Planos</p><h2 class="sec-title">Preço claro, sem surpresa.</h2></div>
+    <div class="sec-head"><p class="label">05 — Planos</p><h2 class="sec-title">Preço fixo, sem surpresa.</h2></div>
     <div class="plans-grid">
-      <article class="plan reveal"><p class="label">Para começar</p><h3>Essencial</h3><p class="price"><span>R$</span>89,90</p><p class="price-note">por mês · até 2 usuários</p><ul><li>Clientes e veículos com histórico</li><li>Orçamentos e ordens de serviço</li><li>Peças e serviços</li><li>Documentos em PDF</li><li>Controle básico de pagamentos</li><li>Configuração inicial remota</li></ul><a class="btn btn-line" href="#contato" data-plan="Essencial">Escolher Essencial</a></article>
-      <article class="plan plan-featured reveal"><p class="label">Mais escolhido</p><h3>Profissional</h3><p class="price"><span>R$</span>179,90</p><p class="price-note">por mês · até 5 usuários</p><ul><li>Tudo do Essencial</li><li>Agenda e painel do pátio</li><li>Inspeção de entrada com fotos</li><li>Aprovação digital de orçamentos</li><li>Reservas e movimentações de estoque</li><li>Contas a pagar e receber, relatórios</li></ul><a class="btn" href="#contato" data-plan="Profissional">Escolher Profissional</a></article>
-      <article class="plan reveal"><p class="label">Gestão completa</p><h3>Gestão</h3><p class="price"><span>R$</span>299,90</p><p class="price-note">por mês · até 10 usuários</p><ul><li>Tudo do Profissional</li><li>Integração para emissão fiscal*</li><li>Perfis de acesso por função</li><li>Rastreabilidade de alterações</li><li>Treinamento remoto da equipe</li><li>Suporte prioritário</li></ul><a class="btn btn-line" href="#contato" data-plan="Gestão">Escolher Gestão</a></article>
+      <article class="plan reveal"><p class="label">Para começar</p><h3>Essencial</h3><p class="price"><span>R$</span>89,90</p><p class="price-note">por mês · até 2 usuários</p><ul><li>Clientes e carros</li><li>Orçamentos e O.S.</li><li>Impressão em PDF</li><li>Ajuda para começar</li></ul><a class="btn btn-line" href="#contato" data-plan="Essencial">Escolher Essencial</a></article>
+      <article class="plan plan-featured reveal"><p class="label">Mais escolhido</p><h3>Profissional</h3><p class="price"><span>R$</span>179,90</p><p class="price-note">por mês · até 5 usuários</p><ul><li>Tudo do Essencial</li><li>Agenda e pátio</li><li>Orçamento aprovado pelo celular</li><li>Estoque e financeiro</li></ul><a class="btn" href="#contato" data-plan="Profissional">Escolher Profissional</a></article>
+      <article class="plan reveal"><p class="label">Gestão completa</p><h3>Gestão</h3><p class="price"><span>R$</span>299,90</p><p class="price-note">por mês · até 10 usuários</p><ul><li>Tudo do Profissional</li><li>Nota fiscal*</li><li>Acesso por função da equipe</li><li>Treinamento e suporte prioritário</li></ul><a class="btn btn-line" href="#contato" data-plan="Gestão">Escolher Gestão</a></article>
     </div>
-    <p class="footnote">Valores mensais por oficina, com configuração inicial remota incluída. Migração avançada, integrações específicas, certificado digital e cobranças do provedor fiscal são avaliados à parte. * A emissão fiscal depende de configuração, credenciais e habilitação do provedor. Pedir uma demonstração não gera assinatura nem cobrança.</p>
+    <p class="footnote">Valor mensal por oficina. * Nota fiscal depende de certificado digital e do provedor fiscal, cobrados à parte. Pedir demonstração é grátis.</p>
   </div>
 </section>
 
 <section class="faq" id="duvidas">
   <div class="wrap faq-grid">
-    <div class="sec-head"><p class="label">06 — Dúvidas</p><h2 class="sec-title">Antes de começar.</h2>{% if whatsapp_url and whatsapp_url != '#' %}<a class="btn btn-line" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>{% endif %}</div>
+    <div class="sec-head"><p class="label">06 — Dúvidas</p><h2 class="sec-title">Dúvidas comuns.</h2>{% if whatsapp_url and whatsapp_url != '#' %}<a class="btn btn-line" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>{% endif %}</div>
     <div class="faq-list">
-      <details class="reveal"><summary>Preciso instalar algum programa?</summary><p>Não. O acesso é pelo navegador, em app.lshub.com.br, com usuário e senha. Você só precisa de internet.</p></details>
-      <details class="reveal"><summary>Funciona no celular?</summary><p>Sim, as telas se adaptam ao celular. Na demonstração conferimos as atividades que sua equipe pretende fazer por ele.</p></details>
-      <details class="reveal"><summary>O cliente aprova o orçamento online?</summary><p>Sim. A oficina gera um link para o cliente aprovar ou recusar, com registro da resposta. O link é compartilhado pela oficina; envio automático depende de integração adicional.</p></details>
-      <details class="reveal"><summary>O sistema emite nota fiscal?</summary><p>Há integração com a Focus NFe. A emissão depende da configuração da empresa, documentos, credenciais e disponibilidade do serviço fiscal. Confirmamos compatibilidade e custos na proposta.</p></details>
-      <details class="reveal"><summary>Consigo trazer os dados do sistema atual?</summary><p>O sistema importa clientes, ordens de serviço e financeiro de planilhas e exportações (CSV, HTML, XLS e XLSX). O escopo é combinado antes da implantação.</p></details>
-      <details class="reveal"><summary>Como funcionam planos e cancelamento?</summary><p>Os planos custam R$ 89,90, R$ 179,90 ou R$ 299,90 por mês, conforme recursos e usuários. A proposta registra plano, atendimento, condições de cancelamento e serviços adicionais.</p></details>
-      <details class="reveal"><summary>Posso gerenciar várias oficinas?</summary><p>Hoje cada instalação atende uma oficina. Se você tem mais unidades, converse conosco para avaliar a implantação.</p></details>
+      <details class="reveal"><summary>Preciso instalar algum programa?</summary><p>Não. É só abrir o site e entrar com usuário e senha.</p></details>
+      <details class="reveal"><summary>Funciona no celular?</summary><p>Sim. Dá para usar no celular, no tablet e no computador.</p></details>
+      <details class="reveal"><summary>O cliente aprova o orçamento online?</summary><p>Sim. Você manda um link e ele aprova ou recusa pelo celular.</p></details>
+      <details class="reveal"><summary>O sistema emite nota fiscal?</summary><p>Sim, com certificado digital e provedor fiscal. Explicamos tudo na demonstração.</p></details>
+      <details class="reveal"><summary>Consigo trazer os dados do sistema atual?</summary><p>Sim. Trazemos clientes, O.S. e financeiro do seu sistema ou planilha.</p></details>
+      <details class="reveal"><summary>Como funcionam planos e cancelamento?</summary><p>É mensal. As condições ficam escritas na proposta, sem pegadinha.</p></details>
+      <details class="reveal"><summary>Posso gerenciar várias oficinas?</summary><p>Cada oficina tem o seu acesso. Tem mais de uma? Fale com a gente.</p></details>
     </div>
   </div>
 </section>
@@ -144,9 +144,9 @@
   <div class="wrap contact-grid">
     <div class="contact-copy">
       <p class="label">07 — Contato</p>
-      <h2 class="sec-title">Vamos ver a sua oficina funcionando.</h2>
-      <p>Conte um pouco da operação. Combinamos uma demonstração com a rotina da sua oficina, sem compromisso.</p>
-      <ul class="dash-list"><li>Demonstração com o seu contexto</li><li>Conversa direta com quem conhece o sistema</li><li>Proposta com escopo e valores claros</li></ul>
+      <h2 class="sec-title">Quer ver funcionando?</h2>
+      <p>Deixe seu contato. Mostramos o sistema com o jeito da sua oficina, sem compromisso.</p>
+      <ul class="dash-list"><li>Demonstração rápida</li><li>Conversa direta, sem enrolação</li></ul>
       {% if whatsapp_url and whatsapp_url != '#' %}<a class="contact-whatsapp" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">Prefere agora? Chame no WhatsApp →</a>{% endif %}
     </div>
     <form class="lead-form" method="post" action="{{ url_for('demonstration') }}#contato" novalidate>

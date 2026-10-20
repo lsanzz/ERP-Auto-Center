@@ -1,17 +1,14 @@
 {% set features = [
-  ('Clientes e veículos', 'Cadastro, quilometragem e histórico de cada atendimento.'),
-  ('Agenda e recursos', 'Agendamentos por box, elevador e técnico, sem conflito.'),
-  ('Pátio ao vivo', 'Etapa, prazo e próxima ação de cada carro.'),
-  ('Aprovação digital', 'Link para o cliente aprovar, com resposta registrada.'),
-  ('Ordens de serviço', 'Peças, serviços, pagamentos e PDF em um clique.'),
-  ('Estoque rastreável', 'Reserva pela O.S., mínimo, curva ABC e histórico.'),
-  ('Financeiro', 'A pagar, a receber, parcelas, baixas e caixa do dia.'),
-  ('Fiscal e XML', 'Importação de XML e integração com a Focus NFe.*'),
-  ('Acesso e auditoria', 'Perfis por função, verificação em duas etapas e registro de alterações.'),
+  ('Clientes e carros', 'Histórico de tudo que já foi feito.'),
+  ('Agenda', 'Sem dois carros no mesmo horário.'),
+  ('Ordem de serviço', 'Pronta e impressa em minutos.'),
+  ('Estoque', 'Sabe o que tem e o que falta.'),
+  ('Financeiro', 'O que entra, o que sai e o saldo.'),
+  ('Nota fiscal', 'Emitida pelo próprio sistema.*'),
 ] %}
 <section class="index">
   <div class="wrap">
-    <div class="sec-head"><p class="label">04 — Módulos</p><h2 class="sec-title">Tudo conversa com tudo.</h2></div>
+    <div class="sec-head"><p class="label">04 — Módulos</p><h2 class="sec-title">O que tem no sistema.</h2></div>
     <ol class="index-list">
       {% for title, text in features %}
       <li class="reveal"><span class="index-n">{{ '%02d' % loop.index }}</span><h3>{{ title }}</h3><p>{{ text }}</p><span class="index-arrow" aria-hidden="true">→</span></li>

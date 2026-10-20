@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% from '_icons.html' import icon with context %}<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -446,13 +446,13 @@
         <span>Menu do sistema</span><span class="mobile-nav-state" aria-hidden="true">+</span>
       </button>
       <nav id="main-navigation" class="nav-pill-container grouped-nav" aria-label="Menu principal">
-        <a href="{{ url_for('web.dashboard') }}">Painel</a>
-        <details class="nav-group"><summary>Cadastros</summary><div class="nav-dropdown">
+        <a href="{{ url_for('web.dashboard') }}">{{ icon('pie') }}Painel</a>
+        <details class="nav-group"><summary>{{ icon('list') }}Cadastros</summary><div class="nav-dropdown">
         {% if can('customers.manage') %}<a href="{{ url_for('web.clients_index') }}">Clientes</a>{% endif %}
         {% if can('vehicles.view') %}<a href="{{ url_for('fleet.index') }}">Veículos</a>{% endif %}
         <a href="{{ url_for('web.services_index') }}">Serviços</a>
         </div></details>
-        {% if can('scheduling.view') or can('work_orders.view') or can('estimates.manage') or can('vehicles.view') %}<details class="nav-group"><summary>Atendimento</summary><div class="nav-dropdown">
+        {% if can('scheduling.view') or can('work_orders.view') or can('estimates.manage') or can('vehicles.view') %}<details class="nav-group"><summary>{{ icon('wrench') }}Atendimento</summary><div class="nav-dropdown">
         {% if can('scheduling.view') %}<a href="{{ url_for('scheduling.index') }}">Agenda</a>{% endif %}
         {% if can('work_orders.view') %}<a href="{{ url_for('scheduling.floor') }}">Painel do pátio</a>{% endif %}
         {% if can('work_orders.view') %}<a href="{{ url_for('scheduling.board') }}">Pátio</a>{% endif %}
@@ -461,12 +461,12 @@
         {% if can('work_orders.manage') %}<a href="{{ url_for('web.work_orders_new') }}">Abrir O.S.</a>{% endif %}
         {% if can('vehicles.view') %}<a href="{{ url_for('web.plate_lookup_page') }}">Consultar placa</a>{% endif %}
         </div></details>{% endif %}
-        {% if can('inventory.view') %}<details class="nav-group"><summary>Estoque</summary><div class="nav-dropdown">
+        {% if can('inventory.view') %}<details class="nav-group"><summary>{{ icon('package') }}Estoque</summary><div class="nav-dropdown">
         <a href="{{ url_for('operations.inventory') }}">Estoque</a>
         <a href="{{ url_for('web.products_index') }}">Peças e produtos</a>
         </div></details>{% endif %}
         {% if can('finance.view') %}
-        <details class="nav-group"><summary>Gestão</summary><div class="nav-dropdown">
+        <details class="nav-group"><summary>{{ icon('trend') }}Gestão</summary><div class="nav-dropdown">
         <a href="{{ url_for('web.finance_index') }}">Financeiro</a>
         <a href="{{ url_for('business.finance_calendar') }}">Calendário financeiro</a>
         {% if can('reports.view') %}<a href="{{ url_for('business.balance') }}">Balancete e fluxo</a>{% endif %}
@@ -856,6 +856,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <link rel="stylesheet" href="{{ url_for('static', filename='lshub-ui.css') }}?v=4">
   <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}?v=2">
 {% include '_design_system.html' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=1">
   <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=2" defer></script>
   <script src="{{ url_for('static', filename='responsive.js') }}?v=2" defer></script>
   {% if assistant_enabled and current_user() and can('work_orders.manage') %}{% include '_assistant.html' %}{% endif %}

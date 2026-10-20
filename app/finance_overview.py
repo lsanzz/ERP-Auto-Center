@@ -75,7 +75,72 @@ def home_context(role):
                 active_reservations=StockReservation.query.filter_by(status='ATIVA').count(),
                 open_purchases=PurchaseRequest.query.filter(PurchaseRequest.status.in_(['ABERTA', 'APROVADA'])).count(),
                 unreconciled=unreconciled,
-                finance=financial_overview(today) if role in {'ADMINISTRADOR', 'FINANCEIRO'} else None)
+                finance=financial_overview(today) if role in {'ADMINISTRADOR', 'FINANCEIRO'} else None,
+                charts=dashboard_charts(today, with_money=role in {'ADMINISTRADOR', 'FINANCEIRO'}))
+
+
+MONTHS_PT = ('jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez')
+STATUS_LABELS = (('ABERTA', 'Abertas'), ('EM_ANDAMENTO', 'Em andamento'), ('AGUARDANDO_PECA', 'Aguardando peça'))
+
+
+def area_path(values, width=600, height=180, pad=8):
+    """Pontos, linha e área SVG para uma série; desenhado no servidor para não carregar biblioteca de gráficos."""
+    peak = max(values + [1])
+    step = (width - 2 * pad) / max(len(values) - 1, 1)
+    points = [(round(pad + i * step, 1), round(height - pad - (v / peak) * (height - 2 * pad), 1)) for i, v in enumerate(values)]
+    line = 'M' + ' L'.join(f'{x},{y}' for x, y in points)
+    area = f'{line} L{points[-1][0]},{height} L{points[0][0]},{height} Z' if points else ''
+    return {'line': line, 'area': area, 'points': points}
+
+
+def dashboard_charts(today=None, with_money=True):
+    """Dados dos gráficos do painel: faturamento de 6 meses, O.S. por situação, formas de pagamento e serviços."""
+    from .services import services_rank
+    today = today or date.today()
+    closed = ['FINALIZADA', 'ENTREGUE']
+    charts = {}
+    counts = dict(db.session.query(WorkOrder.status, func.count(WorkOrder.id)).filter(
+        WorkOrder.status.in_([code for code, _ in STATUS_LABELS])).group_by(WorkOrder.status).all())
+    month_start = today.replace(day=1)
+    done = WorkOrder.query.filter(WorkOrder.status.in_(closed), WorkOrder.data_entrada >= month_start).count()
+    slices = [dict(label=label, value=counts.get(code, 0)) for code, label in STATUS_LABELS] + [dict(label='Finalizadas no mês', value=done)]
+    total = sum(item['value'] for item in slices) or 1
+    offset = 0
+    for item in slices:
+        item['pct'] = round(item['value'] * 100 / total, 2)
+        item['offset'] = round(offset, 2)
+        offset += item['pct']
+    charts['status'] = dict(slices=slices, total=sum(item['value'] for item in slices))
+    rank = services_rank(6)
+    top = max([item['quantidade'] for item in rank] + [1])
+    charts['services'] = [dict(item, pct=round(item['quantidade'] * 100 / top)) for item in rank]
+    if not with_money:
+        return charts
+    first = (month_start - timedelta(days=150)).replace(day=1)
+    rows = db.session.query(WorkOrder.data_entrada, WorkOrder.total_geral).filter(
+        WorkOrder.status.in_(closed), WorkOrder.data_entrada >= first).all()
+    months = []
+    cursor = first
+    while cursor <= month_start:
+        months.append({'key': (cursor.year, cursor.month), 'label': MONTHS_PT[cursor.month - 1], 'value': Decimal('0'), 'count': 0})
+        cursor = (cursor + timedelta(days=32)).replace(day=1)
+    index = {m['key']: m for m in months}
+    for day, value in rows:
+        bucket = index.get((day.year, day.month))
+        if bucket:
+            bucket['value'] += value or 0
+            bucket['count'] += 1
+    series = [float(m['value']) for m in months]
+    charts['revenue'] = dict(months=months, path=area_path(series), current=months[-1]['value'], previous=months[-2]['value'] if len(months) > 1 else 0)
+    previous = charts['revenue']['previous']
+    charts['revenue']['change'] = round((float(charts['revenue']['current']) - float(previous)) * 100 / float(previous), 1) if previous else None
+    mix = db.session.query(PaymentMethod.nome, func.coalesce(func.sum(WorkOrder.total_geral), 0)).join(
+        WorkOrder, WorkOrder.payment_method_id == PaymentMethod.id).filter(
+        WorkOrder.status.in_(closed), WorkOrder.data_entrada >= month_start).group_by(PaymentMethod.nome).all()
+    mix = sorted(([name, float(value)] for name, value in mix), key=lambda row: -row[1])[:5]
+    top_mix = max([value for _, value in mix] + [1])
+    charts['payments'] = [dict(nome=name, valor=value, pct=round(value * 100 / top_mix)) for name, value in mix]
+    return charts
 
 
 def render_finance():

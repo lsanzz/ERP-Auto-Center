@@ -1,0 +1,32 @@
+/* Acabamento global: ícones, entrada suave das páginas e hover em cartões e tabelas. Só transform/opacity/cores. */
+.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;vertical-align:-3px}
+.ic.sm{width:14px;height:14px}
+.grouped-nav>a{display:inline-flex;align-items:center;gap:8px}
+.grouped-nav .ic{width:16px;height:16px;opacity:.8;transition:transform .2s ease,opacity .2s ease}
+.grouped-nav>a:hover .ic,.nav-group>summary:hover .ic,.nav-group[open]>summary .ic{opacity:1;transform:translateY(-1px) scale(1.08)}
+.nav-dropdown{animation:menu-in .16s ease-out}
+.nav-dropdown a{transition:background .15s ease,transform .15s ease}
+.nav-dropdown a:hover{transform:translateX(3px)}
+
+.page-header,.table-card,.card,.hub-panel,.hub-kpi,.hub-header{animation:page-in .4s cubic-bezier(.2,.8,.2,1) backwards}
+.table-card,.card,.hub-panel{transition:box-shadow .2s ease,border-color .2s ease}
+.table-card:hover,.card:hover,.hub-panel:hover{box-shadow:0 12px 30px rgba(15,23,42,.06)}
+.hub-kpi{transition:transform .18s ease,box-shadow .18s ease}
+a.hub-kpi:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,23,42,.07)}
+.page-header h2,.hub-header h2{position:relative}
+.page-header h2::after{content:'';display:block;width:36px;height:3px;margin-top:8px;border-radius:3px;background:linear-gradient(90deg,#3b82f6,#6366f1);transform-origin:left;animation:bar-in .6s cubic-bezier(.2,.8,.2,1) .15s backwards}
+
+.table tbody tr,.hub-table tbody tr{transition:background-color .15s ease}
+.table tbody tr:hover,.hub-table tbody tr:hover{background:#f8fafc}
+body :is(button,.button){transition:transform .12s ease,box-shadow .18s ease,background .18s ease}
+body :is(button,.button):active{transform:scale(.97)}
+.status-badge,.hub-badge{transition:transform .15s ease}
+.status-badge .status-dot{animation:pulse-dot 2.4s ease-in-out infinite}
+dialog[open]{animation:dialog-in .2s ease-out}
+
+@keyframes page-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes menu-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes bar-in{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes dialog-in{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.45}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}

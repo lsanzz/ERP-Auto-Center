@@ -1,13 +1,108 @@
 {% extends 'base.html' %}{% block content %}
+{% from '_icons.html' import icon with context %}
 <link rel="stylesheet" href="{{ url_for('static', filename='overview.css') }}?v=2">
 <link rel="stylesheet" href="{{ url_for('static', filename='role-dashboard.css') }}?v=1">
 <link rel="stylesheet" href="{{ url_for('static', filename='bank-accounts.css') }}?v=2">
-<main class="hub">
-<div class="hub-header"><div><p class="hub-role">{{ role|replace('_',' ') }}</p><h2>Seu dia na oficina</h2><p>Olá, {{ current_user().nome.split()[0] }}. Veja o que precisa da sua atenção hoje.</p></div><div class="hub-actions"><span class="hub-badge">{{ today|date_br }}</span>{% if can('scheduling.manage') %}<a class="button secondary" href="{{ url_for('scheduling.new') }}">Agendar serviço</a>{% endif %}{% if can('work_orders.manage') %}<a class="button" href="{{ url_for('web.work_orders_new') }}">Nova O.S.</a>{% endif %}</div></div>
-{% if can('scheduling.view') or can('work_orders.view') %}<div class="hub-kpis">{% if can('scheduling.view') %}<a class="hub-kpi primary" href="{{ url_for('scheduling.index') }}"><span>Agenda de hoje</span><strong>{{ appointments|length }}</strong><small>Agendamentos do dia</small></a>{% endif %}{% if can('work_orders.view') %}<a class="hub-kpi" href="{{ url_for('scheduling.board') }}"><span>O.S. em aberto</span><strong>{{ data.os_abertas }}</strong><small>{{ data.os_andamento }} em andamento</small></a><a class="hub-kpi" href="{{ url_for('scheduling.board') }}"><span>Prontos para entrega</span><strong>{{ ready }}</strong><small>Veículos na etapa Pronto</small></a><a class="hub-kpi" href="{{ url_for('scheduling.board') }}"><span>Prazo de entrega vencido</span><strong>{{ delayed }}</strong><small>Confira as prioridades no pátio</small></a>{% endif %}</div>{% endif %}
-{% if role == 'ESTOQUISTA' %}<div class="hub-kpis"><a class="hub-kpi primary" href="{{ url_for('operations.inventory') }}"><span>Abaixo do mínimo</span><strong>{{ low_stock }}</strong><small>Produtos para repor</small></a><div class="hub-kpi"><span>Reservas ativas</span><strong>{{ active_reservations }}</strong><small>Peças comprometidas com O.S.</small></div><a class="hub-kpi" href="{{ url_for('management.index') }}"><span>Compras abertas</span><strong>{{ open_purchases }}</strong><small>Solicitações em andamento</small></a></div>{% endif %}
-{% if role == 'FINANCEIRO' %}<div class="hub-kpis"><a class="hub-kpi primary" href="{{ url_for('management.index') }}"><span>Sem conciliação</span><strong>{{ unreconciled }}</strong><small>Transações bancárias</small></a></div>{% endif %}
-<div class="hub-grid">{% if can('scheduling.view') %}<section class="hub-panel"><div class="hub-panel-head"><h3>Agenda de hoje</h3><a href="{{ url_for('scheduling.index') }}">Abrir agenda →</a></div><div class="hub-list">{% for item in appointments %}<a class="hub-row" href="{{ url_for('scheduling.edit', appointment_id=item.id) if can('scheduling.manage') else url_for('scheduling.index', dia=item.start_at.date().isoformat()) }}"><time class="hub-time">{{ item.start_at.strftime('%H:%M') }}</time><div class="hub-row-main"><strong>{{ item.client.nome }}</strong><small>{{ item.servico_previsto }} · {{ item.vehicle.placa if item.vehicle else 'Sem veículo vinculado' }}</small><small>{{ item.employee.nome if item.employee else 'Sem responsável' }} · até {{ item.end_at.strftime('%H:%M') }}</small></div><span class="hub-badge">{{ item.status|replace('_',' ') }}</span></a>{% else %}<div class="hub-empty">Nenhum serviço agendado para hoje.{% if can('scheduling.manage') %}<br><a href="{{ url_for('scheduling.new') }}">Criar primeiro agendamento</a>{% endif %}</div>{% endfor %}</div></section>{% endif %}
-<section class="hub-panel"><div class="hub-panel-head"><h3>{{ 'Contas que pedem atenção' if finance else 'Serviços mais realizados' }}</h3>{% if finance %}<a href="{{ url_for('web.finance_index') }}">Ver contas →</a>{% endif %}</div>{% if finance %}{% for item in finance.upcoming %}<a class="hub-row" href="{{ url_for('web.finance_index', q=item.descricao) }}"><div class="hub-row-main"><strong>{{ item.descricao }}</strong><small>{{ 'A receber' if item.entry_type == 'RECEBER' else 'A pagar' }} · {{ item.vencimento|date_br }}</small></div><div><strong>{{ format_currency(item.valor) }}</strong>{% if item.vencimento < today %}<small class="hub-badge late">Vencida</small>{% endif %}</div></a>{% else %}<div class="hub-empty">Tudo em dia. Nenhuma conta pendente.</div>{% endfor %}{% else %}{% for item in data.services_rank %}<div class="hub-row"><strong>{{ item.descricao }}</strong><span>{{ item.quantidade|int }}</span></div>{% else %}<div class="hub-empty">Os serviços concluídos aparecerão aqui.</div>{% endfor %}{% endif %}</section></div>
-{% if finance %}<div class="hub-panel-head"><h3>Visão financeira</h3><a href="{{ url_for('web.finance_index') }}">Abrir financeiro →</a></div><div class="hub-kpis"><div class="hub-kpi primary"><span>Saldo nas contas</span><strong>{{ format_currency(finance.balance) }}</strong><small>Contas bancárias ativas</small></div><div class="hub-kpi"><span>Recebido neste mês</span><strong>{{ format_currency(finance.received) }}</strong><small>Até hoje · valor líquido</small></div><div class="hub-kpi"><span>Pago neste mês</span><strong>{{ format_currency(finance.paid) }}</strong><small>Até hoje · valor líquido</small></div><div class="hub-kpi"><span>Resultado de caixa do mês</span><strong>{{ format_currency(finance.result) }}</strong><small>Recebimentos menos pagamentos</small></div></div><section class="hub-panel hub-bank-overview" id="contas"><div class="hub-panel-head bank-overview-heading"><div><h3>Contas bancárias</h3><div class="bank-total"><span>Saldo total</span><strong>{{ format_currency(finance.balance) }}</strong></div><p>O saldo é atualizado quando uma receita ou despesa é confirmada.</p></div><div class="hub-actions"><a href="{{ url_for('web.finance_index') }}">Ver movimentações →</a><button type="button" class="secondary" onclick="document.getElementById('new-bank-account').showModal()">+ Nova conta</button></div></div>{% include 'dashboard/_accounts.html' %}</section><div class="hub-grid">{% include 'dashboard/_cash.html' %}<section class="hub-panel"><div class="hub-panel-head"><h3>Previsão de caixa</h3><span class="hub-badge">30 dias</span></div><div class="hub-kpi"><span>Saldo previsto</span><strong>{{ format_currency(finance.projected) }}</strong></div><p class="hub-note">Saldo atual + contas a receber − contas a pagar com vencimento de hoje aos próximos 30 dias. Contas já vencidas ficam fora desta previsão.</p><a class="hub-row" href="{{ url_for('web.finance_index',view='overdue',kind='RECEBER') }}"><span>Recebimentos vencidos</span><strong>{{ format_currency(finance.overdue_receivable) }}</strong></a><a class="hub-row" href="{{ url_for('web.finance_index',view='overdue',kind='PAGAR') }}"><span>Pagamentos vencidos</span><strong>{{ format_currency(finance.overdue_payable) }}</strong></a></section></div>{% endif %}
-</main>{% endblock %}
+<link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v=1">
+<main class="hub dash">
+<header class="dash-hero rise" style="--i:0">
+  <div>
+    <p class="hub-role">{{ role|replace('_',' ') }} · {{ today|date_br }}</p>
+    <h2>Seu dia na oficina</h2>
+    <p>Olá, {{ current_user().nome.split()[0] }}. Este é o resumo de hoje.</p>
+  </div>
+  <div class="hub-actions">
+    {% if can('scheduling.manage') %}<a class="button secondary" href="{{ url_for('scheduling.new') }}">{{ icon('calendar') }} Agendar</a>{% endif %}
+    {% if can('work_orders.manage') %}<a class="button" href="{{ url_for('web.work_orders_new') }}">{{ icon('plus') }} Nova O.S.</a>{% endif %}
+  </div>
+</header>
+
+{% if can('scheduling.view') or can('work_orders.view') %}
+<div class="dash-kpis">
+  {% if can('scheduling.view') %}<a class="dash-kpi rise" style="--i:1" href="{{ url_for('scheduling.index') }}"><span class="chip blue">{{ icon('calendar') }}</span><span class="label">Agenda de hoje</span><strong data-count="{{ appointments|length }}">{{ appointments|length }}</strong><small>agendamentos</small></a>{% endif %}
+  {% if can('work_orders.view') %}
+  <a class="dash-kpi rise" style="--i:2" href="{{ url_for('web.work_orders_index') }}"><span class="chip indigo">{{ icon('wrench') }}</span><span class="label">O.S. em aberto</span><strong data-count="{{ data.os_abertas }}">{{ data.os_abertas }}</strong><small>{{ data.os_andamento }} em andamento</small></a>
+  <a class="dash-kpi rise" style="--i:3" href="{{ url_for('scheduling.board') }}"><span class="chip green">{{ icon('check') }}</span><span class="label">Prontos p/ entrega</span><strong data-count="{{ ready }}">{{ ready }}</strong><small>na etapa Pronto</small></a>
+  <a class="dash-kpi rise {{ 'alert' if delayed }}" style="--i:4" href="{{ url_for('scheduling.board') }}"><span class="chip {{ 'red' if delayed else 'slate' }}">{{ icon('alert') }}</span><span class="label">Prazo vencido</span><strong data-count="{{ delayed }}">{{ delayed }}</strong><small>{{ 'confira o pátio' if delayed else 'nada atrasado' }}</small></a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if role == 'ESTOQUISTA' %}<div class="dash-kpis">
+  <a class="dash-kpi rise" style="--i:1" href="{{ url_for('operations.inventory') }}"><span class="chip red">{{ icon('package') }}</span><span class="label">Abaixo do mínimo</span><strong data-count="{{ low_stock }}">{{ low_stock }}</strong><small>produtos para repor</small></a>
+  <div class="dash-kpi rise" style="--i:2"><span class="chip indigo">{{ icon('wrench') }}</span><span class="label">Reservas ativas</span><strong data-count="{{ active_reservations }}">{{ active_reservations }}</strong><small>peças comprometidas</small></div>
+  <a class="dash-kpi rise" style="--i:3" href="{{ url_for('management.index') }}"><span class="chip blue">{{ icon('receipt') }}</span><span class="label">Compras abertas</span><strong data-count="{{ open_purchases }}">{{ open_purchases }}</strong><small>solicitações</small></a>
+</div>{% endif %}
+{% if role == 'FINANCEIRO' %}<div class="dash-kpis"><a class="dash-kpi rise" style="--i:1" href="{{ url_for('management.index') }}"><span class="chip amber">{{ icon('bank') }}</span><span class="label">Sem conciliação</span><strong data-count="{{ unreconciled }}">{{ unreconciled }}</strong><small>transações bancárias</small></a></div>{% endif %}
+
+{% if charts.revenue or can('work_orders.view') %}
+<div class="dash-grid">
+  {% if charts.revenue %}{% set rev = charts.revenue %}
+  <section class="dash-card wide rise" style="--i:5">
+    <div class="dash-card-head"><div><span class="chip blue sm">{{ icon('trend') }}</span><h3>Faturamento de O.S.</h3></div><span class="hub-badge">6 meses</span></div>
+    <div class="dash-big"><strong data-count="{{ rev.current }}" data-money>{{ format_currency(rev.current) }}</strong><small class="muted">mês atual até hoje</small>
+      {% if rev.change is not none %}<span class="delta {{ 'up' if rev.change >= 0 else 'down' }}">{{ icon('up' if rev.change >= 0 else 'down') }}{{ '%+.1f'|format(rev.change)|replace('.', ',') }}% vs mês anterior</span>{% endif %}</div>
+    <svg class="area" viewBox="0 0 600 180" role="img" aria-label="Faturamento mensal de O.S. finalizadas">
+      <defs><linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b82f6" stop-opacity=".28"/><stop offset="1" stop-color="#3b82f6" stop-opacity="0"/></linearGradient></defs>
+      <path class="area-fill" d="{{ rev.path.area }}" fill="url(#areaFill)"/>
+      <path class="area-line" d="{{ rev.path.line }}" pathLength="1"/>
+      {% for x, y in rev.path.points %}<circle class="area-dot" cx="{{ x }}" cy="{{ y }}" r="4" style="--d:{{ loop.index0 }}"><title>{{ rev.months[loop.index0].label }}: {{ format_currency(rev.months[loop.index0].value) }} · {{ rev.months[loop.index0].count }} O.S.</title></circle>{% endfor %}
+    </svg>
+    <div class="area-labels">{% for m in rev.months %}<span>{{ m.label }}</span>{% endfor %}</div>
+  </section>
+  {% endif %}
+  {% if can('work_orders.view') %}{% set st = charts.status %}
+  <section class="dash-card rise" style="--i:6">
+    <div class="dash-card-head"><div><span class="chip indigo sm">{{ icon('pie') }}</span><h3>O.S. por situação</h3></div></div>
+    <div class="donut-wrap">
+      <svg class="donut" viewBox="0 0 42 42" role="img" aria-label="Distribuição das ordens de serviço por situação">
+        <circle class="donut-track" cx="21" cy="21" r="15.915"/>
+        {% for s in st.slices %}{% if s.value %}<circle class="donut-seg c{{ loop.index }}" cx="21" cy="21" r="15.915" pathLength="100" stroke-dasharray="{{ s.pct }} {{ 100 - s.pct }}" stroke-dashoffset="{{ 25 - s.offset }}" style="--d:{{ loop.index0 }}"/>{% endif %}{% endfor %}
+      </svg>
+      <div class="donut-center"><strong data-count="{{ st.total }}">{{ st.total }}</strong><small>O.S.</small></div>
+    </div>
+    <ul class="legend">{% for s in st.slices %}<li><i class="c{{ loop.index }}"></i>{{ s.label }}<b>{{ s.value }}</b></li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="dash-grid">
+  {% if can('scheduling.view') %}
+  <section class="dash-card rise" style="--i:7">
+    <div class="dash-card-head"><div><span class="chip blue sm">{{ icon('clock') }}</span><h3>Agenda de hoje</h3></div><a href="{{ url_for('scheduling.index') }}">Abrir {{ icon('arrow', 'sm') }}</a></div>
+    <div class="hub-list">{% for item in appointments %}<a class="hub-row" href="{{ url_for('scheduling.edit', appointment_id=item.id) if can('scheduling.manage') else url_for('scheduling.index', dia=item.start_at.date().isoformat()) }}"><time class="hub-time">{{ item.start_at.strftime('%H:%M') }}</time><div class="hub-row-main"><strong>{{ item.client.nome }}</strong><small>{{ item.servico_previsto }} · {{ item.vehicle.placa if item.vehicle else 'Sem veículo vinculado' }}</small><small>{{ item.employee.nome if item.employee else 'Sem responsável' }} · até {{ item.end_at.strftime('%H:%M') }}</small></div><span class="hub-badge">{{ item.status|replace('_',' ') }}</span></a>{% else %}<div class="dash-empty">{{ icon('calendar') }}<p>Nenhum serviço agendado para hoje.</p>{% if can('scheduling.manage') %}<a href="{{ url_for('scheduling.new') }}">Criar agendamento</a>{% endif %}</div>{% endfor %}</div>
+  </section>
+  {% endif %}
+  <section class="dash-card rise" style="--i:8">
+    <div class="dash-card-head"><div><span class="chip green sm">{{ icon('wrench') }}</span><h3>Serviços mais feitos</h3></div></div>
+    {% for item in charts.services %}<div class="hbar" style="--d:{{ loop.index0 }}"><div class="hbar-top"><span>{{ item.descricao|title }}</span><b>{{ item.quantidade|int }}</b></div><div class="hbar-track"><div class="hbar-fill" style="--w:{{ item.pct }}%"></div></div></div>{% else %}<div class="dash-empty">{{ icon('wrench') }}<p>Os serviços concluídos aparecerão aqui.</p></div>{% endfor %}
+  </section>
+  {% if charts.payments %}
+  <section class="dash-card rise" style="--i:9">
+    <div class="dash-card-head"><div><span class="chip amber sm">{{ icon('cash') }}</span><h3>Pagamentos no mês</h3></div><span class="hub-badge">O.S. finalizadas</span></div>
+    {% for item in charts.payments %}<div class="hbar" style="--d:{{ loop.index0 }}"><div class="hbar-top"><span>{{ item.nome }}</span><b>{{ format_currency(item.valor) }}</b></div><div class="hbar-track"><div class="hbar-fill amber" style="--w:{{ item.pct }}%"></div></div></div>{% endfor %}
+  </section>
+  {% endif %}
+  {% if finance %}
+  <section class="dash-card rise" style="--i:10">
+    <div class="dash-card-head"><div><span class="chip red sm">{{ icon('receipt') }}</span><h3>Contas que pedem atenção</h3></div><a href="{{ url_for('web.finance_index') }}">Ver {{ icon('arrow', 'sm') }}</a></div>
+    {% for item in finance.upcoming %}<a class="hub-row" href="{{ url_for('web.finance_index', q=item.descricao) }}"><span class="dot {{ 'in' if item.entry_type == 'RECEBER' else 'out' }}"></span><div class="hub-row-main"><strong>{{ item.descricao }}</strong><small>{{ 'A receber' if item.entry_type == 'RECEBER' else 'A pagar' }} · {{ item.vencimento|date_br }}</small></div><div><strong>{{ format_currency(item.valor) }}</strong>{% if item.vencimento < today %}<small class="hub-badge late">Vencida</small>{% endif %}</div></a>{% else %}<div class="dash-empty">{{ icon('check') }}<p>Tudo em dia. Nenhuma conta pendente.</p></div>{% endfor %}
+  </section>
+  {% endif %}
+</div>
+
+{% if finance %}
+<div class="dash-section-title rise" style="--i:11"><h3>{{ icon('wallet') }} Visão financeira</h3><a href="{{ url_for('web.finance_index') }}">Abrir financeiro {{ icon('arrow', 'sm') }}</a></div>
+<div class="dash-kpis">
+  <div class="dash-kpi rise" style="--i:12"><span class="chip blue">{{ icon('bank') }}</span><span class="label">Saldo nas contas</span><strong data-count="{{ finance.balance }}" data-money>{{ format_currency(finance.balance) }}</strong><small>contas ativas</small></div>
+  <div class="dash-kpi rise" style="--i:13"><span class="chip green">{{ icon('down') }}</span><span class="label">Recebido no mês</span><strong data-count="{{ finance.received }}" data-money>{{ format_currency(finance.received) }}</strong><small>valor líquido</small></div>
+  <div class="dash-kpi rise" style="--i:14"><span class="chip red">{{ icon('up') }}</span><span class="label">Pago no mês</span><strong data-count="{{ finance.paid }}" data-money>{{ format_currency(finance.paid) }}</strong><small>valor líquido</small></div>
+  <div class="dash-kpi rise {{ 'alert' if finance.result < 0 }}" style="--i:15"><span class="chip {{ 'green' if finance.result >= 0 else 'red' }}">{{ icon('trend') }}</span><span class="label">Resultado do mês</span><strong data-count="{{ finance.result }}" data-money>{{ format_currency(finance.result) }}</strong><small>recebido − pago</small></div>
+</div>
+<section class="hub-panel hub-bank-overview dash-card rise" style="--i:16" id="contas"><div class="hub-panel-head bank-overview-heading"><div><h3>Contas bancárias</h3><div class="bank-total"><span>Saldo total</span><strong>{{ format_currency(finance.balance) }}</strong></div><p>O saldo é atualizado quando uma receita ou despesa é confirmada.</p></div><div class="hub-actions"><a href="{{ url_for('web.finance_index') }}">Ver movimentações →</a><button type="button" class="secondary" onclick="document.getElementById('new-bank-account').showModal()">+ Nova conta</button></div></div>{% include 'dashboard/_accounts.html' %}</section>
+<div class="dash-grid">{% include 'dashboard/_cash.html' %}<section class="hub-panel dash-card"><div class="hub-panel-head"><h3>Previsão de caixa</h3><span class="hub-badge">30 dias</span></div><div class="hub-kpi"><span>Saldo previsto</span><strong>{{ format_currency(finance.projected) }}</strong></div><p class="hub-note">Saldo atual + contas a receber − contas a pagar com vencimento de hoje aos próximos 30 dias. Contas já vencidas ficam fora desta previsão.</p><a class="hub-row" href="{{ url_for('web.finance_index',view='overdue',kind='RECEBER') }}"><span>Recebimentos vencidos</span><strong>{{ format_currency(finance.overdue_receivable) }}</strong></a><a class="hub-row" href="{{ url_for('web.finance_index',view='overdue',kind='PAGAR') }}"><span>Pagamentos vencidos</span><strong>{{ format_currency(finance.overdue_payable) }}</strong></a></section></div>
+{% endif %}
+</main>
+<script src="{{ url_for('static', filename='dashboard.js') }}?v=1" defer></script>
+{% endblock %}
