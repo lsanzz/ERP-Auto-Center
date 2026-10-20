@@ -41,7 +41,8 @@ def make_client():
 
 
 def enabled() -> bool:
-    return bool(os.getenv('GEMINI_API_KEY'))
+    # Desligado por padrão: no nível gratuito do Gemini as respostas levaram de 50 s a mais de 2 min.
+    return os.getenv('ASSISTANT_ENABLED') == '1' and bool(os.getenv('GEMINI_API_KEY'))
 
 
 def run_turn(user_text: str, previous_id: str | None, user_label: str, client=None) -> tuple[str, str | None, list[dict], list[float]]:

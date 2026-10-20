@@ -53,6 +53,8 @@ def message():
         return jsonify(erro='Digite ou fale o que precisa.'), 400
     if len(text) > 2000:
         return jsonify(erro='Mensagem muito longa.'), 400
+    if not llm.enabled():
+        return jsonify(erro='Assistente desligado.'), 503
     user = current_user()
     if _rate_limited(user.id):
         return jsonify(erro='Muitas mensagens seguidas. Aguarde um minuto.'), 429

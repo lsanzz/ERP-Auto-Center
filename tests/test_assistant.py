@@ -43,6 +43,9 @@ class AssistantTest(unittest.TestCase):
             self.service = Service.query.filter_by(nome='ALINHAMENTO TESTE').one().id
             self.pix = PaymentMethod.query.filter_by(tipo='PIX').first().id
         self.client.post('/login', data={'username': 'admin', 'password': 'admin123'})
+        env = patch.dict('os.environ', {'ASSISTANT_ENABLED': '1', 'GEMINI_API_KEY': 'test-key'})
+        env.start()
+        self.addCleanup(env.stop)
 
     def send(self, script, text='abre uma O.S.'):
         fake = SimpleNamespace(interactions=FakeInteractions(script))
@@ -113,6 +116,11 @@ class AssistantTest(unittest.TestCase):
     def test_admin_report_uses_system_numbers(self):
         response, fake = self.send([[('relatorio_periodo', {'inicio': '2026-10-01', 'fim': '2026-10-31'})], 'ok'], 'resumo do mês')
         self.assertIn('saldo_atual_contas', fake.calls[1]['input'][0]['result'])
+
+    def test_disabled_by_default(self):
+        with patch.dict('os.environ', {'ASSISTANT_ENABLED': ''}):
+            self.assertNotIn('ai-panel', self.client.get('/os').data.decode())
+            self.assertEqual(self.client.post('/assistente/mensagem', json={'texto': 'oi'}).status_code, 503)
 
     def test_missing_key_is_reported(self):
         with patch.dict('os.environ', {'GEMINI_API_KEY': ''}):
