@@ -1,1 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#006bff"/><text x="32" y="43" fill="white" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" font-weight="700">LS</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="LSHub">
+  <defs>
+    <linearGradient id="lsg" x1="8" y1="4" x2="58" y2="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#lsg)"/>
+  <g fill="none" stroke="#fff" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17.5 18.5V44.5H29.5"/>
+    <path d="M47.5 22.5C46 20 43.6 18.8 41 18.8C37.3 18.8 34.6 21 34.6 24.2C34.6 27.8 37.9 29.1 41.6 30.4C45.4 31.7 48.6 33.2 48.6 37.3C48.6 41.2 45.5 43.9 41.3 43.9C38.4 43.9 35.7 42.6 34.1 40.2"/>
+  </g>
+</svg>

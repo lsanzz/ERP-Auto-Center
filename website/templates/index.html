@@ -1,65 +1,171 @@
 {% extends 'base.html' %}
 {% macro field_error(name) %}{% if errors.get(name) %}<span class="field-error" id="error-{{ name }}">{{ errors[name] }}</span>{% endif %}{% endmacro %}
-{% block content %}
-<section class="hero">
-  <div class="container hero-grid">
-    <div class="hero-copy">
-      <p class="eyebrow"><span class="live-dot"></span> GESTÃO FEITA PARA OFICINAS</p>
-      <h1>Mais controle.<br>Mais tempo para sua oficina.</h1>
-      <p class="hero-description">Do primeiro agendamento à entrega das chaves. Organize o atendimento, os serviços e o financeiro em um só lugar.</p>
-      <div class="hero-actions"><a class="button" href="#contato">Agendar demonstração <span aria-hidden="true">↗</span></a><a class="text-link" href="#recursos">Explore o sistema <span aria-hidden="true">↓</span></a></div>
-      <p class="hero-note"><span aria-hidden="true">✓</span> Demonstração sem compromisso <span class="note-divider">/</span> Atendimento humano</p>
-    </div>
+
+{% macro screen_patio() %}
+<div class="scr">
+  <div class="scr-top"><span>Painel do pátio</span><em>ao vivo</em></div>
+  <div class="scr-kpis"><div><small>No pátio</small><b>8</b></div><div><small>Boxes</small><b>4/5</b></div><div><small>Prontos</small><b>2</b></div></div>
+  <div class="scr-bays">
+    <div class="bay late"><small>BOX 1</small><b>Fiat Argo</b><code>RFA2B31</code><i class="bar"><i class="w72"></i></i></div>
+    <div class="bay"><small>BOX 2</small><b>VW Gol</b><code>QKT4C55</code><i class="bar"><i class="w35"></i></i></div>
+    <div class="bay"><small>BOX 3</small><b>Onix</b><code>PXL7D12</code><i class="bar"><i class="w48"></i></i></div>
   </div>
-  <div class="container hero-bottom"><span>DE PONTA A PONTA.</span><p>Clientes e veículos</p><i aria-hidden="true">+</i><p>Ordens de serviço</p><i aria-hidden="true">+</i><p>Estoque</p><i aria-hidden="true">+</i><p>Financeiro</p><i aria-hidden="true">+</i><p>Fiscal</p></div>
+</div>
+{% endmacro %}
+{% macro screen_os() %}
+<div class="scr">
+  <div class="scr-top"><span>OS-1047 · Jeep Renegade</span><em>aberta</em></div>
+  <ul class="scr-lines"><li><span>Troca de óleo 5W30</span><b>R$ 120,00</b></li><li><span>Filtro de óleo</span><b>R$ 45,00</b></li><li><span>Alinhamento e balanceamento</span><b>R$ 180,00</b></li></ul>
+  <div class="scr-total"><span>Total</span><b>R$ 345,00</b></div>
+</div>
+{% endmacro %}
+{% macro screen_fin() %}
+<div class="scr">
+  <div class="scr-top"><span>Financeiro</span><em>outubro</em></div>
+  <div class="scr-kpis"><div><small>Recebido</small><b>1.840</b></div><div><small>A receber</small><b>6.215</b></div><div><small>A pagar</small><b>2.380</b></div></div>
+  <div class="scr-chart" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+</div>
+{% endmacro %}
+
+{% block content %}
+<section class="hero" data-sticky>
+  <div class="hero-pin">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="label"><span class="tick"></span> Sistema de gestão para oficinas</p>
+        <h1 class="hero-title"><span class="line"><span>A oficina</span></span><span class="line"><span>inteira</span></span><span class="line"><span>em uma tela<em>.</em></span></span></h1>
+        <p class="hero-lead">Agenda, pátio, orçamentos, ordens de serviço, estoque e financeiro no mesmo lugar. Do agendamento à entrega das chaves.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#contato">Agendar demonstração</a>
+          <a class="btn btn-line" href="#recursos">Ver o sistema</a>
+        </div>
+      </div>
+      <div class="hero-stage" aria-hidden="true">
+        <div class="stack">
+          <div class="layer l3">{{ screen_fin() }}</div>
+          <div class="layer l2">{{ screen_os() }}</div>
+          <div class="layer l1">{{ screen_patio() }}</div>
+          <div class="stack-shadow"></div>
+        </div>
+      </div>
+    </div>
+    <div class="wrap hero-foot"><span class="label">Role para conhecer</span><span class="scroll-cue"><i></i></span></div>
+  </div>
 </section>
 
-<section class="section problem-section">
-  <div class="container problem-grid"><div><p class="eyebrow dark-label">MENOS IMPROVISO. MAIS GESTÃO.</p><h2>A oficina não para.<br>A informação também<br>não pode parar.</h2></div><div class="problem-copy"><p>Um orçamento no WhatsApp. Uma peça anotada no papel. O financeiro em outra planilha. Quando tudo fica separado, acompanhar a oficina dá mais trabalho do que deveria.</p><p class="problem-answer">O LS Hub conecta essas etapas para você saber o que precisa de atenção — e seguir em frente.</p><a class="text-link" href="#recursos">Conheça o que muda na sua rotina <span aria-hidden="true">↗</span></a></div></div>
+<section class="ticker" aria-label="Módulos do sistema" data-scroll>
+  <div class="ticker-track">
+    {% for item in ['Clientes', 'Veículos', 'Agenda', 'Pátio ao vivo', 'Orçamentos', 'Aprovação digital', 'Ordens de serviço', 'Inspeção com fotos', 'Estoque', 'Financeiro', 'Fiscal'] %}<span>{{ item }}</span>{% endfor %}
+    {% for item in ['Clientes', 'Veículos', 'Agenda', 'Pátio ao vivo', 'Orçamentos', 'Aprovação digital', 'Ordens de serviço', 'Inspeção com fotos', 'Estoque', 'Financeiro', 'Fiscal'] %}<span aria-hidden="true">{{ item }}</span>{% endfor %}
+  </div>
+</section>
+
+<section class="statement" data-sticky>
+  <div class="statement-pin wrap">
+    <p class="label">01 — O problema</p>
+    <p class="statement-text" data-words>Um orçamento no WhatsApp. Uma peça anotada no papel. O financeiro em outra planilha. Quando tudo fica separado, a oficina trabalha mais para saber menos. O LS Hub junta essas pontas.</p>
+  </div>
+</section>
+
+<section class="tour" id="recursos">
+  <div class="wrap">
+    <div class="sec-head"><p class="label">02 — O sistema</p><h2 class="sec-title">Cada etapa no lugar certo.</h2></div>
+    <div class="tour-grid">
+      <div class="tour-stage" aria-hidden="true">
+        <div class="device">
+          <div class="device-bar"><i></i><i></i><i></i><span>app.lshub.com.br</span></div>
+          <div class="device-screens">
+            <div class="dscreen is-active" data-screen="0">{{ screen_patio() }}</div>
+            <div class="dscreen" data-screen="1">{{ screen_os() }}</div>
+            <div class="dscreen" data-screen="2">
+              <div class="scr scr-approve"><div class="scr-top"><span>Orçamento ORC-201</span><em>link do cliente</em></div><ul class="scr-lines"><li><span>Pastilhas de freio</span><b>R$ 210</b></li><li><span>Disco dianteiro (par)</span><b>R$ 380</b></li><li><span>Mão de obra</span><b>R$ 150</b></li></ul><div class="scr-total"><span>Total</span><b>R$ 740,00</b></div><div class="scr-btns"><span class="ok">Aprovar</span><span>Recusar</span></div></div>
+            </div>
+            <div class="dscreen" data-screen="3">{{ screen_fin() }}</div>
+            <div class="dscreen" data-screen="4">
+              <div class="scr"><div class="scr-top"><span>Estoque</span><em>2 abaixo do mínimo</em></div><ul class="scr-lines scr-stock"><li><span>Filtro de óleo</span><b class="low">2 / 10</b></li><li><span>Pastilha dianteira</span><b class="low">0 / 4</b></li><li><span>Óleo 5W30 1L</span><b>32 / 24</b></li><li><span>Correia dentada</span><b>9 / 6</b></li></ul></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol class="tour-steps">
+        <li class="step is-active" data-step="0"><span class="step-n">2.1</span><h3>Pátio ao vivo</h3><p>Etapa, técnico, prazo e próxima ação de cada carro. Um clique avança a etapa e toda a equipe vê na hora. Atrasos aparecem destacados.</p></li>
+        <li class="step" data-step="1"><span class="step-n">2.2</span><h3>Ordem de serviço completa</h3><p>Peças, serviços, inspeção de entrada com fotos, pagamentos e histórico do veículo. PDF da ordem e do recibo em um clique.</p></li>
+        <li class="step" data-step="2"><span class="step-n">2.3</span><h3>Aprovação pelo celular</h3><p>O cliente recebe um link, vê o orçamento e aprova ou recusa. A resposta fica registrada e o orçamento vira O.S.</p></li>
+        <li class="step" data-step="3"><span class="step-n">2.4</span><h3>Financeiro conectado</h3><p>O serviço entregue vira conta a receber. Contas a pagar, parcelamentos, baixas, saldo por conta e caixa do dia.</p></li>
+        <li class="step" data-step="4"><span class="step-n">2.5</span><h3>Estoque que não some</h3><p>Peça reservada pela O.S. sai do disponível. Mínimo, curva ABC e histórico de cada movimentação.</p></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="flow" id="como-funciona" data-scroll>
+  <div class="wrap">
+    <div class="sec-head"><p class="label">03 — O fluxo</p><h2 class="sec-title">Da entrada à entrega.</h2></div>
+    <div class="flow-line"><i></i></div>
+    <ol class="flow-steps">
+      <li class="reveal"><span>01</span><h3>Agende e receba</h3><p>Agenda por box e técnico, cadastro do veículo e inspeção de entrada.</p></li>
+      <li class="reveal"><span>02</span><h3>Orce e aprove</h3><p>Peças e serviços no orçamento e link para o cliente aprovar.</p></li>
+      <li class="reveal"><span>03</span><h3>Execute</h3><p>Etapas do pátio, reservas de peças e ordem de serviço.</p></li>
+      <li class="reveal"><span>04</span><h3>Entregue</h3><p>Pagamento, faturamento e histórico do atendimento.</p></li>
+    </ol>
+  </div>
 </section>
 
 {% include 'features.html' %}
 
-<section class="workflow-section section" id="como-funciona"><div class="container"><div class="section-heading"><div><p class="eyebrow">DA ENTRADA À ENTREGA</p><h2>O caminho do veículo.<br>Sem perder o fio da meada.</h2></div><p>Uma rotina contínua.<br>Informações que acompanham cada serviço.</p></div>
-  <ol class="workflow"><li><span>01</span><h3>Agende e receba</h3><p>Organize a agenda, cadastre o veículo e registre a inspeção de entrada.</p></li><li><span>02</span><h3>Orce e aprove</h3><p>Reúna peças e serviços e envie ao cliente um link para aprovação.</p></li><li><span>03</span><h3>Execute e acompanhe</h3><p>Controle as etapas do pátio, as reservas de peças e a ordem de serviço.</p></li><li><span>04</span><h3>Finalize e entregue</h3><p>Confira os pagamentos, o faturamento e o histórico do atendimento.</p></li></ol>
-  <div class="workflow-callout"><span aria-hidden="true">↗</span><p>Seu cliente vê profissionalismo.<br><strong>Você vê a operação inteira.</strong></p><a class="button button-outline" href="#contato">Ver na demonstração <span aria-hidden="true">↗</span></a></div>
-</div></section>
-
-<section class="section plans-section" id="planos"><div class="container"><div class="section-heading"><div><p class="eyebrow dark-label">PREÇOS CLAROS PARA CRESCER</p><h2>O plano certo<br>para o seu momento.</h2></div><p>Comece com o que sua oficina precisa hoje.<br>Evolua de plano quando a operação crescer.</p></div>
-  <div class="plans-grid">
-    <article class="plan-card"><p class="plan-label">PARA COMEÇAR A ORGANIZAR</p><h3>Essencial<span>.</span></h3><p>Centralize clientes, veículos e serviços sem depender de papel ou planilhas.</p><div class="plan-price"><span class="price-currency">R$</span> 89,90<small>por mês · até 2 usuários</small></div><a class="button button-light" href="#contato" data-plan="Essencial">Escolher o Essencial <span aria-hidden="true">↗</span></a><div class="plan-features"><h4>Incluído no plano</h4><ul><li>Clientes e veículos com histórico</li><li>Orçamentos e ordens de serviço</li><li>Cadastro de peças e serviços</li><li>Documentos e orçamentos em PDF</li><li>Controle básico de pagamentos</li><li>Configuração inicial remota</li></ul></div></article>
-    <article class="plan-card featured-plan"><div class="plan-ribbon">MAIS ESCOLHIDO <span aria-hidden="true">↗</span></div><p class="plan-label">PARA CONTROLAR A OPERAÇÃO</p><h3>Profissional<span>.</span></h3><p>Acompanhe atendimento, pátio, estoque e financeiro em um único fluxo.</p><div class="plan-price"><span class="price-currency">R$</span> 179,90<small>por mês · até 5 usuários</small></div><a class="button" href="#contato" data-plan="Profissional">Escolher o Profissional <span aria-hidden="true">↗</span></a><div class="plan-features"><h4>Tudo do Essencial, mais</h4><ul><li>Agenda e quadro do pátio</li><li>Inspeções de entrada com fotos</li><li>Aprovação digital de orçamentos</li><li>Reservas e movimentações de estoque</li><li>Contas a pagar e receber</li><li>Indicadores e relatórios da operação</li></ul></div></article>
-    <article class="plan-card"><p class="plan-label">PARA UMA GESTÃO MAIS COMPLETA</p><h3>Gestão<span>.</span></h3><p>Adicione controle fiscal, permissões e acompanhamento para uma equipe maior.</p><div class="plan-price"><span class="price-currency">R$</span> 299,90<small>por mês · até 10 usuários</small></div><a class="button button-light" href="#contato" data-plan="Gestão">Escolher o plano Gestão <span aria-hidden="true">↗</span></a><div class="plan-features"><h4>Tudo do Profissional, mais</h4><ul><li>Integração para emissão fiscal*</li><li>Perfis de acesso por função</li><li>Rastreabilidade de alterações</li><li>Garantias vinculadas aos serviços</li><li>Treinamento remoto para a equipe</li><li>Suporte prioritário</li></ul></div></article>
-  </div><p class="plan-disclaimer">Valores mensais por oficina. A configuração inicial remota está incluída. Migração avançada, integrações específicas, certificado digital e cobranças do provedor fiscal são avaliados à parte. A solicitação de demonstração não gera assinatura nem cobrança automática.</p>
-</div></section>
-
-<section class="onboarding-section section"><div class="container onboarding-grid"><div><p class="eyebrow dark-label">COMEÇAR NÃO PRECISA SER COMPLICADO</p><h2>A gente acompanha<br>os primeiros passos.</h2><p>Entendemos sua rotina para preparar uma implantação que faça sentido para a sua oficina.</p><a class="text-link" href="#contato">Vamos falar sobre sua operação <span aria-hidden="true">↗</span></a></div><ol class="onboarding-list"><li><span>01</span><div><h3>Uma conversa sobre a oficina</h3><p>Equipe, volume de atendimento e o que você quer organizar primeiro.</p></div></li><li><span>02</span><div><h3>Uma demonstração com contexto</h3><p>Conheça o sistema e veja como os recursos se encaixam na sua rotina.</p></div></li><li><span>03</span><div><h3>Configuração e treinamento</h3><p>Escopo, cadastros, migração e orientação da equipe combinados na proposta.</p></div></li><li><span>04</span><div><h3>Sua operação em movimento</h3><p>Entrada em uso e acompanhamento inicial conforme o plano contratado.</p></div></li></ol></div></section>
-
-<section class="section faq-section" id="duvidas"><div class="container faq-grid"><div><p class="eyebrow dark-label">ANTES DE COMEÇAR</p><h2>Ficou alguma<br>dúvida?</h2><p>Converse com quem conhece o sistema.</p>{% if whatsapp_url %}<a class="text-link" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">Falar no WhatsApp <span aria-hidden="true">↗</span></a>{% endif %}</div><div class="faq-list">
-  <details><summary>Preciso instalar algum programa?<span aria-hidden="true">+</span></summary><p>O acesso é feito pelo navegador, em app.lshub.com.br, com usuário e senha. Você precisa de conexão com a internet.</p></details>
-  <details><summary>Posso usar pelo celular?<span aria-hidden="true">+</span></summary><p>O sistema possui telas responsivas para acesso pelo navegador. Na demonstração, podemos conferir as atividades que sua equipe pretende realizar pelo celular.</p></details>
-  <details><summary>O cliente consegue aprovar o orçamento online?<span aria-hidden="true">+</span></summary><p>Sim. A oficina gera um link para o cliente aprovar ou recusar o orçamento, com registro da resposta. O compartilhamento do link é feito pela oficina; envio automático depende de integração adicional.</p></details>
-  <details><summary>O sistema emite nota fiscal?<span aria-hidden="true">+</span></summary><p>Existe integração com a Focus NFe. A emissão depende de configuração da empresa, documentos necessários, credenciais e disponibilidade do serviço fiscal. Confirmamos a compatibilidade e os custos na proposta.</p></details>
-  <details><summary>Consigo trazer os dados do meu sistema atual?<span aria-hidden="true">+</span></summary><p>A migração é avaliada conforme o formato e a qualidade dos arquivos disponíveis. A análise, o escopo e os custos são combinados antes da implantação.</p></details>
-  <details><summary>Como funcionam planos, suporte e cancelamento?<span aria-hidden="true">+</span></summary><p>Os planos custam R$ 89,90, R$ 179,90 ou R$ 299,90 por mês, conforme os recursos e o número de usuários. A contratação é assistida e a proposta registra o plano escolhido, o atendimento, as condições de cancelamento e qualquer serviço adicional. O pedido de demonstração não cria assinatura nem gera cobrança.</p></details>
-  <details><summary>Posso gerenciar várias oficinas na mesma conta?<span aria-hidden="true">+</span></summary><p>A operação atual atende uma oficina por instalação. Se você tem mais de uma unidade, converse conosco para avaliar a implantação. A gestão consolidada de filiais não faz parte da oferta atual.</p></details>
-</div></div></section>
-
-<section class="contact-section section" id="contato"><div class="container contact-grid"><div class="contact-copy"><p class="eyebrow"><span class="live-dot"></span> O PRÓXIMO PASSO É UMA CONVERSA</p><h2>Vamos colocar<br>sua oficina<br><span>em movimento?</span></h2><p>Conte um pouco sobre sua operação. Vamos entrar em contato para combinar uma demonstração e encontrar o melhor caminho para você.</p><ul class="contact-benefits"><li>Demonstração voltada à sua rotina</li><li>Conversa direta, sem compromisso</li><li>Proposta com escopo e valores claros</li></ul>{% if whatsapp_url %}<a class="contact-whatsapp" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">Prefere conversar agora? <strong>Chame no WhatsApp ↗</strong></a>{% endif %}</div>
-  <form class="lead-form" method="post" action="{{ url_for('demonstration') }}#contato">
-    <h3>Conheça o LS Hub na prática.</h3><p>Preencha seus dados para solicitar a demonstração.</p>
-    {% if errors %}<div class="form-error" role="alert" tabindex="-1" id="form-errors">{{ errors.get('form', 'Confira os campos destacados e envie novamente.') }}</div>{% endif %}
-    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="submission_id" value="{{ submission_id }}">
-    <div class="honeypot" aria-hidden="true"><label for="website">Deixe este campo vazio</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
-    <div class="form-grid">
-      {% for name, label, placeholder, type, autocomplete, maxlength in [('name', 'Seu nome', 'Como podemos chamar você?', 'text', 'name', 100), ('workshop', 'Nome da oficina', 'Sua oficina ou auto center', 'text', 'organization', 160), ('phone', 'WhatsApp com DDD', '(19) 99999-9999', 'tel', 'tel', 24), ('email', 'E-mail (opcional)', 'voce@oficina.com.br', 'email', 'email', 160), ('city', 'Cidade / UF', 'Ex.: Campinas / SP', 'text', 'address-level2', 100)] %}
-      <div class="field"><label for="{{ name }}">{{ label }}</label><input id="{{ name }}" name="{{ name }}" type="{{ type }}" placeholder="{{ placeholder }}" autocomplete="{{ autocomplete }}" maxlength="{{ maxlength }}" value="{{ values.get(name, '') }}" {% if name != 'email' %}required{% endif %} {% if errors.get(name) %}aria-invalid="true" aria-describedby="error-{{ name }}"{% endif %}>{{ field_error(name) }}</div>
-      {% endfor %}
-      <div class="field"><label for="team">Tamanho da equipe</label><select id="team" name="team" required {% if errors.get('team') %}aria-invalid="true" aria-describedby="error-team"{% endif %}><option value="">Selecione</option>{% for team in teams %}<option {% if values.get('team') == team %}selected{% endif %}>{{ team }}</option>{% endfor %}</select>{{ field_error('team') }}</div>
-      <div class="field full-width"><label for="plan">Qual plano você quer conhecer?</label><select id="plan" name="plan" required {% if errors.get('plan') %}aria-invalid="true" aria-describedby="error-plan"{% endif %}>{% for plan in plans %}<option {% if values.get('plan', 'Quero orientação') == plan %}selected{% endif %}>{{ plan }}</option>{% endfor %}</select>{{ field_error('plan') }}</div>
-      <div class="field full-width"><label for="challenge">O que você quer melhorar? <span>(opcional)</span></label><textarea id="challenge" name="challenge" rows="3" maxlength="1000" placeholder="Conte como organiza a oficina hoje e sua principal dificuldade." {% if errors.get('challenge') %}aria-invalid="true" aria-describedby="error-challenge"{% endif %}>{{ values.get('challenge', '') }}</textarea>{{ field_error('challenge') }}</div>
+<section class="plans" id="planos">
+  <div class="wrap">
+    <div class="sec-head"><p class="label">05 — Planos</p><h2 class="sec-title">Preço claro, sem surpresa.</h2></div>
+    <div class="plans-grid">
+      <article class="plan reveal"><p class="label">Para começar</p><h3>Essencial</h3><p class="price"><span>R$</span>89,90</p><p class="price-note">por mês · até 2 usuários</p><ul><li>Clientes e veículos com histórico</li><li>Orçamentos e ordens de serviço</li><li>Peças e serviços</li><li>Documentos em PDF</li><li>Controle básico de pagamentos</li><li>Configuração inicial remota</li></ul><a class="btn btn-line" href="#contato" data-plan="Essencial">Escolher Essencial</a></article>
+      <article class="plan plan-featured reveal"><p class="label">Mais escolhido</p><h3>Profissional</h3><p class="price"><span>R$</span>179,90</p><p class="price-note">por mês · até 5 usuários</p><ul><li>Tudo do Essencial</li><li>Agenda e painel do pátio</li><li>Inspeção de entrada com fotos</li><li>Aprovação digital de orçamentos</li><li>Reservas e movimentações de estoque</li><li>Contas a pagar e receber, relatórios</li></ul><a class="btn" href="#contato" data-plan="Profissional">Escolher Profissional</a></article>
+      <article class="plan reveal"><p class="label">Gestão completa</p><h3>Gestão</h3><p class="price"><span>R$</span>299,90</p><p class="price-note">por mês · até 10 usuários</p><ul><li>Tudo do Profissional</li><li>Integração para emissão fiscal*</li><li>Perfis de acesso por função</li><li>Rastreabilidade de alterações</li><li>Treinamento remoto da equipe</li><li>Suporte prioritário</li></ul><a class="btn btn-line" href="#contato" data-plan="Gestão">Escolher Gestão</a></article>
     </div>
-    <label class="consent"><input type="checkbox" name="privacy" value="accepted" required {% if errors.get('privacy') %}aria-invalid="true" aria-describedby="error-privacy"{% endif %}><span>Autorizo o contato sobre minha solicitação e li o <a href="{{ url_for('privacy') }}" target="_blank" rel="noopener">aviso de privacidade</a>.</span></label>{{ field_error('privacy') }}
-    <button class="button submit-button" type="submit">Solicitar minha demonstração <span aria-hidden="true">↗</span></button><p class="form-note">Sem cobrança. Sem compromisso de contratação.</p>
-  </form></div></section>
+    <p class="footnote">Valores mensais por oficina, com configuração inicial remota incluída. Migração avançada, integrações específicas, certificado digital e cobranças do provedor fiscal são avaliados à parte. * A emissão fiscal depende de configuração, credenciais e habilitação do provedor. Pedir uma demonstração não gera assinatura nem cobrança.</p>
+  </div>
+</section>
+
+<section class="faq" id="duvidas">
+  <div class="wrap faq-grid">
+    <div class="sec-head"><p class="label">06 — Dúvidas</p><h2 class="sec-title">Antes de começar.</h2>{% if whatsapp_url and whatsapp_url != '#' %}<a class="btn btn-line" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>{% endif %}</div>
+    <div class="faq-list">
+      <details class="reveal"><summary>Preciso instalar algum programa?</summary><p>Não. O acesso é pelo navegador, em app.lshub.com.br, com usuário e senha. Você só precisa de internet.</p></details>
+      <details class="reveal"><summary>Funciona no celular?</summary><p>Sim, as telas se adaptam ao celular. Na demonstração conferimos as atividades que sua equipe pretende fazer por ele.</p></details>
+      <details class="reveal"><summary>O cliente aprova o orçamento online?</summary><p>Sim. A oficina gera um link para o cliente aprovar ou recusar, com registro da resposta. O link é compartilhado pela oficina; envio automático depende de integração adicional.</p></details>
+      <details class="reveal"><summary>O sistema emite nota fiscal?</summary><p>Há integração com a Focus NFe. A emissão depende da configuração da empresa, documentos, credenciais e disponibilidade do serviço fiscal. Confirmamos compatibilidade e custos na proposta.</p></details>
+      <details class="reveal"><summary>Consigo trazer os dados do sistema atual?</summary><p>O sistema importa clientes, ordens de serviço e financeiro de planilhas e exportações (CSV, HTML, XLS e XLSX). O escopo é combinado antes da implantação.</p></details>
+      <details class="reveal"><summary>Como funcionam planos e cancelamento?</summary><p>Os planos custam R$ 89,90, R$ 179,90 ou R$ 299,90 por mês, conforme recursos e usuários. A proposta registra plano, atendimento, condições de cancelamento e serviços adicionais.</p></details>
+      <details class="reveal"><summary>Posso gerenciar várias oficinas?</summary><p>Hoje cada instalação atende uma oficina. Se você tem mais unidades, converse conosco para avaliar a implantação.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="contact" id="contato">
+  <div class="wrap contact-grid">
+    <div class="contact-copy">
+      <p class="label">07 — Contato</p>
+      <h2 class="sec-title">Vamos ver a sua oficina funcionando.</h2>
+      <p>Conte um pouco da operação. Combinamos uma demonstração com a rotina da sua oficina, sem compromisso.</p>
+      <ul class="dash-list"><li>Demonstração com o seu contexto</li><li>Conversa direta com quem conhece o sistema</li><li>Proposta com escopo e valores claros</li></ul>
+      {% if whatsapp_url and whatsapp_url != '#' %}<a class="contact-whatsapp" href="{{ whatsapp_url }}" target="_blank" rel="noopener noreferrer">Prefere agora? Chame no WhatsApp →</a>{% endif %}
+    </div>
+    <form class="lead-form" method="post" action="{{ url_for('demonstration') }}#contato" novalidate>
+      <p class="form-title">Solicitar demonstração</p>
+      {% if errors %}<div class="form-error" role="alert" tabindex="-1" id="form-errors">{{ errors.get('form', 'Confira os campos destacados e envie novamente.') }}</div>{% endif %}
+      <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="submission_id" value="{{ submission_id }}">
+      <div class="honeypot" aria-hidden="true"><label for="website">Deixe este campo vazio</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
+      <div class="form-grid">
+        {% for name, label, placeholder, type, autocomplete, maxlength in [('name', 'Seu nome', 'Como podemos chamar você?', 'text', 'name', 100), ('workshop', 'Nome da oficina', 'Sua oficina ou auto center', 'text', 'organization', 160), ('phone', 'WhatsApp com DDD', '(19) 99999-9999', 'tel', 'tel', 24), ('email', 'E-mail (opcional)', 'voce@oficina.com.br', 'email', 'email', 160), ('city', 'Cidade / UF', 'Campinas / SP', 'text', 'address-level2', 100)] %}
+        <div class="field"><label for="{{ name }}">{{ label }}</label><input id="{{ name }}" name="{{ name }}" type="{{ type }}" placeholder="{{ placeholder }}" autocomplete="{{ autocomplete }}" maxlength="{{ maxlength }}" value="{{ values.get(name, '') }}" {% if name != 'email' %}required{% endif %} {% if errors.get(name) %}aria-invalid="true" aria-describedby="error-{{ name }}"{% endif %}>{{ field_error(name) }}</div>
+        {% endfor %}
+        <div class="field"><label for="team">Tamanho da equipe</label><select id="team" name="team" required {% if errors.get('team') %}aria-invalid="true" aria-describedby="error-team"{% endif %}><option value="">Selecione</option>{% for team in teams %}<option {% if values.get('team') == team %}selected{% endif %}>{{ team }}</option>{% endfor %}</select>{{ field_error('team') }}</div>
+        <div class="field full"><label for="plan">Plano de interesse</label><select id="plan" name="plan" required {% if errors.get('plan') %}aria-invalid="true" aria-describedby="error-plan"{% endif %}>{% for plan in plans %}<option {% if values.get('plan', 'Quero orientação') == plan %}selected{% endif %}>{{ plan }}</option>{% endfor %}</select>{{ field_error('plan') }}</div>
+        <div class="field full"><label for="challenge">O que você quer melhorar? <span>(opcional)</span></label><textarea id="challenge" name="challenge" rows="3" maxlength="1000" placeholder="Como a oficina se organiza hoje e qual a maior dificuldade.">{{ values.get('challenge', '') }}</textarea></div>
+      </div>
+      <label class="consent"><input type="checkbox" name="privacy" value="accepted" required {% if values.get('privacy') == 'accepted' %}checked{% endif %} {% if errors.get('privacy') %}aria-invalid="true" aria-describedby="error-privacy"{% endif %}><span>Autorizo o contato sobre minha solicitação e li o <a href="{{ url_for('privacy') }}" target="_blank" rel="noopener">aviso de privacidade</a>.</span></label>{{ field_error('privacy') }}
+      <button class="btn btn-block submit-button" type="submit">Enviar solicitação</button>
+      <p class="form-note">Sem cobrança e sem compromisso de contratação.</p>
+    </form>
+  </div>
+</section>
 {% endblock %}

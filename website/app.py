@@ -20,12 +20,18 @@ from flask import (
     url_for,
 )
 from flask_wtf import CSRFProtect
-from flask_wtf.csrf import generate_csrf
+from flask_wtf.csrf import CSRFError, generate_csrf
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
+# Fora do repositório: um deploy (git pull) não pode apagar nem conflitar com os contatos.
+LEADS_FILE = PROJECT_ROOT / "instance" / "website" / "leads.jsonl"
+# Usadas quando o .env não define LANDING_TEAM_OPTIONS / LANDING_PLAN_OPTIONS;
+# sem elas os selects obrigatórios ficavam vazios e o formulário não podia ser enviado.
+DEFAULT_TEAM_OPTIONS = "Só eu,2 a 5 pessoas,6 a 10 pessoas,Mais de 10 pessoas"
+DEFAULT_PLAN_OPTIONS = "Quero orientação,Essencial,Profissional,Gestão"
 
 # A landing fica dentro de lshub_erp/website.
 # Carrega primeiro o .env principal do projeto e depois, se existir,
@@ -168,40 +174,56 @@ def landing_context():
     }
 
 
-@app.get("/")
-def index():
-    # values/errors são enviados para compatibilidade com formulários
-    # que preservam dados/erros após validação.
+def _form_options() -> dict[str, list[str]]:
+    return {
+        "teams": _env_list("LANDING_TEAM_OPTIONS", DEFAULT_TEAM_OPTIONS),
+        "plans": _env_list("LANDING_PLAN_OPTIONS", DEFAULT_PLAN_OPTIONS),
+    }
+
+
+def _render_index(values: dict, errors: dict, status: int = 200):
     return render_template(
         "index.html",
-        values={},
-        errors={},
-        submission_id=secrets.token_urlsafe(12),
-        teams=_env_list("LANDING_TEAM_OPTIONS"),
-        plans=_env_list("LANDING_PLAN_OPTIONS"),
-    )
+        values=values,
+        errors=errors,
+        submission_id=values.get("submission_id") or secrets.token_urlsafe(12),
+        **_form_options(),
+    ), status
 
 
-@app.get("/recursos")
+@app.get("/")
+def index():
+    return _render_index({}, {})
+
+
 @app.get("/features")
+@app.get("/recursos")
 def features():
-    return render_template("features.html")
+    # features.html é um trecho da página inicial, sem layout próprio.
+    return redirect(url_for("index") + "#recursos")
 
 
-@app.get("/privacidade")
+@app.errorhandler(CSRFError)
+def csrf_error(_error):
+    # Sessão expirada ou formulário antigo: mostra o formulário com os dados digitados.
+    values = request.form.to_dict(flat=True) if request.method == "POST" else {}
+    return _render_index(values, {"form": "Sua sessão expirou. Confira os dados e envie novamente."}, 400)
+
+
 @app.get("/privacy")
+@app.get("/privacidade")
 def privacy():
     return render_template("privacy.html")
 
 
-@app.get("/obrigado")
 @app.get("/thanks")
+@app.get("/obrigado")
 def thanks():
     return render_template("thanks.html")
 
 
-@app.route("/demonstracao", methods=["GET", "POST"])
 @app.route("/demonstration", methods=["GET", "POST"])
+@app.route("/demonstracao", methods=["GET", "POST"])
 def demonstration():
     if request.method == "GET":
         return redirect(url_for("index"))
@@ -218,50 +240,50 @@ def demonstration():
 
     values = request.form.to_dict(flat=True)
 
-    # Aceita nomes de campos em PT ou EN sem obrigar o template a mudar.
+    # Aceita nomes de campos em PT ou EN; o formulário atual usa workshop/city/challenge.
     name = _first_form_value("name", "nome", "full_name", "nome_completo")
     email = _first_form_value("email", "email_address")
     phone = _first_form_value("phone", "telefone", "whatsapp", "celular")
-    company = _first_form_value("company", "empresa", "business", "razao_social")
-    message = _first_form_value("message", "mensagem", "notes", "observacoes")
+    company = _first_form_value("workshop", "company", "empresa", "business", "razao_social")
+    city = _first_form_value("city", "cidade")
+    message = _first_form_value("challenge", "message", "mensagem", "notes", "observacoes")
     plan = _first_form_value("plan", "plano")
     team = _first_form_value("team", "team_size", "equipe", "tamanho_equipe")
+    options = _form_options()
 
-    # Mantemos a validação deliberadamente simples para não quebrar
-    # formulários já existentes na landing.
     errors: dict[str, str] = {}
-
+    if not name:
+        errors["name"] = "Informe seu nome."
+    if not company:
+        errors["workshop"] = "Informe o nome da oficina."
+    if len(re.sub(r"\D", "", phone)) < 10:
+        errors["phone"] = "Informe um WhatsApp com DDD."
     if email and ("@" not in email or "." not in email.rsplit("@", 1)[-1]):
         errors["email"] = "Informe um e-mail válido."
+    if not city:
+        errors["city"] = "Informe a cidade."
+    if team not in options["teams"]:
+        errors["team"] = "Selecione o tamanho da equipe."
+    if plan not in options["plans"]:
+        errors["plan"] = "Selecione um plano."
+    if request.form.get("privacy") != "accepted":
+        errors["privacy"] = "É preciso autorizar o contato para enviarmos a demonstração."
 
     if errors:
-        return (
-            render_template(
-                "index.html",
-                values=values,
-                errors=errors,
-                submission_id=values.get("submission_id", ""),
-                teams=_env_list("LANDING_TEAM_OPTIONS"),
-                plans=_env_list("LANDING_PLAN_OPTIONS"),
-            ),
-            400,
-        )
+        return _render_index(values, errors, 400)
 
-    # Guarda o lead localmente para a solicitação não se perder.
-    # Arquivo fica fora da pasta static e não é servido pelo navegador.
-    data_dir = BASE_DIR / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    leads_file = data_dir / "leads.jsonl"
-
+    LEADS_FILE.parent.mkdir(parents=True, exist_ok=True)
     lead = {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "name": name[:160],
         "email": email[:254],
         "phone": phone[:40],
         "company": company[:160],
+        "city": city[:100],
         "message": message[:2000],
         "plan": plan[:80],
         "team": team[:80],
+        "privacy_accepted": True,
         "ip": (request.remote_addr or "")[:64],
         "user_agent": request.headers.get("User-Agent", "")[:512],
         "form": {
@@ -271,7 +293,7 @@ def demonstration():
         },
     }
 
-    with leads_file.open("a", encoding="utf-8") as fp:
+    with LEADS_FILE.open("a", encoding="utf-8") as fp:
         fp.write(json.dumps(lead, ensure_ascii=False) + "\n")
 
     return redirect(url_for("thanks"))
