@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 import secrets
+import time
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -153,6 +154,29 @@ def _run_schema_updates(app: Flask) -> None:
         db.session.commit()
 
 
+def _persistent_secret_key(instance_path: Path) -> str:
+    """SECRET_KEY estável entre processos quando o .env não define uma.
+
+    Uma chave aleatória por processo derruba sessões e CSRF sob Passenger/gunicorn, que
+    rodam vários processos e reiniciam com frequência. O primeiro processo cria o arquivo
+    de forma atômica; os demais leem a mesma chave.
+    """
+    key_file = instance_path / 'secret_key'
+    try:
+        fd = os.open(key_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        for _ in range(100):  # outro processo pode estar terminando de gravar
+            key = key_file.read_text(encoding='utf-8').strip()
+            if key:
+                return key
+            time.sleep(0.02)
+        raise RuntimeError(f'{key_file} está vazio; apague o arquivo ou defina SECRET_KEY no .env.')
+    key = secrets.token_hex(32)
+    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+        handle.write(key)
+    return key
+
+
 def create_app(test_config: dict | None = None) -> Flask:
     app = Flask(__name__, instance_relative_config=True)
     instance_path = Path(app.instance_path)
@@ -178,9 +202,14 @@ def create_app(test_config: dict | None = None) -> Flask:
             'pool_timeout': 30,    
         })
 
+    secret_key = os.getenv('SECRET_KEY') or (test_config or {}).get('SECRET_KEY')
+    if not secret_key:
+        testing = (test_config or {}).get('TESTING')
+        secret_key = secrets.token_hex(32) if testing else _persistent_secret_key(instance_path)
+
     app.config.update(
         APP_ENV=os.getenv('APP_ENV', 'development'),
-        SECRET_KEY=os.getenv('SECRET_KEY') or secrets.token_hex(32),
+        SECRET_KEY=secret_key,
         TRUSTED_HOSTS=os.getenv('TRUSTED_HOSTS', ''),
         SQLALCHEMY_DATABASE_URI=database_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,

@@ -1,4 +1,5 @@
 """Regressões da revisão de outubro de 2026."""
+from app import _persistent_secret_key
 from app.models import Client, WorkOrder, db
 from app.services import next_number
 from tests.test_review_regressions import application, browser_for  # noqa: F401  (fixture)
@@ -23,3 +24,12 @@ def test_next_number_uses_highest_existing_number_not_last_row(application):  # 
 
 def test_next_number_starts_at_one_for_new_prefix(application):  # noqa: F811
     assert next_number(WorkOrder, 'OS') == 'OS-00001'
+
+
+def test_secret_key_is_shared_between_processes_when_env_has_none(tmp_path):
+    # Cada chamada simula um processo novo do Passenger; todos precisam da mesma chave.
+    first = _persistent_secret_key(tmp_path)
+    second = _persistent_secret_key(tmp_path)
+    assert first == second
+    assert len(first) == 64
+    assert (tmp_path / 'secret_key').read_text(encoding='utf-8') == first
