@@ -52,7 +52,7 @@ def run_turn(user_text: str, previous_id: str | None, user_label: str, client=No
     drafts, timings = [], []
     for _ in range(MAX_ROUNDS):
         kwargs = dict(model=model, input=step_input, tools=DECLARATIONS, system_instruction=SYSTEM_INSTRUCTION,
-                      generation_config={'thinking_level': os.getenv('GEMINI_THINKING') or 'low'})
+                      generation_config={'thinking_level': os.getenv('GEMINI_THINKING') or 'minimal'})
         if previous_id:
             kwargs['previous_interaction_id'] = previous_id
         started = time.monotonic()
