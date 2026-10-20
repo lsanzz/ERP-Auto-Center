@@ -1,5 +1,5 @@
-body button.ai-launcher{position:fixed;right:24px;bottom:84px;z-index:101;display:inline-flex;gap:8px;align-items:center;padding:11px 16px;border:1px solid var(--primary,#3b82f6);background:#fff;color:var(--primary,#3b82f6);border-radius:999px;font:600 14px var(--font-sans,inherit);box-shadow:0 8px 20px rgba(59,130,246,.18);cursor:pointer}
-body button.ai-launcher:hover{background:var(--primary,#3b82f6);color:#fff}
+body button.ai-launcher{position:fixed;right:24px;bottom:84px;z-index:101;display:inline-flex;gap:8px;align-items:center;padding:11px 16px;border:1px solid var(--color-primary,#3b82f6);background:var(--color-primary,#3b82f6);color:#fff;border-radius:999px;font:600 14px var(--font-sans,inherit);box-shadow:0 8px 20px rgba(59,130,246,.18);cursor:pointer}
+body button.ai-launcher:hover{background:var(--color-blue-strong,#2563eb);color:#fff}
 .ai-panel{position:fixed;right:24px;bottom:24px;z-index:200;width:min(440px,calc(100vw - 32px));height:min(640px,calc(100vh - 48px));display:flex;flex-direction:column;background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;box-shadow:0 24px 60px rgba(15,23,42,.22);font-family:var(--font-sans,inherit);color:var(--foreground,#333)}
 .ai-panel[hidden]{display:none}
 .ai-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border,#e5e7eb)}
