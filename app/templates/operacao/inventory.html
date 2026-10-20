@@ -25,7 +25,7 @@
     </div>
     <p><button type="button" class="secondary" data-add-row>+ Adicionar peça</button> <strong>Total: <output data-stock-total>R$ 0,00</output></strong></p>
     <details open><summary>Conta a pagar desta compra</summary>
-      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="gerar_conta" value="1" checked style="width:auto;min-height:0;margin:0"> Lançar no financeiro (contas a pagar)</label>
+      <label style="display:flex;flex-direction:row;justify-content:flex-start;gap:8px;align-items:center;color:var(--foreground)"><input type="checkbox" name="gerar_conta" value="1" checked style="width:16px;min-height:0;margin:0;flex:none">Lançar no financeiro (contas a pagar)</label>
       <div class="hub-form-grid">
         <label>Vencimento<input type="date" name="vencimento" value="{{ today.isoformat() }}"></label>
         <label>Parcelas<input type="number" name="installment_count" min="1" max="120" value="1"></label>
