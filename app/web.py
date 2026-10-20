@@ -566,21 +566,6 @@ def clients_index():
     return render_template('clientes/index.html', clientes=clientes)
 
 
-@web_bp.get('/clientes/buscar')
-@login_required
-@permission_required('customers.manage')
-def clients_lookup():
-    """JSON used by client pickers so forms do not embed every client."""
-    query = Client.query
-    term = request.args.get('q', '').strip()
-    if term:
-        like = f'%{term}%'
-        query = query.filter(db.or_(Client.nome.ilike(like), Client.cpf_cnpj.ilike(like), Client.telefone.ilike(like)))
-    return {'items': [{'id': client.id, 'nome': client.nome,
-                       'detalhe': ' · '.join(filter(None, [client.telefone, client.cpf_cnpj]))}
-                      for client in query.order_by(Client.nome).limit(20)]}
-
-
 @web_bp.get('/api/cep/<cep>')
 @login_required
 @permission_required('customers.manage')
@@ -2551,31 +2536,25 @@ def _sync_work_order_items_from_form(order: WorkOrder) -> None:
 
 
 def _render_work_order_form(order: WorkOrder | None):
+    clients = Client.query.order_by(Client.nome).all()
     employees = Employee.query.filter_by(ativo=True).order_by(Employee.nome).all()
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all()
+    services = Service.query.filter_by(ativo=True).order_by(Service.nome).all()
+    products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
     return render_template(
         'os/form.html',
         order=order,
+        clients=clients,
         employees=employees,
         payment_methods=payment_methods,
         statuses=WORK_ORDER_STATUSES,
         service_rows=_item_rows_for_template(order, 'servico', 'SERVICO'),
         product_rows=_item_rows_for_template(order, 'peca', 'PECA'),
+        service_price_map={service.nome.lower(): float(parse_decimal(service.preco_base)) for service in services},
+        product_price_map={product.nome.lower(): float(parse_decimal(product.preco_venda)) for product in products},
+        services=services,
+        products=products,
     )
-
-
-@web_bp.get('/os/catalogo')
-@login_required
-@permission_required('work_orders.manage')
-def work_orders_catalog_lookup():
-    """Services (tipo=SERVICO) or products matching q, with the price the O.S. form suggests."""
-    model, price = (Service, 'preco_base') if request.args.get('tipo') == 'SERVICO' else (Product, 'preco_venda')
-    query = model.query.filter_by(ativo=True)
-    term = request.args.get('q', '').strip()
-    if term:
-        query = query.filter(model.nome.ilike(f'%{term}%'))
-    return {'items': [{'nome': item.nome, 'preco': float(parse_decimal(getattr(item, price)))}
-                      for item in query.order_by(model.nome).limit(20)]}
 
 
 def _fill_client_from_form(client: Client) -> None:

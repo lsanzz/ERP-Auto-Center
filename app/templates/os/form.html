@@ -1,7 +1,59 @@
 {% extends 'base.html' %}
-{% from 'clientes/_picker.html' import client_picker %}
 {% block content %}
 <style>
+  /* Dropdown Customizado Ventriloc */
+  .custom-autocomplete-wrapper {
+    position: relative;
+    width: 100%;
+  }
+  .custom-suggestions-box {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 999;
+    background: #ffffff;
+    border: 1px solid var(--color-mist);
+    border-radius: 8px;
+    box-shadow: 0 12px 30px rgba(32,32,32,0.14);
+    max-height: 220px;
+    overflow-y: auto;
+    display: none;
+  }
+  .custom-suggestion-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--color-graphite);
+    cursor: pointer;
+    border-bottom: 1px solid var(--color-mist);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  button.custom-suggestion-item {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--color-mist);
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+    text-align: left;
+    font-weight: 500;
+  }
+  button.custom-suggestion-item:last-child { border-bottom: 0; }
+  .custom-suggestion-copy { display: grid; gap: 3px; min-width: 0; }
+  .custom-suggestion-copy strong { color: var(--color-graphite); font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+  .custom-suggestion-copy small { color: var(--color-slate); font-size: 12px; font-weight: 400; }
+  .custom-suggestion-action { color: var(--color-ember-orange); font-size: 12px; font-weight: 600; }
+  .entity-autocomplete-help { display: block; min-height: 18px; margin-top: 0; font-size: 12px; }
+  .entity-autocomplete-input[aria-expanded="true"] { border-color: var(--color-ember-orange); }
+  .client-autocomplete-field,
+  .vehicle-autocomplete-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-self: start;
+  }
   .os-primary-grid { align-items: start; column-gap: 20px; row-gap: 24px; }
   .os-primary-grid > * { min-width: 0; margin: 0; }
   .os-plate-control {
@@ -21,6 +73,16 @@
     .os-plate-control { grid-template-columns: 1fr; }
     .os-plate-control button { min-height: 44px; }
   }
+  .custom-suggestion-item:hover {
+    background: var(--color-sand);
+    color: var(--color-graphite);
+  }
+  .custom-suggestion-item span.price {
+    font-family: var(--font-polysans);
+    color: var(--color-graphite);
+    font-size: 12px;
+  }
+
   .item-row input[type="text"],
   .item-row input[inputmode="numeric"] {
     width: 100%;
@@ -61,12 +123,23 @@
   <div class="card asymmetric" style="margin-bottom: 40px;">
     <h3 style="margin-bottom: 24px;">1. Cliente e Veículo</h3>
     <div class="form-grid-3 os-primary-grid">
-      {{ client_picker(text_name='client_nome', required=true,
-                       client_id=order.client_id if order else '',
-                       text=order.client_nome if order and order.client_nome else (order.client.nome if order and order.client else ''),
-                       empty_help='Digite para localizar um cliente ou informe um novo nome.') }}
+      <div class="client-autocomplete-field">
+        <label for="client_nome">Cliente</label>
+        <div class="custom-autocomplete-wrapper" id="client-autocomplete">
+          <input class="entity-autocomplete-input" type="text" name="client_nome" id="client_nome" value="{{ order.client_nome if order and order.client_nome else (order.client.nome if order and order.client else '') }}" required autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="client-suggestions" aria-expanded="false" style="text-transform: uppercase;">
+          <input type="hidden" name="client_id" id="client_id" value="{{ order.client_id if order else '' }}">
+          <div class="custom-suggestions-box" id="client-suggestions" role="listbox">
+            {% for client in clients %}
+            <button type="button" class="custom-suggestion-item client-suggestion" role="option" data-id="{{ client.id }}" data-name="{{ client.nome }}" data-search="{{ client.nome }} {{ client.telefone or '' }} {{ client.cpf_cnpj or '' }}">
+              <span class="custom-suggestion-copy"><strong>{{ client.nome }}</strong><small>{{ [client.telefone, client.cpf_cnpj]|select|join(' · ') or 'Cliente cadastrado' }}</small></span>
+              <span class="custom-suggestion-action">Selecionar</span>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+        <span id="client-help" class="muted entity-autocomplete-help">Digite para localizar um cliente ou informe um novo nome.</span>
+      </div>
       {% include 'veiculos/_selector.html' %}
-      <script src="{{ url_for('static', filename='client-picker.js') }}" defer></script>
       <label>Funcionário responsável
         <select name="employee_id">
           <option value="">Selecione</option>
@@ -113,7 +186,7 @@
           <h4 style="font-size: 16px; color: var(--color-graphite);">Serviços Realizados</h4>
           <button type="button" class="button secondary add-item-row" data-target="services-items-body" data-template="service-row-template" style="height: 32px; padding: 0 16px; font-size: 13px;">+ Adicionar Serviço</button>
         </div>
-        <table class="table item-editor-table" id="services-table">
+        <table class="table item-editor-table" id="services-table" data-catalog='{{ service_price_map|tojson }}'>
           <thead>
             <tr>
               <th style="width: 45%;">Descrição</th>
@@ -148,7 +221,7 @@
           <h4 style="font-size: 16px; color: var(--color-graphite);">Peças e Produtos</h4>
           <button type="button" class="button secondary add-item-row" data-target="parts-items-body" data-template="part-row-template" style="height: 32px; padding: 0 16px; font-size: 13px;">+ Adicionar Peça</button>
         </div>
-        <table class="table item-editor-table" id="parts-table">
+        <table class="table item-editor-table" id="parts-table" data-catalog='{{ product_price_map|tojson }}'>
           <thead>
             <tr>
               <th style="width: 45%;">Descrição</th>
@@ -332,11 +405,17 @@
   const addPaymentBtn = document.getElementById('add-payment-btn');
   const paymentRemainingPreview = document.getElementById('payment-remaining-preview');
   
+  const clientSelect = document.getElementById('client_id');
+  const clientName = document.getElementById('client_nome');
+  const clientBox = document.getElementById('client-suggestions');
+  const clientHelp = document.getElementById('client-help');
   const plateInput = document.getElementById('placa');
   const vehicleDescription = document.getElementById('veiculo_descricao');
   const plateButton = document.getElementById('buscar-placa');
   const plateStatus = document.getElementById('placa-status');
   
+  const servicesCatalog = JSON.parse(document.getElementById('services-table').dataset.catalog || '{}');
+  const productsCatalog = JSON.parse(document.getElementById('parts-table').dataset.catalog || '{}');
 
   function parseNumber(value) { 
     if (typeof value === 'string') {
@@ -546,30 +625,22 @@
     const wrapper = input.closest('.custom-autocomplete-wrapper');
     if (!wrapper) return;
     const box = wrapper.querySelector('.custom-suggestions-box');
-    const type = input.closest('.item-row').dataset.itemType;
-    let pending;
-    let timer;
+    const table = input.closest('table');
+    const catalog = table.id === 'services-table' ? servicesCatalog : productsCatalog;
 
-    // O catálogo vem do servidor conforme a digitação, em vez de embutido na página.
-    async function search(query) {
-      if (pending) pending.abort();
-      pending = new AbortController();
-      try {
-        const response = await fetch('/os/catalogo?' + new URLSearchParams({ tipo: type, q: query }), { signal: pending.signal });
-        if (!response.ok) throw new Error();
-        render((await response.json()).items || []);
-      } catch (error) {
-        if (error.name !== 'AbortError') box.style.display = 'none';
-      }
-    }
-
-    function render(items) {
+    input.addEventListener('input', () => {
+      const query = input.value.trim().toUpperCase();
       box.innerHTML = '';
-      if (items.length === 0 || document.activeElement !== input) {
+      if (!query) {
         box.style.display = 'none';
         return;
       }
-      items.forEach(({ nome: name, preco: price }) => {
+      const matches = Object.entries(catalog).filter(([name]) => name.toUpperCase().includes(query));
+      if (matches.length === 0) {
+        box.style.display = 'none';
+        return;
+      }
+      matches.forEach(([name, price]) => {
         const item = document.createElement('div');
         item.className = 'custom-suggestion-item';
         const nameLabel = document.createElement('span');
@@ -591,17 +662,6 @@
         box.appendChild(item);
       });
       box.style.display = 'block';
-    }
-
-    input.addEventListener('input', () => {
-      const query = input.value.trim();
-      clearTimeout(timer);
-      if (!query) {
-        if (pending) pending.abort();
-        box.style.display = 'none';
-        return;
-      }
-      timer = setTimeout(() => search(query), 220);
     });
 
     input.addEventListener('blur', () => {
@@ -637,6 +697,76 @@
   });
 
   
+  if (clientSelect && clientName && clientBox) {
+    const clientOptions = Array.from(clientBox.querySelectorAll('.client-suggestion'));
+    let activeClientIndex = -1;
+    const normalizeSearch = (value) => (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    const visibleClients = () => clientOptions.filter((option) => option.style.display !== 'none');
+
+    function closeClientSuggestions() {
+      clientBox.style.display = 'none';
+      clientName.setAttribute('aria-expanded', 'false');
+      activeClientIndex = -1;
+      clientOptions.forEach((option) => option.removeAttribute('aria-selected'));
+    }
+
+    function renderClientSuggestions() {
+      const query = normalizeSearch(clientName.value.trim());
+      let count = 0;
+      clientOptions.forEach((option) => {
+        const matches = !query || normalizeSearch(option.dataset.search).includes(query);
+        option.style.display = matches && count < 12 ? 'flex' : 'none';
+        if (matches && count < 12) count += 1;
+      });
+      if (!count) {
+        closeClientSuggestions();
+        clientHelp.textContent = 'Nenhum cadastro encontrado. O nome digitado criará um novo cliente.';
+        return;
+      }
+      clientBox.style.display = 'block';
+      clientName.setAttribute('aria-expanded', 'true');
+      clientHelp.textContent = `${count} cliente${count === 1 ? '' : 's'} encontrado${count === 1 ? '' : 's'}.`;
+    }
+
+    function selectClient(option) {
+      clientSelect.value = option.dataset.id;
+      clientSelect.dataset.selectedName = option.dataset.name;
+      clientName.value = option.dataset.name.toUpperCase();
+      clientHelp.textContent = 'Cliente cadastrado selecionado.';
+      closeClientSuggestions();
+      clientSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    clientOptions.forEach((option) => option.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      selectClient(option);
+    }));
+    clientName.addEventListener('input', () => {
+      if (normalizeSearch(clientName.value) !== normalizeSearch(clientSelect.dataset.selectedName)) {
+        if (clientSelect.value) {
+          clientSelect.value = '';
+          clientSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+      renderClientSuggestions();
+    });
+    clientName.addEventListener('focus', renderClientSuggestions);
+    clientName.addEventListener('blur', () => setTimeout(closeClientSuggestions, 160));
+    clientName.addEventListener('keydown', (event) => {
+      const options = visibleClients();
+      if (event.key === 'Escape') return closeClientSuggestions();
+      if (!['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key) || !options.length) return;
+      event.preventDefault();
+      if (event.key === 'Enter') return selectClient(options[activeClientIndex >= 0 ? activeClientIndex : 0]);
+      activeClientIndex = event.key === 'ArrowUp'
+        ? (activeClientIndex <= 0 ? options.length - 1 : activeClientIndex - 1)
+        : (activeClientIndex + 1) % options.length;
+      options.forEach((option, index) => option.setAttribute('aria-selected', index === activeClientIndex ? 'true' : 'false'));
+      options[activeClientIndex].scrollIntoView({ block: 'nearest' });
+    });
+    if (clientSelect.value) clientSelect.dataset.selectedName = clientName.value;
+  }
+
   async function consultarPlaca() {
     const placa = (plateInput.value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     if (placa.length < 7) {
