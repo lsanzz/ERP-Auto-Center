@@ -13,7 +13,7 @@ import re
 import sys
 from types import SimpleNamespace
 
-from lxml import html as lh
+from lxml import etree
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import delete, insert, select
@@ -41,23 +41,30 @@ def clean(value):
 
 def grid(path):
     """Rows of a vhsys report grid; item subtables go to row['_sub']."""
-    doc = lh.fromstring(path.read_bytes().decode('utf-8', 'replace'))
-    table = doc.xpath('//table[@id="tblGrid"]')[0]
-    fields = [h.get('data-field') for h in table.xpath('./thead/tr/th')]
-    rows = []
-    for tr in table.xpath('./tbody/tr'):
+    # Streamed: loading the 27 MB OS export whole needs ~560 MB, over the hosting memory limit.
+    fields, rows = None, []
+    for _, tr in etree.iterparse(str(path), events=('end',), tag='tr', html=True, encoding='utf-8', recover=True):
+        section = tr.getparent()
+        if section is None or section.getparent() is None or section.getparent().get('id') != 'tblGrid':
+            continue
         cls = tr.get('class') or ''
+        if section.tag == 'thead':
+            fields = [h.get('data-field') for h in tr.xpath('./th')]
+            continue
         if 'table-row-body' in cls:
-            rows.append({**{f: clean(td.text_content()) for f, td in zip(fields, tr.xpath('./td'))},
+            rows.append({**{f: clean(''.join(td.itertext())) for f, td in zip(fields, tr.xpath('./td'))},
                          '_id': tr.get('data-id'), '_sub': []})
         elif 'Table_L1' in cls and rows and tr.get('data-id') == rows[-1]['_id']:
             sub = tr.xpath('.//table[@data-subtable="true"]')
             if sub:
                 sf = [h.get('data-field') for h in sub[0].xpath('./thead/tr/th')]
                 for item in sub[0].xpath('./tbody/tr'):
-                    cells = [clean(td.text_content()) for td in item.xpath('./td')]
+                    cells = [clean(''.join(td.itertext())) for td in item.xpath('./td')]
                     if len(cells) == len(sf):
                         rows[-1]['_sub'].append(dict(zip(sf, cells)))
+        tr.clear()
+        while tr.getprevious() is not None:
+            del section[0]
     return rows
 
 
@@ -327,13 +334,14 @@ def main():
         try:
             root = Path(app.instance_path) / 'backups'
             root.mkdir(parents=True, exist_ok=True)
-            backup = root / ('before-vhsys-reload-' + datetime.now().strftime('%Y%m%d-%H%M%S') + '.json.gz')
-            with gzip.open(backup, 'xt', encoding='utf-8') as stream:
-                json.dump({t.name: [dict(r) for r in db.session.execute(select(t)).mappings()] for t in tables if current[t.name]},
-                          stream, ensure_ascii=False, default=str)
+            backup = root / ('before-vhsys-reload-' + datetime.now().strftime('%Y%m%d-%H%M%S') + '.jsonl.gz')
+            with gzip.open(backup, 'xt', encoding='utf-8') as stream:  # one {"table", "row"} per line, streamed
+                for table in tables:
+                    for row in db.session.execute(select(table).execution_options(yield_per=1000)).mappings():
+                        stream.write(json.dumps({'table': table.name, 'row': dict(row)}, ensure_ascii=False, default=str) + '\n')
             with gzip.open(backup, 'rt', encoding='utf-8') as stream:
-                saved = json.load(stream)
-            if any(len(saved.get(name, [])) != count for name, count in current.items() if count):
+                saved = Counter(json.loads(line)['table'] for line in stream)
+            if any(saved[name] != count for name, count in current.items()):
                 raise ValueError('Falha na verificação do backup.')
             print('Backup verificado:', backup, flush=True)
             for table in tables:
