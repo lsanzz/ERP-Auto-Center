@@ -136,7 +136,7 @@
                       {% if order.items|selectattr('item_type', 'equalto', 'PECA')|list %}<a class="button secondary" href="{{ url_for('web.work_order_invoice_preview', work_order_id=order.id, tipo='NFE') }}">Emitir NF-e de peças</a>{% endif %}
                       {% if order.status in ['FINALIZADA', 'ENTREGUE'] and not order.estoque_baixado %}<form method="post" action="{{ url_for('web.work_orders_launch_stock', work_order_id=order.id) }}" onsubmit="return confirm('Lançar as peças desta O.S. no estoque?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="button secondary">Lançar estoque</button></form>{% elif order.estoque_baixado %}<span class="muted small" style="padding:10px 12px;">Estoque já lançado</span>{% endif %}
                       {% if order.status in ['FINALIZADA', 'ENTREGUE'] %}
-                      {% if not has_receivables %}<form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="button secondary">Lançar contas</button></form>{% else %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Ver contas</a>{% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary os-menu-danger">Estornar contas</button></form>{% endif %}{% endif %}
+                      {% if not has_receivables %}<button type="button" class="button secondary" data-open="launch-{{ order.id }}">Lançar contas</button>{% else %}<a class="button secondary" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}#financeiro">Ver contas</a>{% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary os-menu-danger">Estornar contas</button></form>{% endif %}{% endif %}
                       {% endif %}
                       {% endif %}
                       <div class="os-menu-separator"></div>
@@ -149,6 +149,7 @@
                     </div>
                   </details>
                 </div>
+                {% if current_user().role == 'ADMINISTRADOR' and order.status in ['FINALIZADA', 'ENTREGUE'] and not has_receivables %}{% set launch_next = request.full_path %}{% include 'os/_launch_receivables_dialog.html' %}{% endif %}
                 <dialog id="status-modal-{{ order.id }}" class="status-dialog">
                   <div class="status-dialog-header"><h3>Alterar situação</h3><button type="button" class="status-dialog-close" onclick="this.closest('dialog').close()">×</button></div>
                   <form method="post" action="{{ url_for('web.work_orders_change_status', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -180,4 +181,5 @@
     </div>
   </div>
 </div>
+<link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2"><script src="{{ url_for('static',filename='finance-overview.js') }}?v=3"></script>
 {% endblock %}

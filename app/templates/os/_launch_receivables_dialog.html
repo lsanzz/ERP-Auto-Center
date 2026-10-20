@@ -1,0 +1,23 @@
+<dialog class="hub-dialog hub" id="launch-{{ order.id }}" aria-labelledby="launch-title-{{ order.id }}">
+  <div class="hub-panel-head"><h3 id="launch-title-{{ order.id }}">Lançar contas · O.S. {{ order.numero }}</h3><button type="button" class="secondary" data-close aria-label="Fechar">×</button></div>
+  <p>{{ order.client_nome or (order.client.nome if order.client else '') }}</p>
+  <p><strong>{{ format_currency(order.total_geral) }}</strong></p>
+  <form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}" data-method-accounts='{{ method_accounts|tojson }}'>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="next" value="{{ launch_next }}">
+    <div class="hub-form-grid">
+      {% if order.payments %}
+      <p class="wide">Formas de pagamento da O.S.: {% for payment in order.payments %}{{ payment.payment_method.nome if payment.payment_method else '-' }} {{ format_currency(payment.valor) }}{% if payment.installment_count and payment.installment_count > 1 %} em {{ payment.installment_count }}x{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+      {% else %}
+      <label>Forma de pagamento<select name="payment_method_id" required><option value="">Selecione</option>{% for method in payment_methods %}<option value="{{ method.id }}" {% if method.id == order.payment_method_id %}selected{% endif %}>{{ method.nome }}</option>{% endfor %}</select></label>
+      <label>Parcelas<input type="number" name="installment_count" min="1" max="120" value="{{ order.installment_count or 1 }}"></label>
+      {% endif %}
+      <label>Vencimento da 1ª parcela<input type="date" name="vencimento" value="{{ today.isoformat() }}"></label>
+      <label>Situação<select name="receivable_status"><option value="RECEBIDO">Já recebido</option><option value="PENDENTE">Em aberto (receber depois)</option></select></label>
+      <label>Data do recebimento<input type="date" name="payment_receipt_at" value="{{ today.isoformat() }}"></label>
+      <label>Conta bancária<select name="bank_account_id"><option value="">Automática pela forma de pagamento</option>{% for account in bank_accounts %}<option value="{{ account.id }}" {% if not order.payments and method_accounts.get(order.payment_method_id|string) == account.id %}selected{% endif %}>{{ account.nome }}</option>{% endfor %}</select></label>
+    </div>
+    <p class="hub-note">Dinheiro entra na conta Dinheiro; Pix, cartão e demais formas entram na JURIDICA. Troque a conta se precisar.</p>
+    <div class="hub-actions"><button type="submit">Confirmar lançamento</button><button type="button" class="secondary" data-close>Cancelar</button></div>
+  </form>
+</dialog>

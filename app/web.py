@@ -32,6 +32,7 @@ from .services import (
     dashboard_data,
     ensure_work_order_receivables,
     finalize_work_order,
+    add_months,
     method_account_map,
     next_number,
     recalculate_budget_totals,
@@ -563,6 +564,21 @@ def clients_index():
     
     clientes = query.order_by(Client.nome).limit(100).all()
     return render_template('clientes/index.html', clientes=clientes)
+
+
+@web_bp.get('/clientes/buscar')
+@login_required
+@permission_required('customers.manage')
+def clients_lookup():
+    """JSON used by client pickers so forms do not embed every client."""
+    query = Client.query
+    term = request.args.get('q', '').strip()
+    if term:
+        like = f'%{term}%'
+        query = query.filter(db.or_(Client.nome.ilike(like), Client.cpf_cnpj.ilike(like), Client.telefone.ilike(like)))
+    return {'items': [{'id': client.id, 'nome': client.nome,
+                       'detalhe': ' · '.join(filter(None, [client.telefone, client.cpf_cnpj]))}
+                      for client in query.order_by(Client.nome).limit(20)]}
 
 
 @web_bp.get('/api/cep/<cep>')
@@ -1150,7 +1166,7 @@ def work_orders_index():
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all() if current_user().role == 'ADMINISTRADOR' else []
     bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all() if current_user().role == 'ADMINISTRADOR' else []
     
-    return render_template('os/index.html', orders=orders, pagination=orders_page, statuses=WORK_ORDER_STATUSES, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts)
+    return render_template('os/index.html', orders=orders, pagination=orders_page, statuses=WORK_ORDER_STATUSES, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts, method_accounts=method_account_map() if bank_accounts else {}, today=date.today())
 
 @web_bp.post('/os/<int:work_order_id>/copiar')
 @login_required
@@ -1398,13 +1414,33 @@ def work_orders_launch_receivables(work_order_id: int):
     if order.status not in {'FINALIZADA', 'ENTREGUE'}:
         flash('Finalize ou entregue a O.S. antes de lançar o contas a receber.', 'error')
         return redirect(url_for('web.work_orders_index'))
-    entries = ensure_work_order_receivables(order)
-    db.session.commit()
-    if len(entries) > 1:
-        flash(f'{len(entries)} parcelas lançadas em contas a receber.', 'success')
-    else:
-        flash('Conta a receber lançada com sucesso.', 'success')
-    return redirect(url_for('web.finance_index'))
+    try:
+        method_id = request.form.get('payment_method_id', type=int)
+        if method_id and not order.payments:
+            order.payment_method_id = method_id
+            order.installment_count = max(request.form.get('installment_count', 1, type=int) or 1, 1)
+        entries = ensure_work_order_receivables(order)
+        first_due = parse_date(request.form.get('vencimento'))
+        if first_due:
+            for entry in entries:
+                if entry.status == 'PENDENTE':
+                    entry.vencimento = add_months(first_due, entry.installment_number - 1)
+        received = request.form.get('receivable_status') == 'RECEBIDO'
+        if received:
+            for entry in entries:
+                # Conta em branco: cada parcela vai para a conta padrão da sua forma de pagamento.
+                settle_financial_entry(entry, payment_receipt_at=request.form.get('payment_receipt_at'),
+                                       bank_account_id=request.form.get('bank_account_id', type=int))
+        db.session.commit()
+        total = len(entries)
+        flash(f'{total} parcela(s) lançada(s) e recebida(s).' if received else f'{total} parcela(s) lançada(s) em contas a receber.', 'success')
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), 'error')
+    target = request.form.get('next', '')
+    if target.startswith('/') and not target.startswith('//'):  # only same-site paths
+        return redirect(target)
+    return redirect(url_for('web.work_orders_show', work_order_id=order.id))
 
 
 @web_bp.post('/os/<int:work_order_id>/atualizar-recebimento')
@@ -2515,25 +2551,31 @@ def _sync_work_order_items_from_form(order: WorkOrder) -> None:
 
 
 def _render_work_order_form(order: WorkOrder | None):
-    clients = Client.query.order_by(Client.nome).all()
     employees = Employee.query.filter_by(ativo=True).order_by(Employee.nome).all()
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all()
-    services = Service.query.filter_by(ativo=True).order_by(Service.nome).all()
-    products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
     return render_template(
         'os/form.html',
         order=order,
-        clients=clients,
         employees=employees,
         payment_methods=payment_methods,
         statuses=WORK_ORDER_STATUSES,
         service_rows=_item_rows_for_template(order, 'servico', 'SERVICO'),
         product_rows=_item_rows_for_template(order, 'peca', 'PECA'),
-        service_price_map={service.nome.lower(): float(parse_decimal(service.preco_base)) for service in services},
-        product_price_map={product.nome.lower(): float(parse_decimal(product.preco_venda)) for product in products},
-        services=services,
-        products=products,
     )
+
+
+@web_bp.get('/os/catalogo')
+@login_required
+@permission_required('work_orders.manage')
+def work_orders_catalog_lookup():
+    """Services (tipo=SERVICO) or products matching q, with the price the O.S. form suggests."""
+    model, price = (Service, 'preco_base') if request.args.get('tipo') == 'SERVICO' else (Product, 'preco_venda')
+    query = model.query.filter_by(ativo=True)
+    term = request.args.get('q', '').strip()
+    if term:
+        query = query.filter(model.nome.ilike(f'%{term}%'))
+    return {'items': [{'nome': item.nome, 'preco': float(parse_decimal(getattr(item, price)))}
+                      for item in query.order_by(model.nome).limit(20)]}
 
 
 def _fill_client_from_form(client: Client) -> None:

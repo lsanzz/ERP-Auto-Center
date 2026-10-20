@@ -105,12 +105,12 @@
 {% if current_user().role == 'ADMINISTRADOR' and order.status in ['FINALIZADA', 'ENTREGUE'] %}
 {% set has_receivables = receivables|length > 0 %}
 {% set all_received = has_receivables and (receivables|selectattr('status', 'equalto', 'RECEBIDO')|list|length == receivables|length) %}
-<div class="card section-card" style="margin-bottom:60px;">
+<div class="card section-card" id="financeiro" style="margin-bottom:60px;">
   <div class="responsive-row" style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap;">
     <div><h3>Financeiro desta O.S.</h3><p class="muted" style="margin-top:8px;">{{ 'Recebimento já lançado.' if has_receivables else 'Esta ordem está pronta para entrar em contas a receber.' }}</p></div>
     <div class="responsive-row" style="display:flex; gap:10px; flex-wrap:wrap;">
       {% if not has_receivables %}
-      <form method="post" action="{{ url_for('web.work_orders_launch_receivables', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Lançar contas</button></form>
+      <div class="hub"><button type="button" data-open="launch-{{ order.id }}">Lançar contas</button></div>{% set launch_next = url_for('web.work_orders_show', work_order_id=order.id) %}{% include 'os/_launch_receivables_dialog.html' %}
       {% else %}
 
       {% if all_received %}<form method="post" action="{{ url_for('web.work_orders_update_receivables', work_order_id=order.id) }}" onsubmit="return confirm('Estornar o recebimento desta O.S.?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="receivable_status" value="PENDENTE"><button type="submit" class="button secondary" style="color:var(--color-ember-orange)!important; border-color:var(--color-ember-orange)!important;">Estornar recebimento</button></form>{% endif %}
@@ -119,7 +119,8 @@
   </div>
   {% if has_receivables %}<div class="responsive-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:24px;">{% for entry in receivables %}<div style="padding:16px; border:1px solid var(--color-mist); background:var(--color-canvas-white);"><span class="muted">Parcela {{ entry.installment_number }}/{{ entry.installment_total }}</span><strong style="display:block; margin-top:7px;">{{ format_currency(entry.valor) }}</strong><span class="muted small">{{ entry.status }}{% if entry.payment_method %} · {{ entry.payment_method.nome }}{% endif %}{% if entry.bank_account %} · {{ entry.bank_account.nome }}{% endif %}</span>{% if entry.status == 'PENDENTE' and bank_accounts %}<div class="hub" style="margin-top:10px"><button type="button" data-open="settle-{{ entry.id }}">Receber</button></div>{% endif %}</div>{% endfor %}</div>
   {% if bank_accounts %}<div class="hub">{% for entry in receivables if entry.status == 'PENDENTE' %}{% set settle_description = 'O.S. ' ~ order.numero ~ ' · ' ~ (order.client_nome or '') %}{% set settle_next = url_for('web.work_orders_show', work_order_id=order.id) %}{% include 'financeiro/_settle_dialog.html' %}{% endfor %}</div>
-  <link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2"><script src="{{ url_for('static',filename='finance-overview.js') }}?v=3"></script>{% endif %}{% endif %}
+{% endif %}{% endif %}
+  {% if bank_accounts %}<link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2"><script src="{{ url_for('static',filename='finance-overview.js') }}?v=3"></script>{% endif %}
 </div>
 {% endif %}
 

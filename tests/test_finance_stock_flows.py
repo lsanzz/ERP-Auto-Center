@@ -4,7 +4,7 @@ import unittest
 from sqlalchemy.pool import StaticPool
 
 from app import create_app
-from app.models import BankAccount, Client, FinancialEntry, PaymentMethod, Product, StockEntry, Supplier, WorkOrder, db
+from app.models import BankAccount, Client, FinancialEntry, PaymentMethod, Product, StockEntry, Supplier, WorkOrder, WorkOrderItem, db
 from app.operations.models import InventoryMovement
 from app.seeds import seed_database
 from app.services import create_financial_entries, default_bank_account_id, settle_financial_entry
@@ -111,6 +111,31 @@ class FinanceStockFlowsTest(unittest.TestCase):
         self.client.post(f'/os/{order_id}/excluir')
         with self.app.app_context():
             self.assertIsNotNone(db.session.get(WorkOrder, order_id))
+
+
+    def test_launch_receivables_popup_receives_on_work_order_page(self):
+        self.login()
+        with self.app.app_context():
+            cash = PaymentMethod.query.filter_by(tipo='DINHEIRO').first().id
+            order = WorkOrder(client_id=Client.query.first().id, numero='T-3', status='FINALIZADA', total_geral=Decimal('120'),
+                              total_servicos=Decimal('120'))
+            db.session.add(order)
+            db.session.flush()
+            db.session.add(WorkOrderItem(work_order_id=order.id, item_type='SERVICO', descricao='Alinhamento',
+                                         quantidade=1, valor_unitario=Decimal('120'), desconto=0, total=Decimal('120')))
+            db.session.commit()
+            order_id = order.id
+        page = self.client.get(f'/os/{order_id}').data.decode()
+        self.assertIn(f'id="launch-{order_id}"', page)
+        response = self.client.post(f'/os/{order_id}/lancar-contas', data={
+            'payment_method_id': cash, 'installment_count': '1', 'vencimento': '2026-10-20',
+            'receivable_status': 'RECEBIDO', 'payment_receipt_at': '2026-10-20', 'bank_account_id': '',
+            'next': f'/os/{order_id}'})
+        self.assertTrue(response.headers['Location'].endswith(f'/os/{order_id}'))
+        with self.app.app_context():
+            entry = FinancialEntry.query.filter_by(reference_type='OS', reference_id=order_id).one()
+            self.assertEqual((entry.status, entry.bank_account.nome), ('RECEBIDO', 'Dinheiro'))
+            self.assertEqual(BankAccount.query.filter_by(nome='Dinheiro').one().saldo_atual, Decimal('170'))
 
 
 if __name__ == '__main__':
