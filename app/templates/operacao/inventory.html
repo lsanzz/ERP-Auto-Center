@@ -1,5 +1,43 @@
 {% extends 'base.html' %}{% block content %}
-<div class="page-header"><div><span class="eyebrow">Estoque rastreavel</span><h2>Saldos e movimentacoes</h2></div></div>
-<div class="table-card"><div class="responsive-row" style="display:flex;justify-content:space-between;gap:12px;align-items:center"><p>Curva ABC por valor atual e cobertura baseada nas saídas dos últimos 90 dias.</p>{% if can('purchases.manage') %}<a class="button" href="{{ url_for('management.index') }}">Compras e reposição</a>{% endif %}</div><table data-mobile-cards class="table"><thead><tr><th>Produto</th><th>ABC</th><th>Físico</th><th>Reservado</th><th>Disponível</th><th>Cobertura</th>{% if can('inventory.move') %}<th>Ajuste</th>{% endif %}</tr></thead><tbody>{% for product in products %}{% set reserve = reserved.get(product.id, 0) %}<tr><td><strong>{{ product.codigo }} · {{ product.nome }}</strong></td><td>{{ metrics[product.id].abc }}</td><td>{{ product.estoque_atual }}</td><td>{{ reserve }}</td><td>{{ product.estoque_atual - reserve }}</td><td>{{ (metrics[product.id].coverage|string + ' dias') if metrics[product.id].coverage is not none else 'Sem consumo' }}</td>{% if can('inventory.move') %}<td><form class="responsive-row" method="post" action="{{ url_for('operations.inventory_adjust', product_id=product.id) }}" style="display:flex;gap:6px"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="number" step="0.01" name="balance" value="{{ product.estoque_atual }}" style="max-width:100px"><input name="reason" aria-label="Motivo do ajuste" required><button>Ajustar</button></form></td>{% endif %}</tr>{% endfor %}</tbody></table></div>
+<link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2">
+<div class="page-header"><div><span class="eyebrow">Estoque rastreavel</span><h2>Saldos e movimentacoes</h2></div>{% if can('inventory.move') %}<div class="hub"><button type="button" data-open="stock-entry">+ Lançar entrada de mercadoria</button></div>{% endif %}</div>
+<div class="table-card"><div class="responsive-row" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><p>Curva ABC por valor atual e cobertura baseada nas saídas dos últimos 90 dias.</p><form method="get" style="display:flex;gap:8px"><input name="q" value="{{ search }}" placeholder="Buscar peça ou código" aria-label="Buscar peça ou código"><button class="secondary">Buscar</button></form>{% if can('purchases.manage') %}<a class="button" href="{{ url_for('management.index') }}">Compras e reposição</a>{% endif %}</div><table data-mobile-cards class="table"><thead><tr><th>Produto</th><th>ABC</th><th>Físico</th><th>Reservado</th><th>Disponível</th><th>Cobertura</th>{% if can('inventory.move') %}<th>Ajuste</th>{% endif %}</tr></thead><tbody>{% for product in products %}{% set reserve = reserved.get(product.id, 0) %}<tr><td><strong>{{ product.codigo }} · {{ product.nome }}</strong></td><td>{{ metrics[product.id].abc }}</td><td>{{ product.estoque_atual }}</td><td>{{ reserve }}</td><td>{{ product.estoque_atual - reserve }}</td><td>{{ (metrics[product.id].coverage|string + ' dias') if metrics[product.id].coverage is not none else 'Sem consumo' }}</td>{% if can('inventory.move') %}<td><form class="responsive-row" method="post" action="{{ url_for('operations.inventory_adjust', product_id=product.id) }}" style="display:flex;gap:6px"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="number" step="0.01" name="balance" value="{{ product.estoque_atual }}" style="max-width:100px"><input name="reason" aria-label="Motivo do ajuste" placeholder="Motivo" required><button>Ajustar</button></form></td>{% endif %}</tr>{% else %}<tr><td colspan="7">Nenhuma peça encontrada.</td></tr>{% endfor %}</tbody></table>{% include '_pagination.html' %}</div>
 <div class="table-card" style="margin-top:28px"><h3>Razão de estoque</h3><table data-mobile-cards class="table"><thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Quantidade</th><th>Saldo</th><th>Referência</th>{% if can('inventory.move') %}<th>Correção</th>{% endif %}</tr></thead><tbody>{% for movement in movements %}<tr><td>{{ movement.created_at|datetime_br }}</td><td>{{ movement.product.nome }}</td><td>{{ movement.movement_type }}</td><td>{{ movement.quantity }}</td><td>{{ movement.balance_after }}</td><td>{{ movement.reference or '-' }}</td>{% if can('inventory.move') %}<td>{% if movement.movement_type != 'ESTORNO' and movement.id not in reversed_ids %}<form method="post" action="{{ url_for('management.reverse_movement', movement_id=movement.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="reason" aria-label="Motivo do estorno" required><button class="secondary">Estornar</button></form>{% else %}—{% endif %}</td>{% endif %}</tr>{% else %}<tr><td colspan="7">Sem movimentações registradas.</td></tr>{% endfor %}</tbody></table></div>
+{% if can('inventory.move') %}
+<datalist id="product-options">{% for product in all_products %}<option value="{{ product.codigo }} · {{ product.nome }}" data-cost="{{ product.custo }}"></option>{% endfor %}</datalist>
+<dialog class="hub-dialog hub-dialog-wide hub" id="stock-entry" aria-labelledby="stock-entry-title">
+  <div class="hub-panel-head"><h3 id="stock-entry-title">Lançar entrada de mercadoria</h3><button type="button" class="secondary" data-close aria-label="Fechar">×</button></div>
+  <form method="post" action="{{ url_for('operations.inventory_receive') }}" data-method-accounts='{{ method_accounts|tojson }}'>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="hub-form-grid">
+      <label>Fornecedor<select name="supplier_id" required><option value="">Selecione</option>{% for supplier in suppliers %}<option value="{{ supplier.id }}">{{ supplier.nome }}</option>{% endfor %}</select></label>
+      <label>Nota fiscal<input name="numero_nota" placeholder="Número da NF (opcional)"></label>
+      <label>Data da entrada<input type="date" name="data_entrada" value="{{ today.isoformat() }}" required></label>
+    </div>
+    <h3 style="margin-top:20px">Peças</h3>
+    <div data-stock-rows>
+      <div class="hub-form-grid" data-stock-row style="grid-template-columns:3fr 1fr 1fr auto;align-items:end">
+        <label>Peça<input name="produto" list="product-options" placeholder="Digite código ou nome" required></label>
+        <label>Qtde<input type="number" name="quantidade" min="0.01" step="0.01" value="1" required></label>
+        <label>Custo unit. (R$)<input type="number" name="custo" min="0" step="0.01" required></label>
+        <button type="button" class="secondary" data-remove-row aria-label="Remover peça">×</button>
+      </div>
+    </div>
+    <p><button type="button" class="secondary" data-add-row>+ Adicionar peça</button> <strong>Total: <output data-stock-total>R$ 0,00</output></strong></p>
+    <details open><summary>Conta a pagar desta compra</summary>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="gerar_conta" value="1" checked style="width:auto;min-height:0;margin:0"> Lançar no financeiro (contas a pagar)</label>
+      <div class="hub-form-grid">
+        <label>Vencimento<input type="date" name="vencimento" value="{{ today.isoformat() }}"></label>
+        <label>Parcelas<input type="number" name="installment_count" min="1" max="120" value="1"></label>
+        <label>Forma de pagamento<select name="payment_method_id"><option value="">Definir depois</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.nome }}</option>{% endfor %}</select></label>
+        <label>Conta bancária<select name="bank_account_id"><option value="">Automática pela forma de pagamento</option>{% for account in bank_accounts %}<option value="{{ account.id }}">{{ account.nome }}</option>{% endfor %}</select></label>
+        <label>Situação<select name="status"><option value="PENDENTE">Em aberto</option><option value="LIQUIDADO">Já foi pago</option></select></label>
+      </div>
+    </details>
+    <div class="hub-actions"><button type="submit">Confirmar entrada</button><button type="button" class="secondary" data-close>Cancelar</button></div>
+  </form>
+</dialog>
+<script src="{{ url_for('static',filename='finance-overview.js') }}?v=3"></script>
+<script src="{{ url_for('static',filename='stock-entry.js') }}?v=1"></script>
+{% endif %}
 {% endblock %}

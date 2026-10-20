@@ -1,4 +1,19 @@
-document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => document.getElementById(button.dataset.open).showModal()));
+document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => {
+  const dialog = document.getElementById(button.dataset.open);
+  const type = dialog.querySelector('[name="entry_type"]');
+  if (type && button.dataset.entryType) type.value = button.dataset.entryType;
+  dialog.showModal();
+}));
+// Forma de pagamento escolhe a conta: Dinheiro → Dinheiro; Pix/cartão → JURIDICA (pode ser trocada).
+document.querySelectorAll('form[data-method-accounts]').forEach(form => {
+  const accounts = JSON.parse(form.dataset.methodAccounts || '{}');
+  const method = form.elements.payment_method_id;
+  const account = form.elements.bank_account_id;
+  if (!method || !account) return;
+  method.addEventListener('change', () => {
+    if (accounts[method.value]) account.value = String(accounts[method.value]);
+  });
+});
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
 document.querySelectorAll('.hub-settle').forEach(form => {
   const update = () => {

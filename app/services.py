@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import calendar
+import unicodedata
 from datetime import date
 from decimal import Decimal, ROUND_DOWN
 
@@ -13,6 +14,7 @@ from .models import (
     Budget,
     BudgetItem,
     FinancialEntry,
+    PaymentMethod,
     Product,
     Service,
     WorkOrder,
@@ -288,6 +290,30 @@ def work_order_receivable_description(
     return description
 
 
+def _plain(text: str) -> str:
+    return unicodedata.normalize('NFKD', text or '').encode('ascii', 'ignore').decode().lower().strip()
+
+
+def default_bank_account_id(payment_method_id: int | None) -> int | None:
+    """Dinheiro vai para a conta "Dinheiro"/"Caixa"; Pix, cartão e demais formas para a conta principal (JURIDICA)."""
+    # shortcut: escolhe pelo nome da conta; troque por um vínculo forma→conta se surgirem mais contas.
+    accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.id).all()
+    cash = [a for a in accounts if _plain(a.nome) in ('dinheiro', 'caixa')]
+    others = [a for a in accounts if a not in cash]
+    method = db.session.get(PaymentMethod, payment_method_id) if payment_method_id else None
+    if method and (method.tipo == 'DINHEIRO' or _plain(method.nome) == 'dinheiro'):
+        choice = cash or others
+    else:
+        choice = [a for a in others if 'juridica' in _plain(a.nome)] or others or cash
+    return choice[0].id if choice else None
+
+
+def method_account_map() -> dict[str, int]:
+    """Conta padrão de cada forma de pagamento ativa, para pré-selecionar nos formulários."""
+    methods = PaymentMethod.query.filter_by(ativo=True).all()
+    return {str(m.id): account for m in methods if (account := default_bank_account_id(m.id))}
+
+
 def ensure_work_order_receivables(order: WorkOrder) -> list[FinancialEntry]:
     recalculate_work_order_totals(order)
     existing = (FinancialEntry.query.filter_by(reference_type='OS', reference_id=order.id).order_by(FinancialEntry.installment_number.asc(), FinancialEntry.id.asc()).all())
@@ -314,6 +340,7 @@ def ensure_work_order_receivables(order: WorkOrder) -> list[FinancialEntry]:
                     vencimento=add_months(date.today(), number - 1), 
                     status='PENDENTE', 
                     payment_method_id=payment.payment_method_id, 
+                    bank_account_id=default_bank_account_id(payment.payment_method_id),
                     installment_number=number, 
                     installment_total=installments, 
                     reference_type='OS', 
@@ -339,6 +366,7 @@ def ensure_work_order_receivables(order: WorkOrder) -> list[FinancialEntry]:
                 vencimento=add_months(date.today(), number - 1), 
                 status='PENDENTE', 
                 payment_method_id=order.payment_method_id, 
+                bank_account_id=default_bank_account_id(order.payment_method_id),
                 installment_number=number, 
                 installment_total=installments, 
                 reference_type='OS', 
@@ -415,6 +443,9 @@ def settle_financial_entry(
         entry.payment_method_id = payment_method_id
     if bank_account_id:
         entry.bank_account_id = bank_account_id
+    elif not entry.bank_account_id:
+        # Sem conta o saldo não seria movimentado; usa a conta padrão da forma de pagamento.
+        entry.bank_account_id = default_bank_account_id(entry.payment_method_id)
 
     # Campos de liquidação detalhada
     entry.valor_baixa = parse_decimal(valor_baixa, strict=True) if valor_baixa is not None else parse_decimal(entry.valor)
@@ -535,6 +566,7 @@ def daily_cash_summary() -> dict:
 
 def create_financial_entries(entry_type, descricao, categoria, valor_total, vencimento, status='PENDENTE', payment_method_id=None, bank_account_id=None, reference_type=None, reference_id=None, installment_count=1, payment_receipt_at=None) -> list[FinancialEntry]:
     due_date = parse_date(vencimento) or date.today()
+    bank_account_id = bank_account_id or default_bank_account_id(payment_method_id)
     installment_count = max(int(installment_count or 1), 1)
     values = split_installments(valor_total, installment_count)
     entries: list[FinancialEntry] = []
@@ -543,11 +575,12 @@ def create_financial_entries(entry_type, descricao, categoria, valor_total, venc
         label = descricao
         if installment_count > 1:
             label = f'{descricao} ({number}/{installment_count})'
-        entry = FinancialEntry(entry_type=entry_type, descricao=label, categoria=categoria, valor=value, vencimento=add_months(due_date, number - 1), status=normalized_status, payment_method_id=payment_method_id, bank_account_id=bank_account_id, installment_number=number, installment_total=installment_count, reference_type=reference_type, reference_id=reference_id)
+        entry = FinancialEntry(entry_type=entry_type, descricao=label, categoria=categoria, valor=value, vencimento=add_months(due_date, number - 1), status='PENDENTE', payment_method_id=payment_method_id, bank_account_id=bank_account_id, installment_number=number, installment_total=installment_count, reference_type=reference_type, reference_id=reference_id)
         db.session.add(entry)
         entries.append(entry)
     db.session.flush()
     if normalized_status in {'RECEBIDO', 'PAGO'}:
+        # Created as pending so settlement runs once and actually moves the bank balance.
         for entry in entries:
             settle_financial_entry(entry, payment_method_id=payment_method_id, payment_receipt_at=payment_receipt_at or entry.vencimento, bank_account_id=bank_account_id)
     return entries

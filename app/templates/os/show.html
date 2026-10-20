@@ -117,7 +117,9 @@
       {% endif %}
     </div>
   </div>
-  {% if has_receivables %}<div class="responsive-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:24px;">{% for entry in receivables %}<div style="padding:16px; border:1px solid var(--color-mist); background:var(--color-canvas-white);"><span class="muted">Parcela {{ entry.installment_number }}/{{ entry.installment_total }}</span><strong style="display:block; margin-top:7px;">{{ format_currency(entry.valor) }}</strong><span class="muted small">{{ entry.status }}</span></div>{% endfor %}</div>{% endif %}
+  {% if has_receivables %}<div class="responsive-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:24px;">{% for entry in receivables %}<div style="padding:16px; border:1px solid var(--color-mist); background:var(--color-canvas-white);"><span class="muted">Parcela {{ entry.installment_number }}/{{ entry.installment_total }}</span><strong style="display:block; margin-top:7px;">{{ format_currency(entry.valor) }}</strong><span class="muted small">{{ entry.status }}{% if entry.payment_method %} · {{ entry.payment_method.nome }}{% endif %}{% if entry.bank_account %} · {{ entry.bank_account.nome }}{% endif %}</span>{% if entry.status == 'PENDENTE' and bank_accounts %}<div class="hub" style="margin-top:10px"><button type="button" data-open="settle-{{ entry.id }}">Receber</button></div>{% endif %}</div>{% endfor %}</div>
+  {% if bank_accounts %}<div class="hub">{% for entry in receivables if entry.status == 'PENDENTE' %}{% set settle_description = 'O.S. ' ~ order.numero ~ ' · ' ~ (order.client_nome or '') %}{% set settle_next = url_for('web.work_orders_show', work_order_id=order.id) %}{% include 'financeiro/_settle_dialog.html' %}{% endfor %}</div>
+  <link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2"><script src="{{ url_for('static',filename='finance-overview.js') }}?v=3"></script>{% endif %}{% endif %}
 </div>
 {% endif %}
 

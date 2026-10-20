@@ -85,7 +85,7 @@ def convert(appointment_id):
 @login_required
 @permission_required('work_orders.view')
 def board():
-    orders = WorkOrder.query.filter(~WorkOrder.status.in_(['ENTREGUE', 'CANCELADA'])).order_by(WorkOrder.promised_at, WorkOrder.id).all()
+    orders = WorkOrder.query.filter(~WorkOrder.status.in_(['ENTREGUE', 'CANCELADA']), WorkOrder.current_stage != 'ENTREGUE').order_by(WorkOrder.promised_at, WorkOrder.id).all()
     return render_template('agenda/patio.html', orders=orders, stages=STAGES, now=datetime.now())
 
 

@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from sqlalchemy import func
 
-from ..models import Budget, Product, WorkOrder, db
+from ..models import Budget, Product, StockEntry, StockEntryItem, Supplier, WorkOrder, db
 from ..settings import get_system_settings
 from ..utils import parse_decimal
 from .models import (
@@ -246,6 +246,37 @@ def adjust_stock(product: Product, new_balance, reason: str, user_id: int | None
     )
     db.session.add(movement)
     return movement
+
+
+def receive_stock(supplier: Supplier, items, numero_nota: str | None, data_entrada, user_id: int | None = None) -> StockEntry:
+    """Lança uma entrada de mercadoria: soma ao saldo, atualiza o custo e registra a movimentação.
+
+    items: lista de (produto, quantidade, custo unitário).
+    """
+    if not items:
+        raise ValueError('Inclua ao menos uma peça na entrada.')
+    numero_nota = (numero_nota or '').strip()[:50] or None
+    entry = StockEntry(supplier_id=supplier.id, numero_nota=numero_nota, data_emissao=data_entrada,
+                       data_entrada=data_entrada, valor_total=Decimal('0'), status='CONCLUIDA')
+    db.session.add(entry)
+    db.session.flush()
+    for product, quantity, unit_cost in items:
+        quantity, unit_cost = parse_decimal(quantity), parse_decimal(unit_cost)
+        if quantity <= 0 or unit_cost < 0:
+            raise ValueError(f'Quantidade ou custo inválido para {product.nome}.')
+        product = _lock_product(product.id)
+        balance = parse_decimal(product.estoque_atual) + quantity
+        product.estoque_atual = balance
+        product.custo = unit_cost
+        total = (quantity * unit_cost).quantize(Decimal('0.01'))
+        entry.valor_total += total
+        db.session.add(StockEntryItem(stock_entry_id=entry.id, product_id=product.id, quantidade=quantity,
+                                      custo_unitario=unit_cost, total_item=total))
+        db.session.add(InventoryMovement(
+            product=product, movement_type='ENTRADA', quantity=quantity, balance_after=balance,
+            reference=f'NF {numero_nota}' if numero_nota else 'ENTRADA_MANUAL', unit_cost=unit_cost, user_id=user_id,
+        ))
+    return entry
 
 
 def register_inventory_change(product: Product, old_balance, movement_type: str, reference: str,

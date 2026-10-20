@@ -58,7 +58,7 @@ def home_context(role):
     agenda = Appointment.query.options(joinedload(Appointment.client), joinedload(Appointment.vehicle),
         joinedload(Appointment.employee)).filter(Appointment.start_at >= start,
         Appointment.start_at < start+timedelta(days=1)).order_by(Appointment.start_at).all()
-    active = WorkOrder.query.filter(~WorkOrder.status.in_(['ENTREGUE', 'CANCELADA']))
+    active = WorkOrder.query.filter(~WorkOrder.status.in_(['ENTREGUE', 'CANCELADA']), WorkOrder.current_stage != 'ENTREGUE')
     attention = []
     if role == 'MECANICO':
         attention = active.filter(WorkOrder.current_stage.in_(['DIAGNOSTICO', 'EXECUCAO', 'CONTROLE_QUALIDADE'])).order_by(WorkOrder.promised_at).limit(8).all()
@@ -135,7 +135,8 @@ def render_finance():
         else:
             args.pop('kind', None)
         return url_for('web.finance_index', **args)
+    from .web import finance_form_context
     return render_template('financeiro/overview.html', today=today, view=view, view_url=view_url,
         kind=kind, finance=financial_overview(today), entries=page['items'], pagination=page,
-        payment_methods=PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all(),
-        net_amount=settled_net_amount, entry_description=entry_description, imported_details=imported_details)
+        net_amount=settled_net_amount, entry_description=entry_description, imported_details=imported_details,
+        **finance_form_context())

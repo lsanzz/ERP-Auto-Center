@@ -234,8 +234,11 @@ class ERPAppTestCase(unittest.TestCase):
             self.assertEqual(len(entries), 3)
             self.assertEqual([float(entry.valor) for entry in entries], [100.0, 100.0, 100.0])
 
-    def test_settled_web_entry_requires_bank_account(self):
+    def test_settled_web_entry_uses_default_bank_account(self):
         self.login_web()
+        with self.app.app_context():
+            account = BankAccount.query.filter_by(nome='Conta Principal').one()
+            before = account.saldo_atual
         response = self.client.post(
             '/financeiro/novo',
             data={
@@ -249,9 +252,10 @@ class ERPAppTestCase(unittest.TestCase):
             follow_redirects=True,
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Selecione a conta bancária'.encode(), response.data)
         with self.app.app_context():
-            self.assertIsNone(FinancialEntry.query.filter_by(descricao='Receita sem conta').first())
+            entry = FinancialEntry.query.filter_by(descricao='Receita sem conta').one()
+            self.assertEqual(entry.bank_account.nome, 'Conta Principal')
+            self.assertEqual(db.session.get(BankAccount, entry.bank_account_id).saldo_atual, before + 150)
 
     def test_finance_uses_original_work_order_customer_name(self):
         self.login_web()

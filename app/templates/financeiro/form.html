@@ -1,27 +1,8 @@
 {% extends 'base.html' %}{% block content %}
-<link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2">
 <main class="hub">
   <div class="hub-header"><div><h2>Novo lançamento</h2><p>Registre uma receita ou despesa. Você poderá confirmar o pagamento depois.</p></div><a class="button secondary" href="{{ url_for('web.finance_index') }}">Voltar ao financeiro</a></div>
   <section class="hub-panel hub-form">
-    <form method="post" action="{{ url_for('web.finance_new') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="hub-form-grid">
-        <label>Tipo<select name="entry_type" id="entry-type" required><option value="RECEBER" {% if request.args.get('entry_type') != 'PAGAR' %}selected{% endif %}>Receita · dinheiro que entra</option><option value="PAGAR" {% if request.args.get('entry_type') == 'PAGAR' %}selected{% endif %}>Despesa · dinheiro que sai</option></select></label>
-        <label>Vencimento<input type="date" name="vencimento" value="{{ iso_today() }}" required></label>
-        <label>Emissão<input type="date" name="issued_on" value="{{ iso_today() }}" required></label>
-        <label>Competência<input type="date" name="competence_on" value="{{ iso_today() }}" required></label>
-        <label class="wide">Descrição<input name="descricao" placeholder="Ex.: Pagamento da revisão do veículo" required></label>
-        <label>Valor total (R$)<input type="number" name="valor" min="0.01" step="0.01" inputmode="decimal" required></label>
-        <label>Categoria<input name="categoria" placeholder="Ex.: Serviços ou fornecedores"></label>
-        <label>Conta contábil<select name="chart_account_id"><option value="">Não classificada</option>{% for account in chart_accounts %}<option value="{{ account.id }}">{{ account.code }} · {{ account.name }}</option>{% endfor %}</select></label>
-        <label>Centro de custo<select name="cost_center_id"><option value="">Não informado</option>{% for center in cost_centers %}<option value="{{ center.id }}">{{ center.name }}</option>{% endfor %}</select></label>
-        <label>Parcelas<input type="number" name="installment_count" min="1" max="120" value="1" required><small class="muted">O valor total será dividido igualmente.</small></label>
-        <label>Conta bancária<select name="bank_account_id"><option value="">Definir no pagamento</option>{% for account in bank_accounts %}<option value="{{ account.id }}">{{ account.nome }}</option>{% endfor %}</select></label>
-        <label>Forma de pagamento<select name="payment_method_id"><option value="">Definir depois</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.nome }}</option>{% endfor %}</select></label>
-        <label>Situação<select name="status"><option value="PENDENTE">Em aberto</option><option value="LIQUIDADO">Já foi pago ou recebido</option></select></label>
-      </div>
-      <p class="hub-note">Quando houver mais de 1 parcela, o sistema cria os vencimentos mensais automaticamente. Se o lançamento já estiver liquidado, escolha também a conta bancária.</p>
-      <div class="hub-actions"><button type="submit">Salvar lançamento</button><a class="button secondary" href="{{ url_for('web.finance_index') }}">Cancelar</a></div>
-    </form>
+    {% set new_entry_type = request.args.get('entry_type') %}{% include 'financeiro/_entry_form.html' %}
   </section>
-</main>{% endblock %}
+</main><script src="{{ url_for('static',filename='finance-overview.js') }}?v=3"></script>{% endblock %}

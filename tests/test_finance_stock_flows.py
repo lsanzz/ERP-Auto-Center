@@ -1,0 +1,117 @@
+from decimal import Decimal
+import unittest
+
+from sqlalchemy.pool import StaticPool
+
+from app import create_app
+from app.models import BankAccount, Client, FinancialEntry, PaymentMethod, Product, StockEntry, Supplier, WorkOrder, db
+from app.operations.models import InventoryMovement
+from app.seeds import seed_database
+from app.services import create_financial_entries, default_bank_account_id, settle_financial_entry
+
+
+class FinanceStockFlowsTest(unittest.TestCase):
+    def setUp(self):
+        self.app = create_app({'TESTING': True, 'WTF_CSRF_ENABLED': False, 'SQLALCHEMY_DATABASE_URI': 'sqlite://',
+                               'SQLALCHEMY_ENGINE_OPTIONS': {'poolclass': StaticPool, 'connect_args': {'check_same_thread': False}}})
+        self.client = self.app.test_client()
+        with self.app.app_context():
+            db.create_all()
+            seed_database()
+            db.session.add_all([BankAccount(nome='JURIDICA', saldo_inicial=0, saldo_atual=Decimal('100')),
+                                BankAccount(nome='Dinheiro', saldo_inicial=0, saldo_atual=Decimal('50'))])
+            db.session.add(Supplier(nome='Autopeças Teste', ativo=True))
+            db.session.commit()
+
+    def login(self):
+        self.client.post('/login', data={'username': 'admin', 'password': 'admin123'})
+
+    def test_cash_goes_to_cash_account_and_others_to_juridica(self):
+        with self.app.app_context():
+            account = lambda tipo: db.session.get(BankAccount, default_bank_account_id(
+                PaymentMethod.query.filter_by(tipo=tipo).first().id)).nome
+            self.assertEqual(account('DINHEIRO'), 'Dinheiro')
+            self.assertEqual(account('PIX'), 'JURIDICA')
+            self.assertEqual(account('CREDITO'), 'JURIDICA')
+
+    def test_settling_without_account_moves_the_default_balance(self):
+        with self.app.app_context():
+            pix = PaymentMethod.query.filter_by(tipo='PIX').first()
+            entry = create_financial_entries('RECEBER', 'Serviço', None, Decimal('30'), '2026-10-20', payment_method_id=pix.id)[0]
+            entry.bank_account_id = None  # títulos antigos sem conta
+            settle_financial_entry(entry)
+            db.session.commit()
+            self.assertEqual(BankAccount.query.filter_by(nome='JURIDICA').one().saldo_atual, Decimal('130'))
+
+    def test_stock_entry_adds_balance_and_creates_payable(self):
+        self.login()
+        with self.app.app_context():
+            product = Product.query.first()
+            before = product.estoque_atual
+            text = f'{product.codigo} · {product.nome}'
+            supplier = Supplier.query.filter_by(nome='Autopeças Teste').one().id
+            cash = PaymentMethod.query.filter_by(tipo='DINHEIRO').first().id
+        response = self.client.post('/operacao/estoque/entrada', data={
+            'supplier_id': supplier, 'numero_nota': '123', 'data_entrada': '2026-10-20',
+            'produto': [text], 'quantidade': ['3'], 'custo': ['12.50'],
+            'gerar_conta': '1', 'vencimento': '2026-10-20', 'installment_count': '1',
+            'payment_method_id': cash, 'status': 'LIQUIDADO'}, follow_redirects=True)
+        self.assertIn('Entrada lançada'.encode(), response.data)
+        with self.app.app_context():
+            product = Product.query.filter_by(codigo=text.split(' · ')[0]).one()
+            self.assertEqual(product.estoque_atual, before + 3)
+            self.assertEqual(product.custo, Decimal('12.50'))
+            entry = StockEntry.query.filter_by(numero_nota='123').one()
+            self.assertEqual(entry.valor_total, Decimal('37.50'))
+            self.assertEqual(InventoryMovement.query.filter_by(movement_type='ENTRADA').count(), 1)
+            payable = FinancialEntry.query.filter_by(reference_type='ENTRADA_ESTOQUE', reference_id=entry.id).one()
+            self.assertEqual((payable.status, payable.bank_account.nome), ('PAGO', 'Dinheiro'))
+            self.assertEqual(BankAccount.query.filter_by(nome='Dinheiro').one().saldo_atual, Decimal('12.50'))
+
+    def test_finance_page_has_new_entry_popup(self):
+        self.login()
+        page = self.client.get('/financeiro').data.decode()
+        self.assertIn('id="new-entry"', page)
+        self.assertIn('data-method-accounts', page)
+        self.assertIn('id="stock-entry"', self.client.get('/operacao/estoque').data.decode())
+
+
+    def test_work_order_page_receives_into_default_account(self):
+        self.login()
+        with self.app.app_context():
+            pix = PaymentMethod.query.filter_by(tipo='PIX').first()
+            order = WorkOrder(client_id=Client.query.first().id, numero='T-1', status='FINALIZADA', payment_method_id=pix.id,
+                              total_geral=Decimal('80'), client_nome='Fulano')
+            db.session.add(order)
+            db.session.flush()
+            entry = create_financial_entries('RECEBER', 'O.S. T-1', None, Decimal('80'), '2026-10-20', payment_method_id=pix.id,
+                                             reference_type='OS', reference_id=order.id)[0]
+            db.session.commit()
+            order_id, entry_id, account_id = order.id, entry.id, entry.bank_account_id
+            self.assertEqual(db.session.get(BankAccount, account_id).nome, 'JURIDICA')
+        page = self.client.get(f'/os/{order_id}').data.decode()
+        self.assertIn(f'data-open="settle-{entry_id}"', page)
+        response = self.client.post(f'/financeiro/{entry_id}/liquidar', data={
+            'payment_receipt_at': '2026-10-20', 'bank_account_id': account_id, 'valor_baixa': '80',
+            'next': f'/os/{order_id}'})
+        self.assertTrue(response.headers['Location'].endswith(f'/os/{order_id}'))
+        with self.app.app_context():
+            self.assertEqual(db.session.get(BankAccount, account_id).saldo_atual, Decimal('180'))
+
+    def test_cannot_delete_work_order_with_settled_receivable(self):
+        self.login()
+        with self.app.app_context():
+            order = WorkOrder(client_id=Client.query.first().id, numero='T-2', status='FINALIZADA', total_geral=Decimal('10'))
+            db.session.add(order)
+            db.session.flush()
+            create_financial_entries('RECEBER', 'O.S. T-2', None, Decimal('10'), '2026-10-20', status='RECEBIDO',
+                                     reference_type='OS', reference_id=order.id)
+            db.session.commit()
+            order_id = order.id
+        self.client.post(f'/os/{order_id}/excluir')
+        with self.app.app_context():
+            self.assertIsNotNone(db.session.get(WorkOrder, order_id))
+
+
+if __name__ == '__main__':
+    unittest.main()

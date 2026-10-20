@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from PIL import Image, ImageOps, UnidentifiedImageError
 from uuid import uuid4
 
@@ -9,11 +9,13 @@ from flask import Blueprint, abort, current_app, flash, redirect, render_templat
 from werkzeug.utils import secure_filename
 
 from ..auth import admin_required, current_user, login_required, permission_required
-from ..models import Budget, Product, WorkOrder, db
+from ..models import Budget, Product, Supplier, WorkOrder, db
+from ..utils import format_currency, parse_date
 from .models import AuditEvent, InspectionPhoto, InventoryMovement, StockReservation
 from .services import (
     INSPECTION_CONDITIONS,
     adjust_stock,
+    receive_stock,
     create_budget_approval,
     ensure_inspection,
     find_budget_approval,
@@ -163,8 +165,60 @@ def inventory():
         consumed = float(usage.get(product.id, 0) or 0)
         metrics[product.id] = {'abc': abc.get(product.id, 'C'), 'coverage': round(float(product.estoque_atual) / (consumed / 90), 1) if consumed > 0 else None}
     reversed_ids = {row.reversal_of_id for row in movements if row.reversal_of_id}
-    return render_template('operacao/inventory.html', products=products, reserved=reserved, movements=movements,
-                           metrics=metrics, reversed_ids=reversed_ids)
+    from ..web import finance_form_context, paginate_query
+    search = request.args.get('q', '').strip()
+    listed = Product.query.filter_by(ativo=True)
+    if search:
+        listed = listed.filter(db.or_(Product.nome.ilike(f'%{search}%'), Product.codigo.ilike(f'%{search}%')))
+    page = paginate_query(listed.order_by(Product.nome))
+    return render_template('operacao/inventory.html', products=page['items'], pagination=page, search=search,
+                           all_products=products, suppliers=Supplier.query.filter_by(ativo=True).order_by(Supplier.nome).all(),
+                           reserved=reserved, movements=movements, metrics=metrics, reversed_ids=reversed_ids,
+                           today=date.today(), **finance_form_context())
+
+
+@operations_bp.post('/estoque/entrada')
+@login_required
+@permission_required('inventory.move')
+def inventory_receive():
+    from ..services import create_financial_entries
+    try:
+        supplier = db.session.get(Supplier, request.form.get('supplier_id', type=int))
+        if not supplier:
+            raise ValueError('Selecione o fornecedor.')
+        codes = {product.codigo: product for product in Product.query.filter(Product.codigo.in_(
+            [text.split(' · ')[0].strip() for text in request.form.getlist('produto') if text.strip()]))}
+        items = []
+        for text, quantity, cost in zip(request.form.getlist('produto'), request.form.getlist('quantidade'),
+                                        request.form.getlist('custo')):
+            if not text.strip():
+                continue
+            product = codes.get(text.split(' · ')[0].strip())
+            if not product:
+                raise ValueError(f'Peça não encontrada: {text}. Cadastre em Peças e produtos antes.')
+            items.append((product, quantity, cost))
+        received = parse_date(request.form.get('data_entrada')) or date.today()
+        entry = receive_stock(supplier, items, request.form.get('numero_nota'), received, current_user().id)
+        if request.form.get('gerar_conta'):
+            nota = f' · NF {entry.numero_nota}' if entry.numero_nota else ''
+            create_financial_entries(
+                entry_type='PAGAR', descricao=f'Compra de peças · {supplier.nome}{nota}'[:255], categoria='Compra de peças',
+                valor_total=entry.valor_total, vencimento=request.form.get('vencimento') or received,
+                status='PAGO' if request.form.get('status') == 'LIQUIDADO' else 'PENDENTE',
+                payment_method_id=request.form.get('payment_method_id', type=int),
+                bank_account_id=request.form.get('bank_account_id', type=int),
+                reference_type='ENTRADA_ESTOQUE', reference_id=entry.id,
+                installment_count=max(request.form.get('installment_count', 1, type=int) or 1, 1),
+                payment_receipt_at=received,
+            )
+        record_audit('ENTRADA_ESTOQUE', 'STOCK_ENTRY', entry.id, current_user().id,
+                     {'itens': len(items), 'total': str(entry.valor_total)}, request.remote_addr)
+        db.session.commit()
+        flash(f'Entrada lançada: {len(items)} peça(s), total {format_currency(entry.valor_total)}.', 'success')
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), 'error')
+    return redirect(url_for('operations.inventory'))
 
 
 @operations_bp.post('/estoque/produtos/<int:product_id>/ajustar')

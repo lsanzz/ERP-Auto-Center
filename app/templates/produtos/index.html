@@ -18,6 +18,7 @@
   
   {% if current_user().role == 'ADMINISTRADOR' %}
   <div class="responsive-row" style="display: flex; gap: 10px; align-items: center;">
+    {% if can('inventory.move') %}<a class="button secondary" href="{{ url_for('operations.inventory') }}#lancar">Lançar entrada manual</a>{% endif %}
     <button type="button" class="button secondary" onclick="document.getElementById('modal-import-xml').showModal()">Entrada de mercadoria (XML)</button>
     <a class="button" href="{{ url_for('web.products_new') }}">Nova peça</a>
   </div>

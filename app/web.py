@@ -8,7 +8,7 @@ import os
 import io
 import json
 import re
-from datetime import datetime
+from datetime import date, datetime
 from flask import abort, Blueprint, current_app, flash, redirect, render_template, request, send_file, session, url_for
 from decimal import Decimal
 
@@ -32,6 +32,7 @@ from .services import (
     dashboard_data,
     ensure_work_order_receivables,
     finalize_work_order,
+    method_account_map,
     next_number,
     recalculate_budget_totals,
     recalculate_work_order_totals,
@@ -1261,6 +1262,8 @@ def work_orders_show(work_order_id: int):
         receivables=receivables,
         payment_methods=PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all() if current_user().role == 'ADMINISTRADOR' else [],
         bank_accounts=BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all() if current_user().role == 'ADMINISTRADOR' else [],
+        method_accounts=method_account_map() if current_user().role == 'ADMINISTRADOR' else {},
+        today=date.today(),
         status_history=order.status_history,
     )
 
@@ -1502,16 +1505,22 @@ def finance_index():
     from .finance_overview import render_finance
     return render_finance()
 
+def finance_form_context() -> dict:
+    return dict(
+        payment_methods=PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all(),
+        bank_accounts=BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all(),
+        chart_accounts=ChartOfAccount.query.filter_by(active=True).order_by(ChartOfAccount.code).all(),
+        cost_centers=CostCenter.query.filter_by(active=True).order_by(CostCenter.name).all(),
+        method_accounts=method_account_map(),
+    )
+
+
 @web_bp.route('/financeiro/novo', methods=['GET', 'POST'])
 @login_required
 @permission_required('finance.view')
 def finance_new():
     if request.method == 'GET':
-        payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all()
-        bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all()
-        return render_template('financeiro/form.html', payment_methods=payment_methods, bank_accounts=bank_accounts,
-            chart_accounts=ChartOfAccount.query.filter_by(active=True).order_by(ChartOfAccount.code).all(),
-            cost_centers=CostCenter.query.filter_by(active=True).order_by(CostCenter.name).all())
+        return render_template('financeiro/form.html', **finance_form_context())
 
     entry_type = request.form.get('entry_type') or 'RECEBER'
     if entry_type not in {'RECEBER', 'PAGAR'}:
@@ -1537,7 +1546,10 @@ def finance_new():
 
     requested_status = request.form.get('status') or 'PENDENTE'
     status = ('RECEBIDO' if entry_type == 'RECEBER' else 'PAGO') if requested_status == 'LIQUIDADO' else 'PENDENTE'
-    bank_account_id = int(request.form.get('bank_account_id')) if request.form.get('bank_account_id') else None
+    from .services import default_bank_account_id
+    method_id = int(request.form.get('payment_method_id')) if request.form.get('payment_method_id') else None
+    bank_account_id = (int(request.form.get('bank_account_id')) if request.form.get('bank_account_id')
+                       else default_bank_account_id(method_id))
     if status != 'PENDENTE' and not bank_account_id:
         flash('Selecione a conta bancária para criar um lançamento já liquidado.', 'error')
         return redirect(url_for('web.finance_new', entry_type=entry_type))
@@ -1601,6 +1613,9 @@ def finance_settle(entry_id: int):
     except ValueError as exc:
         db.session.rollback()
         flash(str(exc), 'error')
+    target = request.form.get('next', '')
+    if target.startswith('/') and not target.startswith('//'):  # only same-site paths
+        return redirect(target)
     return redirect(url_for('web.finance_index'))
 
 
@@ -2187,6 +2202,10 @@ def work_orders_delete(work_order_id: int):
         return redirect(url_for('web.work_orders_index'))
     
     entradas_fin = FinancialEntry.query.filter_by(reference_type='OS', reference_id=order.id).all()
+    if any(entrada.status in ('RECEBIDO', 'PAGO') for entrada in entradas_fin):
+        # Apagar um recebimento já liquidado deixaria o saldo bancário sem lançamento correspondente.
+        flash('Esta O.S. tem recebimentos liquidados. Estorne-os no Financeiro antes de excluir.', 'error')
+        return redirect(url_for('web.work_orders_show', work_order_id=order.id))
     for entrada in entradas_fin:
         db.session.delete(entrada)
         
