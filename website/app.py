@@ -4,6 +4,7 @@ import json
 import os
 import re
 import secrets
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -70,12 +71,38 @@ landing_hosts = _env_list(
     "lshub.com.br,www.lshub.com.br",
 )
 landing_env = (os.getenv("LANDING_ENV") or os.getenv("APP_ENV") or "development").lower()
-landing_secret = os.getenv("LANDING_SECRET_KEY") or os.getenv("SECRET_KEY")
-if landing_env == "production" and (not landing_secret or len(landing_secret) < 32):
-    raise RuntimeError("Configure LANDING_SECRET_KEY com pelo menos 32 caracteres antes de publicar.")
+
+
+def landing_secret_key(environment: str, key_file: Path) -> str:
+    """Chave do .env; em produção sem ela, uma chave forte criada uma vez e compartilhada
+    pelos processos do Passenger (uma chave por processo derruba sessões e CSRF)."""
+    configured = os.getenv("LANDING_SECRET_KEY") or os.getenv("SECRET_KEY")
+    if configured:
+        if environment == "production" and len(configured) < 32:
+            raise RuntimeError("LANDING_SECRET_KEY precisa ter pelo menos 32 caracteres.")
+        return configured
+    if environment != "production":
+        return secrets.token_hex(32)
+    try:
+        key_file.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(key_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        for _ in range(100):  # outro processo pode estar terminando de gravar
+            key = key_file.read_text(encoding="utf-8").strip()
+            if len(key) >= 32:
+                return key
+            time.sleep(0.02)
+        raise RuntimeError(f"{key_file} está inválido; apague o arquivo ou defina LANDING_SECRET_KEY.")
+    except OSError as exc:
+        raise RuntimeError(f"Defina LANDING_SECRET_KEY no .env; não foi possível gravar {key_file}: {exc}") from exc
+    key = secrets.token_hex(32)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(key)
+    return key
+
 
 app.config.update(
-    SECRET_KEY=landing_secret or secrets.token_hex(32),
+    SECRET_KEY=landing_secret_key(landing_env, PROJECT_ROOT / "instance" / "website" / "landing_secret_key"),
     TRUSTED_HOSTS=landing_hosts,
     WTF_CSRF_ENABLED=os.getenv("LANDING_CSRF_ENABLED", "true").lower() == "true",
     MAX_CONTENT_LENGTH=2 * 1024 * 1024,
