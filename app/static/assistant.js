@@ -19,7 +19,7 @@
   const add = (text, kind) => {
     const p = document.createElement('p');
     p.className = `ai-msg ai-${kind}`;
-    p.textContent = text;
+    p.textContent = String(text).replace(/\*\*(.+?)\*\*/g, '$1');  // o modelo às vezes manda **negrito** em markdown
     log.append(p);
     log.scrollTop = log.scrollHeight;
     save();

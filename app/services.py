@@ -55,6 +55,10 @@ def next_number(model, prefix: str, field: str = 'numero') -> str:
     column = getattr(model, field)
     numbers = [int(suffix) for (value,) in db.session.query(column).filter(column.like(f'{prefix}-%'))
                if (suffix := value.removeprefix(f'{prefix}-')).isdigit()]
+    # Numeração importada do vhsys é só número ("8901"); nesse caso a sequência continua sem prefixo.
+    plain = [int(value) for (value,) in db.session.query(column).filter(~column.like('%-%')) if str(value).isdigit()]
+    if plain:
+        return str(max(plain + numbers) + 1)
     return f'{prefix}-{max(numbers, default=0) + 1:05d}'
 
 
