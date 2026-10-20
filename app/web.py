@@ -2843,7 +2843,7 @@ def reports_index():
         
         orders.append(order)
         
-    selected_client = db.session.get(Client, int(client_id)) if client_id else None
+    selected_client = db.session.get(Client, int(client_id)) if client_id and client_id.isdigit() else None
     employees = Employee.query.order_by(Employee.nome).all()
         
     return render_template('relatorios/index.html',
