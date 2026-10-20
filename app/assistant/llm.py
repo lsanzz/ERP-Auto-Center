@@ -1,4 +1,4 @@
-"""Conversa com o Gemini (Interactions API do SDK google-genai) usando as ferramentas do assistente."""
+"""Conversa com o Groq (API compatível com OpenAI, SDK `groq`) usando as ferramentas do assistente."""
 from __future__ import annotations
 
 import json
@@ -9,7 +9,9 @@ from datetime import date
 from .tools import DECLARATIONS, run_tool
 
 MAX_ROUNDS = 6
-DEFAULT_MODEL = 'gemini-3.8-flash'
+HISTORY_MESSAGES = 6  # só texto de usuário/assistente; resultados de ferramentas não voltam ao histórico
+DEFAULT_MODEL = 'openai/gpt-oss-120b'
+TOOLS = [{'type': 'function', 'function': {k: v for k, v in decl.items() if k != 'type'}} for decl in DECLARATIONS]
 
 SYSTEM_INSTRUCTION = """Você é o assistente do LS Hub, sistema de gestão de uma oficina mecânica no Brasil. Responda sempre em português do Brasil, curto e direto.
 
@@ -33,45 +35,55 @@ class AssistantUnavailable(RuntimeError):
 
 
 def make_client():
-    key = os.getenv('GEMINI_API_KEY')
+    key = os.getenv('GROQ_API_KEY')
     if not key:
-        raise AssistantUnavailable('Assistente não configurado (GEMINI_API_KEY ausente).')
-    from google import genai
-    return genai.Client(api_key=key)
+        raise AssistantUnavailable('Assistente não configurado (GROQ_API_KEY ausente).')
+    from groq import Groq
+    return Groq(api_key=key, timeout=45, max_retries=1)
 
 
 def enabled() -> bool:
-    # Desligado por padrão: no nível gratuito do Gemini as respostas levaram de 50 s a mais de 2 min.
-    return os.getenv('ASSISTANT_ENABLED') == '1' and bool(os.getenv('GEMINI_API_KEY'))
+    # O Gemini gratuito levou de 50 s a mais de 2 min por pedido; o assistente usa o Groq.
+    return bool(os.getenv('GROQ_API_KEY')) and os.getenv('ASSISTANT_ENABLED') != '0'
 
 
-def run_turn(user_text: str, previous_id: str | None, user_label: str, client=None) -> tuple[str, str | None, list[dict], list[float]]:
-    """Executa um turno: devolve (texto, id da interação, resultados de ferramentas com draft)."""
+def run_turn(user_text: str, history: list[dict] | None, user_label: str, client=None) -> tuple[str, list[dict], list[dict], list[float]]:
+    """Executa um turno: devolve (texto, histórico curto atualizado, propostas criadas, tempos de cada chamada)."""
     client = client or make_client()
-    model = os.getenv('GEMINI_MODEL') or DEFAULT_MODEL
-    step_input = f'[Hoje é {date.today().isoformat()}. Usuário: {user_label}. {_context()}]\n{user_text}'
+    model = os.getenv('GROQ_MODEL') or DEFAULT_MODEL
+    history = list(history or [])[-HISTORY_MESSAGES:]
+    prompt = f'[Hoje é {date.today().isoformat()}. Usuário: {user_label}. {_context()}]\n{user_text}'
+    messages = [{'role': 'system', 'content': SYSTEM_INSTRUCTION}, *history, {'role': 'user', 'content': prompt}]
     drafts, timings = [], []
     for _ in range(MAX_ROUNDS):
-        kwargs = dict(model=model, input=step_input, tools=DECLARATIONS, system_instruction=SYSTEM_INSTRUCTION,
-                      generation_config={'thinking_level': os.getenv('GEMINI_THINKING') or 'minimal'})
-        if previous_id:
-            kwargs['previous_interaction_id'] = previous_id
+        options = dict(model=model, messages=messages, tools=TOOLS, tool_choice='auto', temperature=0.2)
+        if 'gpt-oss' in model:
+            options['reasoning_effort'] = os.getenv('GROQ_REASONING') or 'low'
         started = time.monotonic()
-        interaction = client.interactions.create(**kwargs)
+        response = client.chat.completions.create(**options)
         timings.append(round(time.monotonic() - started, 1))
-        previous_id = interaction.id
-        calls = [step for step in (interaction.steps or []) if getattr(step, 'type', None) == 'function_call']
+        message = response.choices[0].message
+        calls = message.tool_calls or []
         if not calls:
-            return (interaction.output_text or '').strip() or 'Pronto.', previous_id, drafts, timings
-        results = []
+            reply = (message.content or '').strip() or 'Pronto.'
+            history += [{'role': 'user', 'content': user_text}, {'role': 'assistant', 'content': reply[:1500]}]
+            return reply, history[-HISTORY_MESSAGES:], drafts, timings
+        messages.append({'role': 'assistant', 'content': message.content or '',
+                         'tool_calls': [{'id': c.id, 'type': 'function',
+                                         'function': {'name': c.function.name, 'arguments': c.function.arguments}} for c in calls]})
         for call in calls:
-            result = run_tool(call.name, dict(call.arguments or {}))
+            try:
+                arguments = json.loads(call.function.arguments or '{}')
+            except json.JSONDecodeError:
+                result = {'erro': 'Argumentos em JSON inválido; tente de novo.'}
+            else:
+                result = run_tool(call.function.name, arguments if isinstance(arguments, dict) else {})
             if isinstance(result, dict) and result.get('draft_id'):
                 drafts.append(result)
-            results.append({'type': 'function_result', 'name': call.name, 'call_id': call.id,
-                            'result': json.dumps(result, ensure_ascii=False, default=str)})
-        step_input = results
-    return 'Não consegui concluir em poucas etapas. Tente dizer o pedido de outro jeito.', previous_id, drafts, timings
+            messages.append({'role': 'tool', 'tool_call_id': call.id, 'name': call.function.name,
+                             'content': json.dumps(result, ensure_ascii=False, default=str)})
+    reply = 'Não consegui concluir em poucas etapas. Tente dizer o pedido de outro jeito.'
+    return reply, history, drafts, timings
 
 
 def _context() -> str:

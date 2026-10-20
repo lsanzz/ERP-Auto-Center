@@ -1,4 +1,5 @@
 from decimal import Decimal
+import json
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -11,21 +12,27 @@ from app.models import Client, PaymentMethod, Service, User, WorkOrder, db
 from app.seeds import seed_database
 
 
-class FakeInteractions:
-    """Devolve respostas roteirizadas: cada item é uma lista de chamadas de ferramenta ou um texto final."""
+class FakeCompletions:
+    """Respostas roteirizadas no formato do Groq: cada item é uma lista de chamadas de ferramenta ou um texto final."""
 
     def __init__(self, script):
         self.script, self.calls = list(script), []
 
     def create(self, **kwargs):
-        self.calls.append(kwargs)
+        self.calls.append({**kwargs, 'messages': list(kwargs['messages'])})
         step = self.script.pop(0)
         number = len(self.calls)
         if isinstance(step, str):
-            return SimpleNamespace(id=f'it-{number}', steps=[], output_text=step)
-        steps = [SimpleNamespace(type='function_call', name=name, arguments=args, id=f'call-{number}-{i}')
-                 for i, (name, args) in enumerate(step)]
-        return SimpleNamespace(id=f'it-{number}', steps=steps, output_text='')
+            message = SimpleNamespace(content=step, tool_calls=None)
+        else:
+            message = SimpleNamespace(content='', tool_calls=[
+                SimpleNamespace(id=f'call-{number}-{i}', function=SimpleNamespace(name=name, arguments=json.dumps(args)))
+                for i, (name, args) in enumerate(step)])
+        return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+    def tool_result(self, call_index):
+        """Conteúdo do primeiro resultado de ferramenta enviado na chamada `call_index`."""
+        return next(m['content'] for m in self.calls[call_index]['messages'] if m['role'] == 'tool')
 
 
 class AssistantTest(unittest.TestCase):
@@ -43,15 +50,15 @@ class AssistantTest(unittest.TestCase):
             self.service = Service.query.filter_by(nome='ALINHAMENTO TESTE').one().id
             self.pix = PaymentMethod.query.filter_by(tipo='PIX').first().id
         self.client.post('/login', data={'username': 'admin', 'password': 'admin123'})
-        env = patch.dict('os.environ', {'ASSISTANT_ENABLED': '1', 'GEMINI_API_KEY': 'test-key'})
+        env = patch.dict('os.environ', {'GROQ_API_KEY': 'test-key', 'ASSISTANT_ENABLED': ''})
         env.start()
         self.addCleanup(env.stop)
 
     def send(self, script, text='abre uma O.S.'):
-        fake = SimpleNamespace(interactions=FakeInteractions(script))
+        fake = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions(script)))
         with patch.object(llm, 'make_client', return_value=fake):
             response = self.client.post('/assistente/mensagem', json={'texto': text})
-        return response, fake.interactions
+        return response, fake.chat.completions
 
     def os_count(self):
         with self.app.app_context():
@@ -71,9 +78,9 @@ class AssistantTest(unittest.TestCase):
         card = data['cartoes'][0]
         self.assertEqual((card['cliente'], card['placa'], card['total']), ('ELY COROLLA DSP-2E32', 'DSP2E32', 100.0))
         self.assertEqual(self.os_count(), before)
-        # Second model call carries the function result linked to the first interaction.
-        self.assertEqual(fake.calls[1]['previous_interaction_id'], 'it-1')
-        self.assertEqual(fake.calls[1]['input'][0]['type'], 'function_result')
+        # Second model call carries the tool result answering the first call.
+        self.assertIn('ELY COROLLA', fake.tool_result(1))
+        self.assertEqual(fake.calls[1]['messages'][-1]['tool_call_id'], 'call-1-0')
 
         confirm = self.client.post(f"/assistente/confirmar/{card['draft_id']}")
         self.assertEqual(confirm.status_code, 200, confirm.get_json())
@@ -90,7 +97,7 @@ class AssistantTest(unittest.TestCase):
             'Qual Alexandre?',
         ])
         self.assertEqual(response.get_json()['cartoes'], [])
-        result = fake.calls[1]['input'][0]['result']
+        result = fake.tool_result(1)
         self.assertIn('candidatos', result)
 
     def test_invalid_plate_and_unknown_draft(self):
@@ -98,7 +105,7 @@ class AssistantTest(unittest.TestCase):
             [('propor_os', {'client_id': self.ely, 'placa': '12', 'itens': [{'tipo': 'SERVICO', 'descricao': 'x', 'valor_unitario': 10}]})],
             'Placa inválida.',
         ])
-        self.assertIn('inválida', fake.calls[1]['input'][0]['result'])
+        self.assertIn('inválida', fake.tool_result(1))
         self.assertEqual(self.client.post('/assistente/confirmar/forjado').status_code, 404)
 
     def test_finance_report_blocked_for_receptionist(self):
@@ -111,24 +118,24 @@ class AssistantTest(unittest.TestCase):
         self.client.post('/login', data={'username': 'recep', 'password': 'recep-pass-123'})
         response, fake = self.send([[('relatorio_periodo', {})], 'Sem acesso.'], 'quanto faturei?')
         self.assertEqual(response.status_code, 200)
-        self.assertIn('não tem acesso', fake.calls[1]['input'][0]['result'])
+        self.assertIn('não tem acesso', fake.tool_result(1))
 
     def test_admin_report_uses_system_numbers(self):
         response, fake = self.send([[('relatorio_periodo', {'inicio': '2026-10-01', 'fim': '2026-10-31'})], 'ok'], 'resumo do mês')
-        self.assertIn('saldo_atual_contas', fake.calls[1]['input'][0]['result'])
+        self.assertIn('saldo_atual_contas', fake.tool_result(1))
 
-    def test_disabled_by_default(self):
-        with patch.dict('os.environ', {'ASSISTANT_ENABLED': ''}):
+    def test_hidden_without_key_or_when_switched_off(self):
+        with patch.dict('os.environ', {'ASSISTANT_ENABLED': '0'}):
             self.assertNotIn('ai-panel', self.client.get('/os').data.decode())
             self.assertEqual(self.client.post('/assistente/mensagem', json={'texto': 'oi'}).status_code, 503)
 
     def test_missing_key_is_reported(self):
-        with patch.dict('os.environ', {'GEMINI_API_KEY': ''}):
+        with patch.dict('os.environ', {'GROQ_API_KEY': ''}):
             response = self.client.post('/assistente/mensagem', json={'texto': 'oi'})
         self.assertEqual(response.status_code, 503)
 
     def test_provider_quota_error_is_friendly(self):
-        boom = SimpleNamespace(interactions=SimpleNamespace(create=lambda **_: (_ for _ in ()).throw(RuntimeError('429 RESOURCE_EXHAUSTED'))))
+        boom = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **_: (_ for _ in ()).throw(RuntimeError('429 rate_limit_exceeded')))))
         with patch.object(llm, 'make_client', return_value=boom):
             response = self.client.post('/assistente/mensagem', json={'texto': 'oi'})
         self.assertEqual(response.status_code, 502)
@@ -160,7 +167,7 @@ class AssistantTest(unittest.TestCase):
         card = response.get_json()['cartoes'][0]
         self.assertEqual((card['cliente'], card['itens'][0]['descricao'], card['total']), ('ELY COROLLA DSP-2E32', 'ALINHAMENTO TESTE', 100.0))
         self.assertEqual(response.get_json()['tempos'].__len__(), 2)
-        self.assertIn('Formas de pagamento', fake.calls[0]['input'])
+        self.assertIn('Formas de pagamento', fake.calls[0]['messages'][-1]['content'])
 
 
 if __name__ == '__main__':

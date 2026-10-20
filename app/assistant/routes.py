@@ -15,7 +15,7 @@ from .tools import OPEN_STATUSES
 
 assistant_bp = Blueprint('assistant', __name__, url_prefix='/assistente')
 
-RATE_LIMIT = 12  # mensagens por minuto por usuário; o nível gratuito do Gemini tem limite próprio
+RATE_LIMIT = 12  # mensagens por minuto por usuário; o plano gratuito do Groq tem limite próprio
 _recent: dict[int, deque] = defaultdict(deque)
 
 
@@ -33,9 +33,9 @@ def _rate_limited(user_id: int) -> bool:
 def _friendly_error(exc: Exception) -> str:
     text = f'{type(exc).__name__} {exc}'
     if '429' in text or 'RESOURCE_EXHAUSTED' in text or 'quota' in text.lower():
-        return 'Limite gratuito do Gemini atingido. Tente de novo em alguns minutos.'
+        return 'Limite gratuito da I.A. atingido. Tente de novo em alguns minutos.'
     if '401' in text or '403' in text or 'API key' in text or 'API_KEY' in text:
-        return 'A chave do Gemini é inválida ou não tem permissão. Verifique GEMINI_API_KEY no cPanel.'
+        return 'A chave do Groq é inválida. Verifique GROQ_API_KEY no arquivo .env.'
     return 'O assistente não respondeu agora. Tente novamente em instantes.'
 
 
@@ -59,7 +59,7 @@ def message():
     if _rate_limited(user.id):
         return jsonify(erro='Muitas mensagens seguidas. Aguarde um minuto.'), 429
     try:
-        reply, interaction_id, drafts, timings = llm.run_turn(text, session.get('ai_interaction_id'), f'{user.nome} ({user.role})')
+        reply, history, drafts, timings = llm.run_turn(text, session.get('ai_history'), f'{user.nome} ({user.role})')
     except llm.AssistantUnavailable as exc:
         return jsonify(erro=str(exc)), 503
     except Exception as exc:  # erros do provedor não podem derrubar a página
@@ -67,7 +67,7 @@ def message():
         return jsonify(erro=_friendly_error(exc)), 502
     finally:
         db.session.rollback()  # ferramentas só leem; garante que nada pendente seja gravado
-    session['ai_interaction_id'] = interaction_id
+    session['ai_history'] = history
     current_app.logger.info('assistant_turn rounds=%s seconds=%s', len(timings), timings)
     return jsonify(texto=reply, cartoes=drafts, tempos=timings)
 
@@ -76,7 +76,7 @@ def message():
 @login_required
 @permission_required('work_orders.manage')
 def new_conversation():
-    session.pop('ai_interaction_id', None)
+    session.pop('ai_history', None)
     session.pop('ai_drafts', None)
     return jsonify(ok=True)
 
