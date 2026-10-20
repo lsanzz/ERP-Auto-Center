@@ -5,8 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import StaleDataError
 
 from ..auth import admin_required, current_user, login_required, permission_required
-from ..fleet.models import Vehicle
-from ..models import Client, Employee, WorkOrder, db
+from ..models import Employee, WorkOrder, db
 from .floor import build_floor
 from .models import Appointment, WorkshopResource
 from .services import APPOINTMENT_STATUSES, STAGES, change_stage, convert_to_work_order, save_appointment
@@ -62,12 +61,10 @@ def _form(appointment):
             db.session.rollback()
             flash(str(exc) if isinstance(exc, ValueError) else 'O agendamento foi alterado ou entrou em conflito.', 'error')
             code = 400 if isinstance(exc, ValueError) else 409
-    clients = Client.query.order_by(Client.nome).all()
     employees = Employee.query.filter_by(ativo=True).order_by(Employee.nome).all()
     resources = WorkshopResource.query.filter_by(ativo=True).order_by(WorkshopResource.nome).all()
-    vehicles = Vehicle.query.filter_by(ativo=True).order_by(Vehicle.descricao).all()
-    return render_template('agenda/form.html', appointment=appointment, clients=clients, employees=employees,
-                           resources=resources, vehicles=vehicles, statuses=APPOINTMENT_STATUSES), code
+    return render_template('agenda/form.html', appointment=appointment, employees=employees,
+                           resources=resources, statuses=APPOINTMENT_STATUSES), code
 
 
 @scheduling_bp.post('/<int:appointment_id>/converter-os')

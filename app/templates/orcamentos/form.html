@@ -1,18 +1,14 @@
 {% extends 'base.html' %}
+{% from 'clientes/_picker.html' import client_picker %}
 {% block content %}
 <div class="page-header"><div><h2>{{ 'Editar orçamento' if budget else 'Novo orçamento' }}</h2></div></div>
 <div class="card">
   <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid-2">
-      <label>Cliente
-        <select name="client_id" required>
-          <option value="">Selecione</option>
-          {% for client in clients %}
-          <option value="{{ client.id }}" {% if budget and budget.client_id == client.id %}selected{% endif %}>{{ client.nome }}</option>
-          {% endfor %}
-        </select>
-      </label>
+      {{ client_picker(required=true, client_id=budget.client_id if budget else '',
+                       text=budget.client.nome if budget and budget.client else '') }}
       {% include 'veiculos/_selector.html' %}
+      <script src="{{ url_for('static', filename='client-picker.js') }}" defer></script>
       <label>Placa
         <div class="inline-form">
           <input id="placa" type="text" name="placa" value="{{ budget.placa if budget else '' }}" style="text-transform: uppercase;">

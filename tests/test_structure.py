@@ -147,8 +147,8 @@ class StructureTest(unittest.TestCase):
     def test_work_order_form_uses_consistent_entity_autocomplete(self):
         response = self.client.get('/os/nova')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'id="client-autocomplete"', response.data)
-        self.assertIn(b'class="custom-suggestion-item client-suggestion"', response.data)
+        self.assertIn(b'data-client-picker', response.data)
+        self.assertIn(b'client-picker.js', response.data)
         self.assertIn(b'type="hidden" name="client_id"', response.data)
         self.assertIn(b'id="vehicle-suggestions"', response.data)
         self.assertNotIn(b'<select name="client_id"', response.data)

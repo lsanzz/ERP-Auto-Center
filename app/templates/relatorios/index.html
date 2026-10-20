@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from 'clientes/_picker.html' import client_picker %}
 {% block page_title %} | Relatórios{% endblock %}
 
 {% block content %}
@@ -80,15 +81,8 @@
 <div class="card" style="margin-bottom: 40px; padding: 24px; background: var(--color-canvas-white); border: 1px solid var(--color-mist); border-radius: 8px;">
   <form method="get" action="{{ url_for('web.reports_index') }}">
     <div class="report-filter-grid" style="margin-bottom: 20px;">
-      <div>
-        <label>Cliente</label>
-        <select name="client_id">
-          <option value="">Todos</option>
-          {% for c in clients %}
-          <option value="{{ c.id }}" {% if client_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
-          {% endfor %}
-        </select>
-      </div>
+      {{ client_picker(client_id=selected_client.id if selected_client else '', text=selected_client.nome if selected_client else '',
+                       empty_help='Deixe em branco para todos os clientes.') }}
       <div>
         <label>Por data (Início)</label>
         <input type="date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}">
@@ -173,13 +167,7 @@
       <input type="date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}" style="width: 100%; padding: 10px; border: 1px solid var(--color-mist); border-radius: 4px;" required>
     </div>
     <div style="flex: 2; min-width: 250px;">
-      <label class="muted" style="display: block; margin-bottom: 8px; font-size: 13px;">Cliente</label>
-      <select name="client_id" style="width: 100%; padding: 10px; border: 1px solid var(--color-mist); border-radius: 4px;">
-        <option value="">Todos os clientes</option>
-        {% for c in clients %}
-        <option value="{{ c.id }}">{{ c.nome }}</option>
-        {% endfor %}
-      </select>
+      {{ client_picker(field_id='xml_client_id', empty_help='Deixe em branco para todos os clientes.') }}
     </div>
     <div>
       <button type="submit" class="button secondary" style="height: 40px;">Baixar ZIP</button>
@@ -263,4 +251,5 @@
     </div>
   {% endif %}
 </div>
+<script src="{{ url_for('static', filename='client-picker.js') }}" defer></script>
 {% endblock %}

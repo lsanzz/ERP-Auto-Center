@@ -1,4 +1,4 @@
-{% set selected_vehicle = order.vehicle if order is defined and order else (budget.vehicle if budget is defined and budget else none) %}
+{% set selected_vehicle = order.vehicle if order is defined and order else (budget.vehicle if budget is defined and budget else (appointment.vehicle if appointment is defined and appointment else none)) %}
 <div class="vehicle-autocomplete-field">
   <label for="vehicle-search">Veículo cadastrado (opcional)</label>
   <div class="custom-autocomplete-wrapper" id="vehicle-autocomplete">
