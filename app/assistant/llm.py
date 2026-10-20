@@ -18,7 +18,7 @@ SYSTEM_INSTRUCTION = """Você é o assistente do LS Hub, sistema de gestão de u
 Você pode consultar dados e PROPOR ações. Você nunca grava nada: propor_os e propor_alteracao_os só montam um resumo que o usuário confirma na tela. Depois de propor, diga apenas para conferir o resumo e clicar em Confirmar.
 
 Regras para não errar:
-- Seja rápido: para abrir O.S., chame propor_os direto com o nome do cliente, a placa e os nomes dos itens como o usuário falou; ela localiza tudo e devolve erro com opções se houver dúvida. Formas de pagamento e funcionários já vêm em cada mensagem: use os ids de lá. Só use as ferramentas de busca quando precisar esclarecer algo. Quando precisar de várias consultas independentes, faça-as na mesma rodada.
+- Seja rápido: para abrir O.S., chame propor_os direto com o nome do cliente, a placa e os nomes dos itens como o usuário falou; ela localiza tudo e devolve erro com opções se houver dúvida. As formas de pagamento já vêm em cada mensagem: use os ids de lá. Para responsável, use listar_funcionarios só se o usuário citar alguém. Só use as ferramentas de busca quando precisar esclarecer algo. Quando precisar de várias consultas independentes, faça-as na mesma rodada.
 - Nunca invente ids, clientes, placas, preços ou valores.
 - Se houver mais de um cliente, veículo, serviço ou peça possível, pergunte qual é antes de propor. Se faltar algo essencial (cliente ou itens), pergunte.
 - Placas ditadas por voz podem vir separadas ("d s p 2 e 32"): junte as letras e números antes de buscar.
@@ -47,7 +47,7 @@ def enabled() -> bool:
     return bool(os.getenv('GROQ_API_KEY')) and os.getenv('ASSISTANT_ENABLED') != '0'
 
 
-def run_turn(user_text: str, history: list[dict] | None, user_label: str, client=None) -> tuple[str, list[dict], list[dict], list[float]]:
+def run_turn(user_text: str, history: list[dict] | None, user_label: str, client=None, trace: list | None = None) -> tuple[str, list[dict], list[dict], list[float]]:
     """Executa um turno: devolve (texto, histórico curto atualizado, propostas criadas, tempos de cada chamada)."""
     client = client or make_client()
     model = os.getenv('GROQ_MODEL') or DEFAULT_MODEL
@@ -80,6 +80,9 @@ def run_turn(user_text: str, history: list[dict] | None, user_label: str, client
                 result = run_tool(call.function.name, arguments if isinstance(arguments, dict) else {})
             if isinstance(result, dict) and result.get('draft_id'):
                 drafts.append(result)
+            if trace is not None:
+                trace.append({'ferramenta': call.function.name, 'argumentos': call.function.arguments,
+                              'erro': result.get('erro') if isinstance(result, dict) else None})
             messages.append({'role': 'tool', 'tool_call_id': call.id, 'name': call.function.name,
                              'content': json.dumps(result, ensure_ascii=False, default=str)})
     reply = 'Não consegui concluir em poucas etapas. Tente dizer o pedido de outro jeito.'
@@ -88,7 +91,6 @@ def run_turn(user_text: str, history: list[dict] | None, user_label: str, client
 
 def _context() -> str:
     """Listas curtas enviadas em toda mensagem para evitar rodadas extras de ferramenta."""
-    from .tools import listar_formas_pagamento, listar_funcionarios
+    from .tools import listar_formas_pagamento
     methods = ', '.join(f"{m['nome']}={m['payment_method_id']}" for m in listar_formas_pagamento()['formas'])
-    employees = ', '.join(f"{e['nome']}={e['employee_id']}" for e in listar_funcionarios()['funcionarios'])
-    return f'Formas de pagamento (nome=id): {methods}. Funcionários (nome=id): {employees}.'
+    return f'Formas de pagamento (nome=id): {methods}.'
