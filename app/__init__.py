@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 import os
 import secrets
 import time
@@ -171,6 +172,10 @@ def _persistent_secret_key(instance_path: Path) -> str:
                 return key
             time.sleep(0.02)
         raise RuntimeError(f'{key_file} está vazio; apague o arquivo ou defina SECRET_KEY no .env.')
+    except OSError as exc:
+        # Pasta sem permissão de escrita: o app sobe, mas as sessões não sobrevivem a reinícios.
+        logging.getLogger(__name__).warning('secret_key_not_persisted path=%s error=%s', key_file, exc)
+        return secrets.token_hex(32)
     key = secrets.token_hex(32)
     with os.fdopen(fd, 'w', encoding='utf-8') as handle:
         handle.write(key)

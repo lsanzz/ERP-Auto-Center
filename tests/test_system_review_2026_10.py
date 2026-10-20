@@ -33,3 +33,13 @@ def test_secret_key_is_shared_between_processes_when_env_has_none(tmp_path):
     assert first == second
     assert len(first) == 64
     assert (tmp_path / 'secret_key').read_text(encoding='utf-8') == first
+
+
+def test_secret_key_falls_back_when_instance_is_read_only(tmp_path, monkeypatch):
+    # Pasta instance/ sem permissão de escrita (caso real no cPanel) não pode derrubar o app.
+    def deny(*_args, **_kwargs):
+        raise PermissionError(13, 'Permission denied')
+    monkeypatch.setattr('app.os.open', deny)
+    key = _persistent_secret_key(tmp_path)
+    assert len(key) == 64
+    assert not (tmp_path / 'secret_key').exists()
