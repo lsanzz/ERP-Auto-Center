@@ -7,7 +7,7 @@ import re
 import time
 from datetime import date
 
-from flask import g
+from flask import g, session
 
 from .tools import DECLARATIONS, run_tool
 
@@ -23,7 +23,10 @@ Você pode consultar dados e PROPOR ações. Você nunca grava nada: propor_os e
 Regras para não errar:
 - Seja rápido: para abrir O.S., chame propor_os direto com o nome do cliente, a placa e os nomes dos itens como o usuário falou; ela localiza tudo e devolve erro com opções se houver dúvida. As formas de pagamento já vêm em cada mensagem: use os ids de lá. Para responsável, use listar_funcionarios só se o usuário citar alguém. Só use as ferramentas de busca quando precisar esclarecer algo. Quando precisar de várias consultas independentes, faça-as na mesma rodada.
 - Nunca invente ids, clientes, placas, preços ou valores.
-- Se houver mais de um cliente, veículo, serviço ou peça possível, pergunte qual é antes de propor. Se faltar algo essencial (cliente ou itens), pergunte.
+- Se houver mais de um cliente ou veículo possível, pergunte qual é antes de propor. Se faltar algo essencial (cliente ou itens), pergunte.
+- Serviço ou peça com nome ambíguo (vários balanceamentos, vários filtros): NÃO pergunte; mande o nome como o usuário falou. propor_os escolhe um e o cartão mostra as opções para o usuário trocar.
+- Tipo: óleo, filtros, pastilhas, velas, bicos e qualquer material são PECA; alinhamento, balanceamento, mão de obra e outros trabalhos são SERVICO. Nunca junte serviço e peça num item só.
+- "Troca de óleo e filtro" são vários itens: SERVICO "mao de obra troca oleo e filtro" + PECA do óleo + PECA de cada filtro citado ("filtro de oleo", "filtro de ar"...). Com dois filtros ou mais, use SERVICO "mao de obra troca oleo e filtros" (plural).
 - Placas ditadas por voz podem vir separadas ("d s p 2 e 32"): junte as letras e números antes de buscar.
 - Use o preço do catálogo, a menos que o usuário diga outro valor.
 - Itens que não existem no catálogo podem entrar como avulsos se o usuário disser o valor; avise.
@@ -55,7 +58,9 @@ def run_turn(user_text: str, history: list[dict] | None, user_label: str, client
     client = client or make_client()
     model = os.getenv('GROQ_MODEL') or DEFAULT_MODEL
     history = list(history or [])[-HISTORY_MESSAGES:]
-    plate = spoken_plate(user_text)
+    # A placa ditada vale para a conversa toda: na resposta a uma pergunta o modelo remonta a placa do histórico errado.
+    plate = spoken_plate(user_text) or session.get('ai_plate')
+    session['ai_plate'] = plate
     g.ai_spoken_plate = plate  # propor_os prefere a placa ditada à que o modelo remontar
     hint = f' Placa detectada no texto: {plate} (use exatamente esta).' if plate else ''
     prompt = f'[Hoje é {date.today().isoformat()}. Usuário: {user_label}. {_context()}{hint}]\n{user_text}'

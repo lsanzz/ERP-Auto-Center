@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import create_app
 from app.assistant import llm, routes as assistant_routes
-from app.models import Client, PaymentMethod, Service, User, WorkOrder, db
+from app.models import Client, PaymentMethod, Product, Service, User, WorkOrder, db
 from app.seeds import seed_database
 
 
@@ -208,6 +208,33 @@ class AssistantTest(unittest.TestCase):
         response = self.client.post(f"/assistente/confirmar/{card['draft_id']}", json={'itens': [{'indice': 1, 'quantidade': 3}]})
         with self.app.app_context():
             self.assertEqual(WorkOrder.query.filter_by(numero=response.get_json()['numero']).one().total_geral, Decimal('60.00'))
+
+    def test_ambiguous_items_come_as_card_options_with_catalog_type(self):
+        with self.app.app_context():
+            db.session.add_all([Service(nome='BALANCEAMENTO X', preco_base=Decimal('20'), ativo=True),
+                                Service(nome='BALANCEAMENTO X CAMIONETE', preco_base=Decimal('40'), ativo=True),
+                                Product(codigo='T-F1', nome='FILTRO OLEO TECFIL PSL55', preco_venda=Decimal('35'), ativo=True),
+                                Product(codigo='T-F2', nome='FILTRO OLEO FRAM PH5949', preco_venda=Decimal('30'), ativo=True)])
+            db.session.commit()
+        # O modelo manda balanceamento como peça; o catálogo corrige para serviço.
+        response, _ = self.send([[('propor_os', {'client_id': self.ely, 'itens': [
+            {'tipo': 'PECA', 'descricao': 'balanceamento', 'quantidade': 4},
+            {'tipo': 'PECA', 'descricao': 'filtro de oleo'}]})], 'ok'])
+        balance, oil_filter = response.get_json()['cartoes'][0]['itens']
+        self.assertEqual((balance['tipo'], balance['descricao'], balance['total']), ('SERVICO', 'BALANCEAMENTO', 240.0))
+        self.assertEqual([o['nome'] for o in balance['opcoes']], ['Balanceamento', 'BALANCEAMENTO X', 'BALANCEAMENTO X CAMIONETE'])
+        self.assertEqual(oil_filter['tipo'], 'PECA')
+        self.assertEqual(sorted(o['nome'] for o in oil_filter['opcoes']), ['FILTRO OLEO FRAM PH5949', 'FILTRO OLEO TECFIL PSL55'])
+
+    def test_dictated_plate_survives_follow_up_answer(self):
+        response, _ = self.send(['Qual balanceamento?'], 'abre O.S. pro Ely, Fox placa e g w 5785, balanceamento')
+        response, _ = self.send([
+            [('propor_os', {'client_id': self.ely, 'placa': 'FOXGW5785', 'itens': [{'tipo': 'SERVICO', 'catalogo_id': self.service, 'descricao': 'x'}]})],
+            'ok'], 'o normal')
+        self.assertEqual(response.get_json()['cartoes'][0]['placa'], 'EGW5785')
+        self.client.post('/assistente/nova')
+        with self.client.session_transaction() as flask_session:
+            self.assertNotIn('ai_plate', flask_session)
 
     def test_dictated_plate_overrides_model_guess(self):
         response, fake = self.send([

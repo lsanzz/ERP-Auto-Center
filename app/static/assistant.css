@@ -29,7 +29,9 @@ body button.ai-launcher:hover .ai-spark{transform:rotate(90deg) scale(1.15)}
 .ai-card td{padding:4px 0;border-bottom:1px solid var(--border,#e5e7eb);vertical-align:top}
 .ai-card td.num{text-align:right;white-space:nowrap}
 .ai-card .ai-total{font-weight:700;text-align:right;margin:6px 0}
-.ai-items{list-style:none;margin:6px 0;padding:0;display:grid;gap:6px}
+.ai-group{margin:8px 0 0}
+.ai-group-head{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground,#6b7280)}
+.ai-items{list-style:none;margin:4px 0 6px;padding:0;display:grid;gap:6px}
 .ai-item{border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:8px 10px;display:grid;gap:6px;animation:ai-item-in .2s ease-out backwards}
 .ai-item.ai-out{animation:ai-item-out .18s ease-in forwards}
 .ai-item-top,.ai-item-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px}

@@ -47,9 +47,24 @@
     const refresh = () => {
       total.textContent = `Total: ${money(items.reduce((sum, item) => sum + lineTotal(item), 0))}`;
       total.classList.remove('ai-bump'); void total.offsetWidth; total.classList.add('ai-bump');
-      list.querySelectorAll('.ai-x').forEach(x => { x.disabled = items.length < 2; });
+      Object.entries(groups).forEach(([tipo, group]) => {
+        const mine = items.filter(item => item.tipo === tipo);
+        group.box.hidden = !mine.length;
+        group.sub.textContent = money(mine.reduce((sum, item) => sum + lineTotal(item), 0));
+      });
+      wrap.querySelectorAll('.ai-x').forEach(x => { x.disabled = items.length < 2; });
     };
-    const list = el('ul'); list.className = 'ai-items';
+    // Serviços e peças separados, como a O.S. é gravada.
+    const groups = {};
+    ['SERVICO', 'PECA'].filter(tipo => items.some(item => item.tipo === tipo)).forEach(tipo => {
+      const box = el('section'); box.className = 'ai-group';
+      const head = el('div'); head.className = 'ai-group-head';
+      const sub = el('span'); sub.className = 'num';
+      head.append(el('span', tipo === 'SERVICO' ? 'Serviços' : 'Peças'), sub);
+      const list = el('ul'); list.className = 'ai-items';
+      box.append(head, list);
+      groups[tipo] = {box, list, sub};
+    });
     items.forEach(item => {
       const li = el('li'); li.className = 'ai-item';
       const name = el('span', item.descricao); name.className = 'ai-item-name';
@@ -86,9 +101,9 @@
         wrap.querySelectorAll('.ai-warn').forEach(w => { if (w.textContent.includes(`"${item.descricao}"`)) w.remove(); });  // aviso do item removido
         li.classList.add('ai-out'); setTimeout(() => li.remove(), 180);  // timer, não animationend: sem animação o evento não vem
       });
-      list.append(li);
+      groups[item.tipo].list.append(li);
     });
-    if (items.length) { wrap.append(list); refresh(); total.classList.remove('ai-bump'); } else total.textContent = `Total: ${money(draft.total)}`;
+    if (items.length) { Object.values(groups).forEach(group => wrap.append(group.box)); refresh(); total.classList.remove('ai-bump'); } else total.textContent = `Total: ${money(draft.total)}`;
     wrap.append(total);
     (draft.avisos || []).forEach(text => { const w = el('p', `⚠ ${text}`); w.className = 'ai-warn'; wrap.append(w); });
     const buttons = el('div'); buttons.className = 'ai-buttons';

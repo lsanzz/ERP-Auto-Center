@@ -22,7 +22,9 @@ from ..utils import parse_date
 
 OPEN_STATUSES = ('ABERTA', 'EM_ANDAMENTO', 'AGUARDANDO_PECA')
 MAX_DRAFTS = 3
-GENERIC_WORDS = {'TROCA', 'SERVICO', 'SERVIÇO', 'KIT', 'JOGO', 'DE', 'DO', 'DA'}
+STOP_WORDS = {'DE', 'DO', 'DA', 'DOS', 'DAS', 'E', 'COM', 'PARA'}
+GENERIC_WORDS = STOP_WORDS | {'TROCA', 'SERVICO', 'SERVIÇO', 'KIT', 'JOGO', 'MAO', 'MÃO', 'OBRA'}
+MAX_OPTIONS = 8
 
 
 def _money(value) -> float:
@@ -156,31 +158,49 @@ def contas_vencendo(tipo: str = 'RECEBER', dias: int = 7) -> dict:
 
 
 def _catalog_match(kind: str, text: str):
-    """Acha o item do catálogo pelo nome dito: nome exato, ou um único resultado; vários viram pergunta."""
+    """Acha o item do catálogo pelo nome dito: nome exato ou um único resultado; vários voltam como candidatos."""
     model = Service if kind == 'SERVICO' else Product
     query = model.query.filter_by(ativo=True)
-    exact = query.filter(func.lower(model.nome) == (text or '').strip().lower()).first()
+    exact = query.filter(func.lower(model.nome) == (text or '').strip().lower()).all()
+    if len(exact) == 1:
+        return exact[0].id, []
     if exact:
-        return exact.id, []
-    for word in (text or '').split():
+        return None, exact
+    words = [w for w in (text or '').split() if w.upper() not in STOP_WORDS]
+    if not words:
+        return None, []
+    for word in words:
         query = query.filter(model.nome.ilike(f'%{word}%'))
-    found = query.order_by(model.nome).limit(6).all()
+    found = query.order_by(model.nome).limit(MAX_OPTIONS).all()
     if len(found) == 1:
         return found[0].id, []
-    price = 'preco_base' if model is Service else 'preco_venda'
-    return None, [f'{item.nome} (R$ {_money(getattr(item, price)):.2f})' for item in found]
+    return None, found
 
 
-def _resolve_items(itens: list) -> tuple[list[dict], list[str]]:
-    """Valida os itens como a tela faz e devolve o payload da API + avisos."""
-    payload, warnings = [], []
+def _resolve_items(itens: list, pick: bool = False) -> tuple[list[dict], list[str], list[list]]:
+    """Valida os itens como a tela faz e devolve o payload da API, avisos e candidatos de nomes ambíguos.
+
+    Com pick=True, um nome ambíguo vira o candidato de nome mais curto e os demais vão para o cartão escolher;
+    sem pick, vira pergunta (erro) para o modelo.
+    """
+    payload, warnings, candidates = [], [], []
     for raw in itens or []:
         kind = 'SERVICO' if str(raw.get('tipo', '')).upper().startswith('SERV') else 'PECA'
-        reference = raw.get('catalogo_id') or None
+        reference, found = raw.get('catalogo_id') or None, []
         if not reference and raw.get('valor_unitario') in (None, ''):
-            reference, options = _catalog_match(kind, raw.get('descricao'))
-            if options:
-                raise ValueError(f'Mais de um item parecido com "{raw.get("descricao")}". Pergunte qual: ' + '; '.join(options))
+            reference, found = _catalog_match(kind, raw.get('descricao'))
+            if not reference and not found:
+                # O modelo às vezes troca serviço por peça (ex.: balanceamento como PECA); o catálogo decide.
+                other = 'PECA' if kind == 'SERVICO' else 'SERVICO'
+                other_reference, other_found = _catalog_match(other, raw.get('descricao'))
+                if other_reference or other_found:
+                    kind, reference, found = other, other_reference, other_found
+            if found and not pick:
+                price = 'preco_base' if kind == 'SERVICO' else 'preco_venda'
+                raise ValueError(f'Mais de um item parecido com "{raw.get("descricao")}". Pergunte qual: '
+                                 + '; '.join(f'{o.nome} (R$ {_money(getattr(o, price)):.2f})' for o in found))
+            if found:
+                reference = min(found, key=lambda o: len(o.nome)).id
         reference_id, descricao, qty, unit, discount, total = _build_item_values(
             kind, reference, raw.get('quantidade') or 1, raw.get('desconto') or 0,
             None if reference else raw.get('descricao'), raw.get('valor_unitario'), None)
@@ -190,20 +210,29 @@ def _resolve_items(itens: list) -> tuple[list[dict], list[str]]:
             warnings.append(f'"{descricao}" está sem valor (R$ 0,00).')
         payload.append({'item_type': kind, 'reference_id': reference_id, 'descricao': descricao, 'quantidade': str(qty),
                         'valor_unitario': str(unit), 'desconto': str(discount)})
-    return payload, warnings
+        candidates.append(found)
+    return payload, warnings, candidates
 
 
 def _alternatives(kind: str, reference_id: int | None) -> list[dict]:
-    """Variantes do mesmo item no catálogo (ex.: tipos de alinhamento), pela primeira palavra não genérica do nome."""
-    model, price = (Service, 'preco_base') if kind == 'SERVICO' else (Product, 'preco_venda')
+    """Variantes do mesmo item no catálogo (ex.: tipos de alinhamento): começam com a mesma palavra e contêm a primeira
+    palavra não genérica (óleo não puxa filtro de óleo); primeiro as que mais compartilham palavras com o nome."""
+    model = Service if kind == 'SERVICO' else Product
     item = db.session.get(model, reference_id) if reference_id else None
-    word = next((w for w in item.nome.upper().split() if w not in GENERIC_WORDS), None) if item else None
-    if not word:
+    words = [w for w in item.nome.upper().split() if w not in GENERIC_WORDS] if item else []
+    if not words:
         return []
-    found = model.query.filter_by(ativo=True).filter(model.nome.ilike(f'%{word}%')).order_by(model.nome).limit(6).all()
+    found = model.query.filter_by(ativo=True).filter(model.nome.ilike(f'{item.nome.split()[0]}%'), model.nome.ilike(f'%{words[0]}%'))
+    found = found.order_by(model.nome).limit(40).all()
+    found = sorted(found, key=lambda o: -len(set(words) & set(o.nome.upper().split())))[:MAX_OPTIONS]
     if item not in found:
-        found.append(item)
-    return [{'id': o.id, 'nome': o.nome, 'preco': _money(getattr(o, price))} for o in found] if len(found) > 1 else []
+        found[-1:] = [item]
+    return _options(kind, found) if len(found) > 1 else []
+
+
+def _options(kind: str, found: list) -> list[dict]:
+    price = 'preco_base' if kind == 'SERVICO' else 'preco_venda'
+    return [{'id': o.id, 'nome': o.nome, 'preco': _money(getattr(o, price))} for o in sorted(found, key=lambda o: o.nome.upper())]
 
 
 def edit_draft_items(draft: dict, edits: list) -> list[dict]:
@@ -228,7 +257,7 @@ def edit_draft_items(draft: dict, edits: list) -> list[dict]:
         else:
             raw.append({'tipo': item['item_type'], 'catalogo_id': reference, 'descricao': item['descricao'],
                         'quantidade': edit.get('quantidade'), 'valor_unitario': item['valor_unitario'], 'desconto': item['desconto']})
-    return _resolve_items(raw)[0]
+    return _resolve_items(raw)[0]  # catalogo_id sempre presente: nada ambíguo
 
 
 def _store_draft(kind: str, data: dict, card: dict, **extra) -> dict:
@@ -285,7 +314,7 @@ def propor_os(client_id: int | None = None, cliente_nome: str = '', vehicle_id: 
         return {'erro': 'payment_method_id inexistente. Use listar_formas_pagamento.'}
     employee = db.session.get(Employee, int(employee_id)) if employee_id else None
     try:
-        items, item_warnings = _resolve_items(itens)
+        items, item_warnings, candidates = _resolve_items(itens, pick=True)
     except ValueError as exc:
         return {'erro': str(exc)}
     if not items:
@@ -307,7 +336,8 @@ def propor_os(client_id: int | None = None, cliente_nome: str = '', vehicle_id: 
                        'valor_unitario': _money(i['valor_unitario']), 'desconto': _money(i['desconto']),
                        'total': _money(Decimal(i['quantidade']) * Decimal(i['valor_unitario']) - Decimal(i['desconto']))} for i in items],
             'total': _money(total), 'avisos': warnings}
-    options = [_alternatives(i['item_type'], i['reference_id']) for i in items]
+    options = [_options(i['item_type'], found) if found else _alternatives(i['item_type'], i['reference_id'])
+               for i, found in zip(items, candidates)]
     # Só os ids das opções vão para a sessão (cookie); nomes e preços vão apenas para o cartão.
     result = _store_draft('criar_os', data, card, opcoes=[[o['id'] for o in opts] for opts in options])
     result['itens'] = [{**item, 'opcoes': opts} for item, opts in zip(card['itens'], options)]
@@ -330,7 +360,7 @@ def propor_alteracao_os(numero: str = '', adicionar_itens: list | None = None, r
     if missing:
         return {'erro': 'Itens não encontrados na O.S.: ' + ', '.join(sorted(missing)), 'itens_atuais': [i.descricao for i in order.items]}
     try:
-        added, warnings = _resolve_items(adicionar_itens)
+        added, warnings, _ = _resolve_items(adicionar_itens)
     except ValueError as exc:
         return {'erro': str(exc)}
     items = current + added

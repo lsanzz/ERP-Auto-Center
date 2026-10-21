@@ -79,6 +79,7 @@ def message():
 def new_conversation():
     session.pop('ai_history', None)
     session.pop('ai_drafts', None)
+    session.pop('ai_plate', None)
     return jsonify(ok=True)
 
 
@@ -115,6 +116,7 @@ def confirm(draft_id):
         if draft['kind'] == 'criar_os':
             from ..api import create_work_order_from_payload
             order = create_work_order_from_payload(dict(data))
+            session.pop('ai_plate', None)  # O.S. criada: a próxima conversa pode ser de outro carro
             action = 'IA_CRIAR_OS'
         elif draft['kind'] == 'alterar_os':
             order = db.session.get(WorkOrder, data['work_order_id'])
