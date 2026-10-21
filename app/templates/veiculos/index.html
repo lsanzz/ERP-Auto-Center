@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header"><div><h2>Veículos</h2><p class="muted">Cadastro, quilometragem e histórico de atendimentos.</p></div><a class="button" href="{{ url_for('fleet.new') }}">Novo veículo</a></div>
-<form method="get" class="inline-form" style="flex-wrap:wrap; margin-bottom:24px">
-  <label>Buscar<input name="q" value="{{ q }}"></label>
+<div class="page-header"><div><h2>Veículos</h2></div><a class="button" href="{{ url_for('fleet.new') }}">Novo veículo</a></div>
+<form method="get" class="filter-bar">
+  <label>Buscar<input type="search" name="q" value="{{ q }}" placeholder="Placa, modelo ou cliente"></label>
   <label>Situação<select name="status">{% for value, label in [('ativos','Ativos'),('inativos','Inativos'),('todos','Todos')] %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
   {% if request.args.get('client_id') %}<input type="hidden" name="client_id" value="{{ request.args.get('client_id') }}">{% endif %}
   <button type="submit">Filtrar</button>

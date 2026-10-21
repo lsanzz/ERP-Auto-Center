@@ -207,8 +207,8 @@ class ERPAppTestCase(unittest.TestCase):
         self.login_web()
         response = self.client.get('/financeiro?view=overdue&kind=RECEBER')
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Suas contas'.encode(), response.data)
-        self.assertIn('Saldo previsto em 30 dias'.encode(), response.data)
+        self.assertIn('Novo lançamento'.encode(), response.data)
+        self.assertIn('Total a pagar'.encode(), response.data)
         self.assertIn('Contas a receber'.encode(), response.data)
         self.assertIn('Contas a pagar'.encode(), response.data)
 

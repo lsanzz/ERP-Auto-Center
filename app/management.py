@@ -118,9 +118,20 @@ def index():
     today = date.today()
     try: start, end = date.fromisoformat(request.args.get('start', today.replace(day=1).isoformat())), date.fromisoformat(request.args.get('end', today.isoformat()))
     except ValueError: start, end = today.replace(day=1), today
+    secao = 'estoque' if request.args.get('secao') == 'estoque' else 'financeiro'
+    purchases = PurchaseRequest.query.order_by(PurchaseRequest.id.desc()).limit(20).all()
+    if secao == 'estoque':
+        moved = InventoryMovement.query.filter(InventoryMovement.created_at >= datetime.combine(start, datetime.min.time()),
+                                               InventoryMovement.created_at <= datetime.combine(end, datetime.max.time()))
+        stock = dict(
+            low=Product.query.filter(Product.ativo.is_(True), Product.estoque_minimo > 0,
+                                     Product.estoque_atual <= Product.estoque_minimo).order_by(Product.nome).all(),
+            movements=moved.order_by(InventoryMovement.id.desc()).limit(200).all(), movement_count=moved.count())
+        return render_template('gestao/index.html', secao=secao, stock=stock, start=start, end=end, purchases=purchases)
+    from .finance_overview import financial_overview
     transactions = BankTransaction.query.outerjoin(BankReconciliation).filter(BankReconciliation.id.is_(None)).order_by(BankTransaction.posted_on.desc()).limit(30).all()
-    return render_template('gestao/index.html', summary=management_summary(start, end), start=start, end=end,
-        purchases=PurchaseRequest.query.order_by(PurchaseRequest.id.desc()).limit(20).all(), transactions=transactions,
+    return render_template('gestao/index.html', secao=secao, summary=management_summary(start, end), start=start, end=end,
+        purchases=purchases, transactions=transactions, projected=financial_overview()['projected'],
         accounts=BankAccount.query.filter_by(ativo=True).all(), profitability=order_profitability(),
         entries=FinancialEntry.query.filter(FinancialEntry.status != 'CANCELADO').order_by(FinancialEntry.vencimento.desc()).limit(100).all())
 
@@ -132,7 +143,7 @@ def create_purchase():
         purchase = create_replenishment_request(current_user().id); record_audit('CRIAR_COMPRA', 'SOLICITACAO_COMPRA', None, current_user().id, {'numero': purchase.number}, request.remote_addr)
         db.session.commit(); flash('Solicitação de reposição criada.', 'success')
     except ValueError as exc: db.session.rollback(); flash(str(exc), 'warning')
-    return redirect(url_for('management.index'))
+    return redirect(url_for('management.index', secao='estoque'))
 
 
 @management_bp.post('/compras/<int:purchase_id>/receber')
@@ -143,7 +154,7 @@ def receive(purchase_id):
         receive_purchase(purchase, current_user().id); record_audit('RECEBER_COMPRA', 'SOLICITACAO_COMPRA', purchase.id, current_user().id, ip=request.remote_addr)
         db.session.commit(); flash('Compra recebida e estoque atualizado.', 'success')
     except ValueError as exc: db.session.rollback(); flash(str(exc), 'error')
-    return redirect(url_for('management.index'))
+    return redirect(url_for('management.index', secao='estoque'))
 
 
 @management_bp.post('/banco/importar')

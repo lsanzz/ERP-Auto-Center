@@ -55,3 +55,15 @@ body .more-menu-panel button.danger{color:#c2410c!important}
 body nav.section-tabs{scrollbar-width:none}
 body nav.section-tabs::-webkit-scrollbar{display:none}
 @media(max-width:700px){body details.more-menu .more-menu-panel{left:0;right:auto}}
+
+/* Barra de filtros: campos lado a lado, botão logo depois (nada empurrado para as pontas) */
+.filter-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:0 0 18px}
+.filter-bar>label{flex:0 1 190px;margin:0}
+.filter-bar>label:first-child{flex:1 1 260px;max-width:420px}
+.filter-bar>button,.filter-bar>.button{flex:none}
+/* Navegação do calendário: um bloco centralizado */
+.calendar-nav{display:flex;justify-content:center;align-items:center;gap:10px;margin-bottom:18px}
+.calendar-nav form{display:flex;gap:8px;align-items:center;margin:0}
+.calendar-nav .button{min-width:44px;justify-content:center}
+/* Botões de ações nunca grudados */
+.hub-actions,.page-header .actions{gap:10px}

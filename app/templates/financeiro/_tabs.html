@@ -1,5 +1,5 @@
 <nav class="section-tabs" aria-label="Seções do financeiro">
   <a class="tab" href="{{ url_for('web.finance_index') }}"{% if request.endpoint == 'web.finance_index' %} aria-current="page"{% endif %}>Contas</a>
   <a class="tab" href="{{ url_for('business.finance_calendar') }}"{% if request.endpoint == 'business.finance_calendar' %} aria-current="page"{% endif %}>Calendário</a>
-  {% if can('reports.view') %}<a class="tab" href="{{ url_for('business.balance') }}"{% if request.endpoint == 'business.balance' %} aria-current="page"{% endif %}>Balancete e fluxo</a>{% endif %}
+  {% if can('reports.view') %}<a class="tab" href="{{ url_for('management.index') }}"{% if request.endpoint in ('management.index', 'business.balance') %} aria-current="page"{% endif %}>Relatório</a>{% endif %}
 </nav>

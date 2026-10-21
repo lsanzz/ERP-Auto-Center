@@ -2,21 +2,20 @@
 {% block page_title %} · Gestão{% endblock %}
 {% block content %}
 <main class="mgmt-page">
-{% include 'relatorios/_tabs.html' %}
+{% if secao == 'financeiro' %}{% include 'financeiro/_tabs.html' %}{% endif %}
   <header class="mgmt-header">
     <div class="mgmt-intro">
-      <span class="mgmt-kicker">Controle gerencial</span>
-      <h1>A oficina em números.</h1>
-      <p>Resultado financeiro e pendências operacionais, no mesmo lugar.</p>
+      <h1>{{ 'Relatório de estoque' if secao == 'estoque' else 'Relatório financeiro' }}</h1>
     </div>
     <form class="period-control" method="get" aria-label="Filtrar período">
       <label><span>De</span><input type="date" name="start" value="{{ start.isoformat() }}"></label>
       <span class="period-separator" aria-hidden="true">—</span>
       <label><span>Até</span><input type="date" name="end" value="{{ end.isoformat() }}"></label>
-      <button type="submit">Aplicar</button>
+      {% if secao == 'estoque' %}<input type="hidden" name="secao" value="estoque">{% endif %}<button type="submit">Aplicar</button>
     </form>
   </header>
 
+  {% if secao == 'financeiro' %}
   <section class="result-board" aria-labelledby="result-title">
     <div class="result-primary">
       <div class="result-meta">
@@ -28,6 +27,7 @@
         <span class="trend-chip {{ 'is-neutral' if not summary.revenue and not summary.expense else ('is-positive' if summary.result >= 0 else 'is-negative') }}">
           {{ 'Sem movimentação' if not summary.revenue and not summary.expense else ('Operação positiva' if summary.result >= 0 else 'Atenção ao caixa') }}
         </span>
+        <span>Saldo previsto em 30 dias: {{ format_currency(projected) }}</span>
         <span>Margem de {{ '%.1f'|format(summary.margin_rate|float) }}% sobre a receita</span>
       </div>
     </div>
@@ -38,10 +38,10 @@
     </div>
   </section>
 
-  <div class="mgmt-grid">
+  <div class="mgmt-grid" style="grid-template-columns:1fr">
     <section class="mgmt-section dre-section">
       <div class="section-title">
-        <div><span class="section-index">01</span><h2>Composição do resultado</h2></div>
+        <div><h2>Composição do resultado</h2></div>
         <span class="section-note">Regime de competência</span>
       </div>
       <div class="table-shell"><table class="management-table">
@@ -54,16 +54,10 @@
       </table></div>
     </section>
 
-    <aside class="work-queue" aria-label="Pendências de gestão">
-      <div class="queue-heading"><span class="section-index">Agora</span><h2>Fila de trabalho</h2></div>
-      <a class="queue-item" href="#compras"><span><strong>{{ purchases|length }}</strong><small>solicitações de compra</small></span><i aria-hidden="true">→</i></a>
-      {% if can('finance.reconcile') %}<a class="queue-item" href="#conciliacao"><span><strong>{{ transactions|length }}</strong><small>transações para conciliar</small></span><i aria-hidden="true">→</i></a>{% endif %}
-      <a class="queue-item" href="#margem"><span><strong>{{ profitability|length }}</strong><small>ordens com margem calculada</small></span><i aria-hidden="true">→</i></a>
-    </aside>
   </div>
 
   <section class="mgmt-section" id="margem">
-    <div class="section-title"><div><span class="section-index">02</span><h2>Margem por ordem de serviço</h2></div><span class="section-note">Últimas finalizadas</span></div>
+    <div class="section-title"><div><h2>Margem por ordem de serviço</h2></div><span class="section-note">Últimas finalizadas</span></div>
     <div class="table-shell"><table class="management-table margin-table">
       <thead><tr><th>Ordem</th><th>Cliente</th><th class="number">Receita</th><th class="number">Custo direto</th><th>Margem</th></tr></thead>
       <tbody>{% for row in profitability %}<tr>
@@ -74,19 +68,31 @@
     </table></div>
   </section>
 
-  <div class="operations-grid">
+  <p class="section-note"><a href="{{ url_for('business.balance') }}">Balancete por regime de caixa, fluxo dia a dia e exportação CSV →</a></p>
+  {% endif %}
+  <div class="operations-grid" style="grid-template-columns:1fr">
+    {% if secao == 'estoque' %}<section class="mgmt-section">
+      <div class="section-title"><div><h2>Peças no estoque mínimo</h2></div><span class="section-note">{{ stock.low|length }} peça(s)</span></div>
+      <div class="table-shell"><table class="management-table"><thead><tr><th>Peça</th><th class="number">Saldo</th><th class="number">Mínimo</th></tr></thead>
+        <tbody>{% for product in stock.low %}<tr><td><strong>{{ product.nome }}</strong> <span class="muted-value">{{ product.codigo }}</span></td><td class="number">{{ product.estoque_atual }}</td><td class="number">{{ product.estoque_minimo }}</td></tr>{% else %}<tr><td class="empty-row" colspan="3">Nenhuma peça abaixo do mínimo.</td></tr>{% endfor %}</tbody></table></div>
+    </section>
+    <section class="mgmt-section">
+      <div class="section-title"><div><h2>Movimentações do período</h2></div><span class="section-note">{{ start|date_br }} — {{ end|date_br }}{% if stock.movement_count > stock.movements|length %} · mostrando as {{ stock.movements|length }} mais recentes de {{ stock.movement_count }}{% endif %}</span></div>
+      <div class="table-shell"><table class="management-table"><thead><tr><th>Data</th><th>Peça</th><th>Tipo</th><th class="number">Qtde</th><th class="number">Saldo</th><th>Referência</th></tr></thead>
+        <tbody>{% for movement in stock.movements %}<tr><td>{{ movement.created_at|date_br }}</td><td>{{ movement.product.nome }}</td><td>{{ movement.movement_type }}</td><td class="number">{{ movement.quantity }}</td><td class="number">{{ movement.balance_after }}</td><td>{{ movement.reference or '—' }}</td></tr>{% else %}<tr><td class="empty-row" colspan="6">Sem movimentações no período.</td></tr>{% endfor %}</tbody></table></div>
+    </section>
     <section class="mgmt-section" id="compras">
-      <div class="section-title section-title-action"><div><span class="section-index">03</span><h2>Reposição de estoque</h2></div>
+      <div class="section-title section-title-action"><div><h2>Reposição de estoque</h2></div>
         {% if can('purchases.manage') %}<form method="post" action="{{ url_for('management.create_purchase') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="compact-button">Gerar solicitação</button></form>{% endif %}
       </div>
       <div class="compact-list">{% for item in purchases %}<article class="compact-row">
         <div><strong>{{ item.number }}</strong><span>{{ item.items|length }} {{ 'item' if item.items|length == 1 else 'itens' }}</span></div>
         <div class="row-actions"><span class="status-pill status-{{ item.status|lower }}">{{ item.status }}</span>{% if item.status in ['ABERTA','APROVADA'] and can('purchases.manage') %}<form method="post" action="{{ url_for('management.receive', purchase_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="text-button">Receber</button></form>{% endif %}</div>
       </article>{% else %}<p class="empty-state">Nenhuma solicitação de compra em aberto.</p>{% endfor %}</div>
-    </section>
+    </section>{% endif %}
 
-    {% if can('finance.reconcile') %}<section class="mgmt-section" id="conciliacao">
-      <div class="section-title"><div><span class="section-index">04</span><h2>Conciliação bancária</h2></div><span class="section-note">{{ transactions|length }} pendentes</span></div>
+    {% if secao == 'financeiro' and can('finance.reconcile') %}<section class="mgmt-section" id="conciliacao">
+      <div class="section-title"><div><h2>Conciliação bancária</h2></div><span class="section-note">{{ transactions|length }} pendentes</span></div>
       <form class="import-strip" method="post" enctype="multipart/form-data" action="{{ url_for('management.bank_import') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label><span>Conta</span><select name="bank_account_id" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.nome }}</option>{% endfor %}</select></label>

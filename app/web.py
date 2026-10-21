@@ -2769,7 +2769,7 @@ def reports_export_xml():
     
     if not start_date_str or not end_date_str:
         flash('Datas inicial e final so obrigatrias para exportar XML.', 'error')
-        return redirect(url_for('web.reports_index'))
+        return redirect(url_for('web.fiscal_index'))
         
     start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
     end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
@@ -2786,7 +2786,7 @@ def reports_export_xml():
     docs = [d for d in docs if d.created_at and start_date <= d.created_at.date() <= end_date]
     if not docs:
         flash('Nenhum XML encontrado para os filtros selecionados.', 'warning')
-        return redirect(url_for('web.reports_index'))
+        return redirect(url_for('web.fiscal_index'))
         
     memory_file = io.BytesIO()
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:

@@ -3,7 +3,6 @@
 {% block page_title %} | Relatórios{% endblock %}
 
 {% block content %}
-{% include 'relatorios/_tabs.html' %}
 
 <style>
   .report-filter-grid {
@@ -68,6 +67,11 @@
   .summary-item span { display: block; font-size: 13px; color: var(--color-mist); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
   .summary-item strong { display: block; font-size: 24px; font-family: var(--font-polysans); line-height: 1; }
   
+  .report-filters{margin-bottom:32px;padding:20px 24px}
+  .report-filter-row{display:flex;flex-wrap:wrap;gap:16px;align-items:end}
+  .report-filter-row>div{min-width:170px}
+  .report-filter-actions{display:flex;gap:10px}
+  .report-filters .hub-advanced .responsive-row{margin-top:14px}
   @media (max-width: 800px) {
     .os-header { grid-template-columns: 1fr 1fr; }
   }
@@ -75,16 +79,14 @@
 
 <div class="page-header" style="margin-bottom: 30px;">
   <div>
-    <h2 class="display">Relatório de ordens de serviço</h2>
+    <h2>Relatório de ordens de serviço</h2>
   </div>
 </div>
 
-<!-- Filtros -->
-<div class="card" style="margin-bottom: 40px; padding: 24px; background: var(--color-canvas-white); border: 1px solid var(--color-mist); border-radius: 8px;">
+<!-- Filtros: período e situação à vista; o resto em "Mais filtros" -->
+<div class="card report-filters">
   <form method="get" action="{{ url_for('web.reports_index') }}">
-    <div class="report-filter-grid" style="margin-bottom: 20px;">
-      {{ client_picker(client_id=selected_client.id if selected_client else '', text=selected_client.nome if selected_client else '',
-                       empty_help='Deixe em branco para todos os clientes.') }}
+    <div class="report-filter-row">
       <div>
         <label>Por data (Início)</label>
         <input type="date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}">
@@ -92,13 +94,6 @@
       <div>
         <label>Por data (Fim)</label>
         <input type="date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}">
-      </div>
-      <div>
-        <label>Tipo de data</label>
-        <select name="date_type">
-          <option value="data_entrada" {% if date_type == 'data_entrada' %}selected{% endif %}>Emissão (Entrada)</option>
-          <option value="data_saida" {% if date_type == 'data_saida' %}selected{% endif %}>Vencimento (Saída)</option>
-        </select>
       </div>
       <div>
         <label>Status O.S.</label>
@@ -109,6 +104,19 @@
           <option value="AGUARDANDO_PECA" {% if 'AGUARDANDO_PECA' in status_filter %}selected{% endif %}>Aguardando Peça</option>
           <option value="FINALIZADA" {% if 'FINALIZADA' in status_filter %}selected{% endif %}>Finalizada</option>
           <option value="ENTREGUE" {% if 'ENTREGUE' in status_filter %}selected{% endif %}>Entregue</option>
+        </select>
+      </div>
+      <div class="report-filter-actions"><button type="submit" class="button">Pesquisar</button><a href="{{ url_for('web.reports_index') }}" class="button secondary">Limpar</a></div>
+    </div>
+    <details class="hub-advanced"{% if selected_client or employee_id or placa or is_faturada or date_type != 'data_entrada' or show_items != 'both' %} open{% endif %}><summary>Mais filtros</summary>
+    <div class="report-filter-grid">
+      {{ client_picker(client_id=selected_client.id if selected_client else '', text=selected_client.nome if selected_client else '',
+                       empty_help='Deixe em branco para todos os clientes.') }}
+      <div>
+        <label>Tipo de data</label>
+        <select name="date_type">
+          <option value="data_entrada" {% if date_type == 'data_entrada' %}selected{% endif %}>Emissão (Entrada)</option>
+          <option value="data_saida" {% if date_type == 'data_saida' %}selected{% endif %}>Vencimento (Saída)</option>
         </select>
       </div>
       <div>
@@ -133,8 +141,6 @@
         </select>
       </div>
     </div>
-    
-    <div class="responsive-row" style="display: flex; gap: 24px; align-items: center; justify-content: space-between; border-top: 1px solid var(--color-mist); padding-top: 20px;">
       <div class="responsive-row" style="display: flex; gap: 24px;">
         <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;">
           <input type="radio" name="show_items" value="both" {% if show_items == 'both' %}checked{% endif %}> Peças e serviços
@@ -146,37 +152,9 @@
           <input type="radio" name="show_items" value="servicos" {% if show_items == 'servicos' %}checked{% endif %}> Somente serviços
         </label>
       </div>
-      <div class="responsive-row" style="display: flex; gap: 12px;">
-        <button type="submit" class="button">Pesquisar</button>
-        <a href="{{ url_for('web.reports_index') }}" class="button secondary">Limpar</a>
-      </div>
-    </div>
+    </details>
   </form>
 </div>
-
-<!-- Exportação de XML (Opcional, mantido para nao perder funcionalidade) -->
-<div class="card" style="margin-bottom: 40px; padding: 24px; background: var(--color-canvas-white); border: 1px solid var(--color-mist); border-radius: 8px;">
-  <div style="margin-bottom: 16px;">
-    <h3 style="font-family: var(--font-polysans); color: var(--color-graphite); font-size: 16px;">Exportar Notas Fiscais (XML)</h3>
-  </div>
-  <form method="get" action="{{ url_for('web.reports_export_xml') }}" class="no-loader responsive-row" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
-    <div style="flex: 1; min-width: 150px;">
-      <label class="muted" style="display: block; margin-bottom: 8px; font-size: 13px;">Data Inicial</label>
-      <input type="date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}" style="width: 100%; padding: 10px; border: 1px solid var(--color-mist); border-radius: 4px;" required>
-    </div>
-    <div style="flex: 1; min-width: 150px;">
-      <label class="muted" style="display: block; margin-bottom: 8px; font-size: 13px;">Data Final</label>
-      <input type="date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}" style="width: 100%; padding: 10px; border: 1px solid var(--color-mist); border-radius: 4px;" required>
-    </div>
-    <div style="flex: 2; min-width: 250px;">
-      {{ client_picker(field_id='xml_client_id', empty_help='Deixe em branco para todos os clientes.') }}
-    </div>
-    <div>
-      <button type="submit" class="button secondary" style="height: 40px;">Baixar ZIP</button>
-    </div>
-  </form>
-</div>
-
 <!-- Listagem de O.S. (Blocos) -->
 <div class="report-body">
   {% if orders %}

@@ -457,15 +457,18 @@
         {% if can('work_orders.view') %}<a href="{{ url_for('scheduling.floor') }}">Pátio</a>{% endif %}
         {% if can('estimates.manage') %}<a href="{{ url_for('web.budgets_index') }}">Orçamentos</a>{% endif %}
         {% if can('work_orders.view') %}<a href="{{ url_for('web.work_orders_index') }}">Ordens de serviço</a>{% endif %}
+        {% if current_user().role == 'ADMINISTRADOR' %}<a href="{{ url_for('web.reports_index') }}">Relatório</a>{% endif %}
         </div></details>{% endif %}
         {% if can('inventory.view') %}<details class="nav-group"><summary>{{ icon('package') }}Estoque</summary><div class="nav-dropdown">
         <a href="{{ url_for('operations.inventory') }}">Estoque</a>
         <a href="{{ url_for('web.products_index') }}">Peças e produtos</a>
+        {% if can('reports.view') %}<a href="{{ url_for('management.index', secao='estoque') }}">Relatório</a>{% endif %}
         </div></details>{% endif %}
         {% if can('finance.view') %}
         <details class="nav-group"><summary>{{ icon('trend') }}Gestão</summary><div class="nav-dropdown">
         <a href="{{ url_for('web.finance_index') }}">Financeiro</a>
-        {% if current_user().role == 'ADMINISTRADOR' %}<a href="{{ url_for('web.reports_index') }}">Relatórios</a><a href="{{ url_for('web.fiscal_index') }}">Central fiscal</a>{% elif can('reports.view') %}<a href="{{ url_for('management.index') }}">Relatórios</a>{% endif %}
+        {% if current_user().role == 'ADMINISTRADOR' %}<a href="{{ url_for('web.fiscal_index') }}">Central fiscal</a>{% endif %}
+        {% if can('reports.view') %}<a href="{{ url_for('management.index') }}">Relatório</a>{% endif %}
         </div></details>
         {% endif %}
       </nav>
@@ -849,8 +852,8 @@ document.addEventListener('DOMContentLoaded', () => {
   <link rel="stylesheet" href="{{ url_for('static', filename='lshub-ui.css') }}?v=4">
   <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}?v=2">
 {% include '_design_system.html' %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=7">
-  <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=2" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=8">
+  <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=3" defer></script>
   <script src="{{ url_for('static', filename='responsive.js') }}?v=2" defer></script>
   {% if assistant_enabled and current_user() and can('work_orders.manage') %}{% include '_assistant.html' %}{% endif %}
 </body>

@@ -1,5 +1,0 @@
-<nav class="section-tabs" aria-label="Seções de relatórios">
-  {% if current_user().role == 'ADMINISTRADOR' %}<a class="tab" href="{{ url_for('web.reports_index') }}"{% if request.endpoint == 'web.reports_index' %} aria-current="page"{% endif %}>Relatórios</a>{% endif %}
-  {% if can('reports.view') %}<a class="tab" href="{{ url_for('management.index') }}"{% if request.endpoint == 'management.index' %} aria-current="page"{% endif %}>Gestão gerencial</a>{% endif %}
-  {% if current_user().role == 'ADMINISTRADOR' %}<a class="tab" href="{{ url_for('business.history') }}"{% if request.endpoint == 'business.history' %} aria-current="page"{% endif %}>Histórico</a>{% endif %}
-</nav>

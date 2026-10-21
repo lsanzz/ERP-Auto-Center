@@ -2,8 +2,8 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='overview.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='business.css') }}?v=3">
 <main class="hub">
-{% include 'relatorios/_tabs.html' %}
-  <div class="hub-header"><div><span class="eyebrow">Histórico · memória da operação</span><h2>Registros e atividades</h2><p>Consulte documentos e a autoria das alterações registradas pelo sistema.</p></div><a class="button secondary" href="{{ url_for('web.finance_imports') }}">Importar dados</a></div>
+  <p><a href="{{ url_for('web.settings_index') }}">← Configurações</a></p>
+  <div class="hub-header"><div><h2>Registros e atividades</h2><p>Consulte documentos e a autoria das alterações registradas pelo sistema.</p></div><a class="button secondary" href="{{ url_for('web.finance_imports') }}">Importar dados</a></div>
   <section class="hub-panel">
     <form class="hub-filters history-filters" method="get"><label>Consultar<select name="kind"><option value="eventos">Atividades e alterações</option>{% for key, config in catalogs.items() %}<option value="{{ key }}" {{ 'selected' if kind == key }}>{{ config[2] }}</option>{% endfor %}</select></label><label>Busca<input name="q" value="{{ search }}" placeholder="Nome, número ou ação…"></label><label>Criado de<input type="date" name="start" value="{{ start }}" required></label><label>Até<input type="date" name="end" value="{{ end }}" required></label>
       {% if kind == 'eventos' %}<label>Usuário<select name="user_id"><option value="">Todos</option>{% for user in users %}<option value="{{ user.id }}" {{ 'selected' if request.args.get('user_id') == user.id|string }}>{{ user.nome }}</option>{% endfor %}</select></label><label>ID da entidade<input type="number" min="1" name="entity_id" value="{{ request.args.get('entity_id','') }}"></label>{% endif %}

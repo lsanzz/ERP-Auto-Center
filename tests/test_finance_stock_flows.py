@@ -90,6 +90,22 @@ class FinanceStockFlowsTest(unittest.TestCase):
             payable = FinancialEntry.query.filter_by(reference_type='XML_NFE').one()
             self.assertEqual((payable.entry_type, payable.valor), ('PAGAR', Decimal('50')))
 
+    def test_reports_split_by_section(self):
+        self.login()
+        with self.app.app_context():
+            product = Product.query.first()
+            product.estoque_minimo, product.estoque_atual = Decimal('5'), Decimal('1')
+            db.session.commit()
+            name = product.nome
+        stock = self.client.get('/gestao/?secao=estoque').data.decode()
+        self.assertIn('Relatório de estoque', stock)
+        self.assertIn(name, stock)  # peça abaixo do mínimo
+        self.assertNotIn('Conciliação bancária', stock)
+        finance = self.client.get('/gestao/').data.decode()
+        self.assertIn('Relatório financeiro', finance)
+        self.assertNotIn('Peças no estoque mínimo', finance)
+        self.assertIn('Exportar XML das notas', self.client.get('/fiscal').data.decode())
+
     def test_finance_page_has_new_entry_popup(self):
         self.login()
         page = self.client.get('/financeiro').data.decode()
