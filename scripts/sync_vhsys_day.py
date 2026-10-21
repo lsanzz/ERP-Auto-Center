@@ -36,10 +36,11 @@ def extract(folder: Path) -> dict:
         row['os'] = match.group(1) if match else None
     return {'orders': orders, 'receber': [r for r in receber if r['os']], 'extrato': [r for r in extrato if r['os']],
             'ignored_receber': [r['NomeConta'] for r in receber if not r['os']],
-            'ignored_extrato': [r['Lancamento'] for r in extrato if not r['os']]}
+            'ignored_extrato': [r['Lancamento'] for r in extrato if not r['os']],
+            'other_extrato': [r for r in extrato if not r['os']]}
 
 
-def apply(data: dict, commit: bool):
+def apply(data: dict, commit: bool, other: bool = False):
     from app import create_app
     from app.data_migration.finance_replace import money, source_date
     from app.data_migration.service import normalize, work_order_status
@@ -86,7 +87,9 @@ def apply(data: dict, commit: bool):
             if money(row['Entrada']) > 0:
                 extrato_by_os[row['os']].append(row)
 
-        for row in data['orders']:
+        if other:
+            apply_other(data.get('other_extrato', []), accounts, method_id, log)
+        for row in ([] if other else data['orders']):
             number = row['Ordem']
             order = WorkOrder.query.filter_by(numero=number).first()
             if order:
@@ -185,7 +188,7 @@ def apply(data: dict, commit: bool):
                     log(f'  $ baixada pelo extrato R$ {match.valor} -> R$ {amount} em {ext["Data"]}')
 
         # O.S. que só aparecem no extrato (recebimentos de O.S. de dias anteriores).
-        for number, rows in extrato_by_os.items():
+        for number, rows in ({} if other else extrato_by_os).items():
             if any(r['Ordem'] == number for r in data['orders']):
                 continue
             order = WorkOrder.query.filter_by(numero=number).first()
@@ -216,10 +219,46 @@ def apply(data: dict, commit: bool):
         backup = root / ('before-vhsys-day-' + datetime.now().strftime('%Y%m%d-%H%M%S') + '.json.gz')
         with gzip.open(backup, 'wt', encoding='utf-8') as stream:
             json.dump({'orders_before': before}, stream, default=str, ensure_ascii=False)
-        db.session.add(AuditEvent(action='SYNC_VHSYS_DIA', entity_type='WorkOrder', details=json.dumps(
-            {'orders': [r['Ordem'] for r in data['orders']], 'backup': str(backup)}, ensure_ascii=False)))
+        db.session.add(AuditEvent(action='SYNC_VHSYS_EXTRATO' if other else 'SYNC_VHSYS_DIA', entity_type='FinancialEntry' if other else 'WorkOrder',
+            details=json.dumps({'orders': [] if other else [r['Ordem'] for r in data['orders']], 'backup': str(backup)}, ensure_ascii=False)))
         db.session.commit()
         print('COMMITTED · backup', backup, flush=True)
+
+
+def apply_other(rows, accounts, method_id, log):
+    """Lançamentos do extrato que não são de O.S.: pula o que já está baixado, baixa o que está em aberto e cria o que falta."""
+    from datetime import timedelta
+    from app.data_migration.finance_replace import money, source_date
+    from app.data_migration.service import normalize
+    from app.models import FinancialEntry, db
+    from app.services import create_financial_entries, settle_financial_entry, settled_net_amount
+    for row in rows:
+        entrada, saida = money(row['Entrada']), money(row['Saida'])
+        kind, amount = ('RECEBER', entrada) if entrada > 0 else ('PAGAR', saida)
+        if amount <= 0:
+            continue
+        day = source_date(row['Data'])
+        title = (row['Lancamento'] or '').strip()
+        candidates = [e for e in FinancialEntry.query.filter(
+            FinancialEntry.entry_type == kind, FinancialEntry.status != 'CANCELADO',
+            db.or_(FinancialEntry.vencimento.between(day - timedelta(days=10), day + timedelta(days=10)),
+                   FinancialEntry.payment_receipt_at.between(day - timedelta(days=3), day + timedelta(days=3)))).all()
+            if normalize(e.descricao) == normalize(title)]
+        paid = next((e for e in candidates if e.status in ('PAGO', 'RECEBIDO') and abs(settled_net_amount(e) - amount) <= Decimal('0.01')), None)
+        if paid:
+            log(f'= já baixado: {title} R$ {amount} ({row["Data"]})'); continue
+        pending = next((e for e in candidates if e.status == 'PENDENTE' and abs(e.valor - amount) <= max(e.valor * Decimal('0.05'), Decimal('0.01'))), None)
+        diff = (pending.valor - amount) if pending else Decimal('0')
+        options = dict(payment_method_id=method_id(row['FormaPag']), payment_receipt_at=day, bank_account_id=accounts.get(normalize(row['Banco'])))
+        if pending:
+            # Diferença entre o valor da conta e o que saiu/entrou vira desconto (a menor) ou juros (a maior).
+            settle_financial_entry(pending, valor_baixa=str(pending.valor), desconto=str(max(diff, 0)), juros=str(max(-diff, 0)), **options)
+            log(f'$ baixado: {title} R$ {pending.valor} -> R$ {amount} em {row["Data"]} ({row["Banco"]})'); continue
+        entry = create_financial_entries(kind, title[:255] or 'Lançamento do extrato', row.get('Categoria') or None, amount, day,
+                                         payment_method_id=options['payment_method_id'], bank_account_id=options['bank_account_id'],
+                                         reference_type='EXTRATO_VHSYS')[0]
+        settle_financial_entry(entry, **options)
+        log(f'+ criado e baixado: {"receita" if kind == "RECEBER" else "despesa"} {title} R$ {amount} em {row["Data"]} ({row["Banco"]})')
 
 
 def main():
@@ -227,13 +266,14 @@ def main():
     sub = parser.add_subparsers(dest='cmd', required=True)
     ex = sub.add_parser('extract'); ex.add_argument('folder', type=Path); ex.add_argument('out', type=Path)
     ap = sub.add_parser('apply'); ap.add_argument('data', type=Path); ap.add_argument('--apply', action='store_true')
+    ap.add_argument('--outros', action='store_true', help='só os lançamentos do extrato que não são de O.S.')
     args = parser.parse_args()
     if args.cmd == 'extract':
         args.out.write_text(json.dumps(extract(args.folder), ensure_ascii=False), encoding='utf-8')
         print('ok', args.out)
     else:
         raw = gzip.decompress(args.data.read_bytes()) if args.data.suffix == '.gz' else args.data.read_bytes()
-        apply(json.loads(raw.decode('utf-8')), args.apply)
+        apply(json.loads(raw.decode('utf-8')), args.apply, other=args.outros)
 
 
 if __name__ == '__main__':
