@@ -68,6 +68,28 @@ class FinanceStockFlowsTest(unittest.TestCase):
             self.assertEqual((payable.status, payable.bank_account.nome), ('PAGO', 'Dinheiro'))
             self.assertEqual(BankAccount.query.filter_by(nome='Dinheiro').one().saldo_atual, Decimal('12.50'))
 
+    def test_xml_nota_entry_adds_stock_and_payable(self):
+        import base64, io, re
+        self.login()
+        xml = (b'<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe"><NFe><infNFe Id="NFe35260414310170001310550050001853871299763661">'
+               b'<ide><nNF>777</nNF><serie>1</serie><dhEmi>2026-10-20T10:00:00-03:00</dhEmi></ide>'
+               b'<emit><xNome>Fornecedor XML</xNome><CNPJ>14310170001310</CNPJ></emit>'
+               b'<det nItem="1"><prod><cProd>XML1</cProd><xProd>Filtro XML</xProd><uCom>UN</uCom><qCom>2</qCom><vUnCom>25</vUnCom><vProd>50</vProd></prod></det>'
+               b'<total><ICMSTot><vNF>50</vNF></ICMSTot></total></infNFe></NFe></nfeProc>')
+        page = self.client.post('/produtos/importar-xml/preview', data={'xml_file': (io.BytesIO(xml), 'nfe.xml')},
+                                content_type='multipart/form-data').data.decode()
+        self.assertIn('Filtro XML', page)
+        self.assertIn('name="lancar_contas" value="1" checked', page)
+        response = self.client.post('/produtos/importar-xml/confirmar', data={
+            'codigo[]': 'XML1', 'nome[]': 'Filtro XML', 'unidade[]': 'UN', 'custo[]': '25', 'preco_venda[]': '40',
+            'acao_cadastro[]': 'sim', 'lancar_estoque': '1', 'lancar_contas': '1',
+            'raw_xml_b64': base64.b64encode(xml).decode()}, follow_redirects=True)
+        self.assertIn('id="stock-entry"', response.data.decode())  # volta para o Estoque
+        with self.app.app_context():
+            self.assertEqual(Product.query.filter_by(codigo='XML1').one().estoque_atual, Decimal('2'))
+            payable = FinancialEntry.query.filter_by(reference_type='XML_NFE').one()
+            self.assertEqual((payable.entry_type, payable.valor), ('PAGAR', Decimal('50')))
+
     def test_finance_page_has_new_entry_popup(self):
         self.login()
         page = self.client.get('/financeiro').data.decode()

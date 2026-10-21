@@ -1,6 +1,6 @@
 // Entrada de mercadoria: linhas de peças, custo sugerido pelo último custo e total da compra.
 (() => {
-  const form = document.querySelector('#stock-entry form');
+  const form = document.querySelector('#stock-entry [data-stock-rows]')?.closest('form');  // o 1º form do diálogo é o do XML
   if (!form) return;
   const rows = form.querySelector('[data-stock-rows]');
   const template = rows.querySelector('[data-stock-row]').cloneNode(true);

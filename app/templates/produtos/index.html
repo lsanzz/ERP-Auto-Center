@@ -13,57 +13,34 @@
 <div class="page-header">
   <div>
     <h2>Peças</h2>
-    <p class="muted">Catálogo de peças, saldo atual e alertas de reposição.</p>
   </div>
   
   {% if current_user().role == 'ADMINISTRADOR' %}
   <div class="responsive-row" style="display: flex; gap: 10px; align-items: center;">
-    {% if can('inventory.move') %}<a class="button secondary" href="{{ url_for('operations.inventory') }}#lancar">Lançar entrada manual</a>{% endif %}
-    <button type="button" class="button secondary" onclick="document.getElementById('modal-import-xml').showModal()">Entrada de mercadoria (XML)</button>
+    {% if can('inventory.move') %}<a class="button secondary" href="{{ url_for('operations.inventory') }}#lancar">Entrada de nota</a>{% endif %}
     <a class="button" href="{{ url_for('web.products_new') }}">Nova peça</a>
   </div>
   {% endif %}
 </div>
 {% if low_stock_count %}<div class="flash warning" style="margin-bottom:24px;">{{ low_stock_count }} peça(s) estão no estoque mínimo ou abaixo dele.</div>{% endif %}
 <div class="table-card">
-<form method="GET" action="" style="margin-bottom: 25px;">
-    <div class="responsive-row" style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
-        
-        <!-- Campo de Texto -->
-        <input type="text" name="q" class="form-control" 
-               style="flex-grow: 1;" 
-               value="{{ request.args.get('q', '') }}">
-        
-        <!-- Botão Pesquisar -->
-        <button type="submit" class="btn btn-primary" style="white-space: nowrap;">
-            Pesquisar
-        </button>
-        
-        <!-- Botão Limpar -->
-        {% if request.args.get('q') %}
-            <a href="{{ request.path }}" class="btn" 
-               style="display: flex; align-items: center; background-color: #6c757d; color: white; text-decoration: none; padding: 0 15px; border-radius: 4px; white-space: nowrap;">
-                Limpar
-            </a>
-        {% endif %}
-        
-    </div>
+<form method="GET" action="" class="os-search" style="display:flex;gap:10px;max-width:640px;margin-bottom:18px">
+  <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Buscar por nome ou código" aria-label="Buscar peça" style="flex:1;min-width:0">
+  <button type="submit">Buscar</button>
+  {% if request.args.get('q') %}<a class="button secondary" href="{{ request.path }}">Limpar</a>{% endif %}
 </form>
   <table data-mobile-cards class="table">
-    <thead><tr><th>Código</th><th>Nome</th><th>Categoria</th><th>Estoque</th><th>Venda</th><th>Ativa</th><th style="text-align:right;">Ações</th></tr></thead>
+    <thead><tr><th>Peça</th><th>Estoque</th><th>Venda</th><th style="text-align:right;">Ações</th></tr></thead>
     <tbody>
       {% for product in products %}
       <tr>
-        <td>{{ product.codigo }}</td>
-        <td>{{ product.nome }}</td>
-        <td>{{ product.categoria or '-' }}</td>
+        <td><strong>{{ product.nome }}</strong><span class="muted small" style="display:block">{{ product.codigo }}{% if product.categoria %} · {{ product.categoria }}{% endif %}{% if not product.ativo %} · inativa{% endif %}</span></td>
         <td><strong class="{{ 'stock-low' if product.estoque_minimo > 0 and product.estoque_atual <= product.estoque_minimo else 'stock-ok' }}">{{ product.estoque_atual|int }}</strong><span class="muted small"> / mín. {{ product.estoque_minimo|int }}</span></td>
         <td>{{ format_currency(product.preco_venda) }}</td>
-        <td>{{ 'Sim' if product.ativo else 'Não' }}</td>
         <td>
           {% if current_user().role == 'ADMINISTRADOR' %}
           <div class="product-actions responsive-row" style="display: flex; gap: 10px; justify-content: flex-end;">
-            <a class="button secondary" href="{{ url_for('web.products_edit', product_id=product.id) }}">Editar peça</a>
+            <a class="button secondary" href="{{ url_for('web.products_edit', product_id=product.id) }}">Editar</a>
             <form method="post" action="{{ url_for('web.products_delete', product_id=product.id) }}" style="margin: 0;" onsubmit="return confirm('Inativar esta peça?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
             </form>
@@ -74,105 +51,11 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="7">Nenhuma peça cadastrada.</td></tr>
+      <tr><td colspan="4">Nenhuma peça cadastrada.</td></tr>
       {% endfor %}
     </tbody>
   </table>
   {% include '_pagination.html' %}
 </div>
 
-<!-- Modal para Selecionar e Importar XML -->
-<style>
-  .ventriloc-modal {
-    margin: auto;
-    border: 1px solid var(--color-graphite);
-    background: var(--color-canvas-white);
-    padding: 36px 40px;
-    width: 92%;
-    max-width: 540px;
-    border-radius: 6px 0px 0px 0px;
-    box-shadow: none;
-    box-sizing: border-box;
-  }
-  .ventriloc-modal::backdrop {
-    background: rgba(32, 32, 32, 0.5);
-    backdrop-filter: blur(2px);
-  }
-  .ventriloc-modal .dialog-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 22px;
-  }
-  .ventriloc-modal .dialog-close {
-    background: transparent;
-    border: none;
-    color: var(--color-graphite);
-    font-size: 28px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0;
-    height: auto;
-  }
-  .ventriloc-modal .dialog-close:hover {
-    color: var(--color-ember-orange);
-    background: transparent;
-  }
-  .upload-dropzone {
-    border: 2px dashed #cbd5e1;
-    border-radius: 6px;
-    padding: 32px 20px;
-    text-align: center;
-    background: #f8fafc;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  .upload-dropzone:hover {
-    border-color: #2b6cb0;
-    background: #f1f5f9;
-  }
-</style>
-
-<dialog id="modal-import-xml" class="ventriloc-modal">
-  <div class="dialog-header">
-    <div>
-      <h3 style="margin: 0; font-size: 20px;">Entrada de Mercadoria (NF-e)</h3>
-      <p class="muted" style="margin-top: 4px; font-size: 13px;">Selecione o arquivo XML para conferir os itens e lançar estoque/contas.</p>
-    </div>
-    <button type="button" class="dialog-close" onclick="this.closest('dialog').close()">&times;</button>
-  </div>
-
-  <form method="post" action="{{ url_for('web.products_import_xml_preview') }}" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="upload-dropzone" onclick="document.getElementById('modal-xml-file').click()" ondragover="event.preventDefault(); this.style.borderColor='#2b6cb0';" ondragleave="this.style.borderColor='#cbd5e1';" ondrop="event.preventDefault(); this.style.borderColor='#cbd5e1'; document.getElementById('modal-xml-file').files = event.dataTransfer.files; updateModalFileName();">
-      <svg style="width: 44px; height: 44px; margin: 0 auto 10px auto; color: #64748b; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16a4 44 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-      </svg>
-      <div style="font-weight: 600; color: #1e293b; font-size: 14px;" id="modal-upload-text">Clique ou arraste o arquivo XML da NF-e aqui</div>
-      <div style="color: #64748b; font-size: 12px; margin-top: 4px;">Formato suportado: .xml (Nota Fiscal Eletrônica)</div>
-      <div id="modal-selected-name" style="margin-top: 10px; font-weight: 600; color: #2b6cb0; font-size: 13px; word-break: break-all;"></div>
-      <input type="file" id="modal-xml-file" name="xml_file" accept=".xml" required style="display: none;" onchange="updateModalFileName()">
-    </div>
-
-    <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px;">
-        <button type="button" class="button secondary" onclick="this.closest('dialog').close()">Cancelar</button>
-        <button type="submit" class="button">Importar</button>
-      </div>
-    </div>
-  </form>
-</dialog>
-
-<script>
-  function updateModalFileName() {
-    const input = document.getElementById('modal-xml-file');
-    const label = document.getElementById('modal-selected-name');
-    const mainText = document.getElementById('modal-upload-text');
-    if (input.files && input.files.length > 0) {
-      label.innerText = 'Arquivo selecionado: ' + input.files[0].name;
-      mainText.innerText = 'Arquivo pronto para envio!';
-    } else {
-      label.innerText = '';
-      mainText.innerText = 'Clique ou arraste o arquivo XML da NF-e aqui';
-    }
-  }
-</script>
 {% endblock %}

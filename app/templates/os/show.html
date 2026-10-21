@@ -2,33 +2,31 @@
 {% block content %}
 <div class="page-header" style="margin-bottom: 40px;">
   <div>
-    <span class="eyebrow">Ordem de Serviço</span>
+    <span class="eyebrow">Ordem de serviço</span>
     <h2 class="display">{{ order.numero }}</h2>
     <span class="status-badge status-{{ order.status|lower|replace('_', '-') }}" style="margin-top: 12px;">
       <span class="status-dot"></span>{{ order.status|replace('_', ' ') }}
     </span>
+    {% if order.warranty %}<p class="muted small" style="margin-top:8px">Garantia até {{ order.warranty.ends_at|date_br }} · {{ order.warranty.status }}</p>{% endif %}
   </div>
-<div class="actions responsive-row" style="margin-top: 0; display: flex; gap: 10px;">
-    {% if can('inspections.manage') %}<a class="button secondary" href="{{ url_for('operations.inspection', work_order_id=order.id) }}">Inspeção</a>{% endif %}
-    {% if current_user().role == 'ADMINISTRADOR' %}
-    <form method="post" action="{{ url_for('web.work_orders_delete', work_order_id=order.id) }}" onsubmit="return confirm('Atenção: Excluir esta O.S. apagará também os recebimentos pendentes atrelados a ela. Deseja continuar?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir O.S.</button>
-    </form>
-    {% endif %}
-    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir O.S.</a>
-    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}" download>Baixar PDF</a>
+<div class="actions responsive-row" style="margin-top: 0; display: flex; gap: 10px; align-items: center;">
+    <details class="more-menu">
+      <summary>Mais ações</summary>
+      <div class="more-menu-panel">
+        {% if can('inspections.manage') %}<a class="item" href="{{ url_for('operations.inspection', work_order_id=order.id) }}">Inspeção</a>{% endif %}
+        <a class="item" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}" download>Baixar PDF</a>
+        <form method="post" action="{{ url_for('operations.reserve_parts', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Reservar peças</button></form>
+        <form method="post" action="{{ url_for('operations.release_parts', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Liberar reservas</button></form>
+        {% if current_user().role == 'ADMINISTRADOR' %}
+        <form method="post" action="{{ url_for('web.work_orders_delete', work_order_id=order.id) }}" onsubmit="return confirm('Atenção: Excluir esta O.S. apagará também os recebimentos pendentes atrelados a ela. Deseja continuar?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="danger">Excluir O.S.</button>
+        </form>
+        {% endif %}
+      </div>
+    </details>
+    <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir</a>
     <a class="button" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar O.S.</a>
   </div>
-</div>
-
-<div class="card" style="margin-bottom:24px">
-  <h3>Peças e garantia</h3>
-  <p class="muted">Reserve peças antes do serviço. A baixa gera movimentações rastreáveis ao finalizar.</p>
-  <div class="actions">
-    <form method="post" action="{{ url_for('operations.reserve_parts', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Reservar peças</button></form>
-    <form method="post" action="{{ url_for('operations.release_parts', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="secondary">Liberar reservas</button></form>
-  </div>
-  {% if order.warranty %}<p><strong>Garantia:</strong> {{ order.warranty.starts_at|date_br }} até {{ order.warranty.ends_at|date_br }} · {{ order.warranty.status }}</p>{% endif %}
 </div>
 
 <div class="responsive-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px; margin-bottom: 60px;">

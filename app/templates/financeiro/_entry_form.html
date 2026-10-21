@@ -2,19 +2,23 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="hub-form-grid">
     <label>Tipo<select name="entry_type" id="entry-type" required><option value="RECEBER" {% if new_entry_type != 'PAGAR' %}selected{% endif %}>Receita · dinheiro que entra</option><option value="PAGAR" {% if new_entry_type == 'PAGAR' %}selected{% endif %}>Despesa · dinheiro que sai</option></select></label>
-    <label>Vencimento<input type="date" name="vencimento" value="{{ iso_today() }}" required></label>
-    <label>Emissão<input type="date" name="issued_on" value="{{ iso_today() }}" required></label>
-    <label>Competência<input type="date" name="competence_on" value="{{ iso_today() }}" required></label>
     <label class="wide">Descrição<input name="descricao" placeholder="Ex.: Pagamento da revisão do veículo" required></label>
     <label>Valor total (R$)<input type="number" name="valor" min="0.01" step="0.01" inputmode="decimal" required></label>
-    <label>Categoria<input name="categoria" placeholder="Ex.: Serviços ou fornecedores"></label>
-    <label>Conta contábil<select name="chart_account_id"><option value="">Não classificada</option>{% for account in chart_accounts %}<option value="{{ account.id }}">{{ account.code }} · {{ account.name }}</option>{% endfor %}</select></label>
-    <label>Centro de custo<select name="cost_center_id"><option value="">Não informado</option>{% for center in cost_centers %}<option value="{{ center.id }}">{{ center.name }}</option>{% endfor %}</select></label>
-    <label>Parcelas<input type="number" name="installment_count" min="1" max="120" value="1" required><small class="muted">O valor total será dividido igualmente.</small></label>
-    <label>Conta bancária<select name="bank_account_id"><option value="">Automática pela forma de pagamento</option>{% for account in bank_accounts %}<option value="{{ account.id }}">{{ account.nome }}</option>{% endfor %}</select></label>
+    <label>Vencimento<input type="date" name="vencimento" value="{{ iso_today() }}" required></label>
     <label>Forma de pagamento<select name="payment_method_id"><option value="">Definir depois</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.nome }}</option>{% endfor %}</select></label>
     <label>Situação<select name="status"><option value="PENDENTE">Em aberto</option><option value="LIQUIDADO">Já foi pago ou recebido</option></select></label>
+    <label>Parcelas<input type="number" name="installment_count" min="1" max="120" value="1" required></label>
   </div>
-  <p class="hub-note">Quando houver mais de 1 parcela, o sistema cria os vencimentos mensais automaticamente. A conta bancária é escolhida pela forma de pagamento (Dinheiro → Dinheiro; Pix e cartão → JURIDICA) e pode ser trocada.</p>
+  <details class="hub-advanced"><summary>Avançado</summary>
+  <div class="hub-form-grid">
+    <label>Categoria<input name="categoria" placeholder="Ex.: Serviços ou fornecedores"></label>
+    <label>Conta bancária<select name="bank_account_id"><option value="">Automática pela forma de pagamento</option>{% for account in bank_accounts %}<option value="{{ account.id }}">{{ account.nome }}</option>{% endfor %}</select></label>
+    <label>Emissão<input type="date" name="issued_on" value="{{ iso_today() }}" required></label>
+    <label>Competência<input type="date" name="competence_on" value="{{ iso_today() }}" required></label>
+    <label>Conta contábil<select name="chart_account_id"><option value="">Não classificada</option>{% for account in chart_accounts %}<option value="{{ account.id }}">{{ account.code }} · {{ account.name }}</option>{% endfor %}</select></label>
+    <label>Centro de custo<select name="cost_center_id"><option value="">Não informado</option>{% for center in cost_centers %}<option value="{{ center.id }}">{{ center.name }}</option>{% endfor %}</select></label>
+  </div>
+  <p class="hub-note">Com mais de 1 parcela, os vencimentos mensais são criados automaticamente. A conta bancária vem da forma de pagamento (Dinheiro → Dinheiro; Pix e cartão → JURIDICA).</p>
+  </details>
   <div class="hub-actions"><button type="submit">Salvar lançamento</button>{% if in_dialog %}<button type="button" class="secondary" data-close>Cancelar</button>{% else %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Cancelar</a>{% endif %}</div>
 </form>

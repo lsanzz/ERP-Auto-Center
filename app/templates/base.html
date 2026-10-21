@@ -454,12 +454,9 @@
         </div></details>
         {% if can('scheduling.view') or can('work_orders.view') or can('estimates.manage') or can('vehicles.view') %}<details class="nav-group"><summary>{{ icon('wrench') }}Atendimento</summary><div class="nav-dropdown">
         {% if can('scheduling.view') %}<a href="{{ url_for('scheduling.index') }}">Agenda</a>{% endif %}
-        {% if can('work_orders.view') %}<a href="{{ url_for('scheduling.floor') }}">Painel do pátio</a>{% endif %}
-        {% if can('work_orders.view') %}<a href="{{ url_for('scheduling.board') }}">Pátio</a>{% endif %}
+        {% if can('work_orders.view') %}<a href="{{ url_for('scheduling.floor') }}">Pátio</a>{% endif %}
         {% if can('estimates.manage') %}<a href="{{ url_for('web.budgets_index') }}">Orçamentos</a>{% endif %}
         {% if can('work_orders.view') %}<a href="{{ url_for('web.work_orders_index') }}">Ordens de serviço</a>{% endif %}
-        {% if can('work_orders.manage') %}<a href="{{ url_for('web.work_orders_new') }}">Abrir O.S.</a>{% endif %}
-        {% if can('vehicles.view') %}<a href="{{ url_for('web.plate_lookup_page') }}">Consultar placa</a>{% endif %}
         </div></details>{% endif %}
         {% if can('inventory.view') %}<details class="nav-group"><summary>{{ icon('package') }}Estoque</summary><div class="nav-dropdown">
         <a href="{{ url_for('operations.inventory') }}">Estoque</a>
@@ -468,11 +465,7 @@
         {% if can('finance.view') %}
         <details class="nav-group"><summary>{{ icon('trend') }}Gestão</summary><div class="nav-dropdown">
         <a href="{{ url_for('web.finance_index') }}">Financeiro</a>
-        <a href="{{ url_for('business.finance_calendar') }}">Calendário financeiro</a>
-        {% if can('reports.view') %}<a href="{{ url_for('business.balance') }}">Balancete e fluxo</a>{% endif %}
-        {% if current_user().role == 'ADMINISTRADOR' %}<a href="{{ url_for('web.fiscal_index') }}">Central fiscal</a><a href="{{ url_for('business.history') }}">Histórico</a>{% endif %}
-        <a href="{{ url_for('web.reports_index') }}">Relatórios</a>
-        {% if can('reports.view') %}<a href="{{ url_for('management.index') }}">Gestão gerencial</a>{% endif %}
+        {% if current_user().role == 'ADMINISTRADOR' %}<a href="{{ url_for('web.reports_index') }}">Relatórios</a><a href="{{ url_for('web.fiscal_index') }}">Central fiscal</a>{% elif can('reports.view') %}<a href="{{ url_for('management.index') }}">Relatórios</a>{% endif %}
         </div></details>
         {% endif %}
       </nav>
@@ -856,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <link rel="stylesheet" href="{{ url_for('static', filename='lshub-ui.css') }}?v=4">
   <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}?v=2">
 {% include '_design_system.html' %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=7">
   <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=2" defer></script>
   <script src="{{ url_for('static', filename='responsive.js') }}?v=2" defer></script>
   {% if assistant_enabled and current_user() and can('work_orders.manage') %}{% include '_assistant.html' %}{% endif %}

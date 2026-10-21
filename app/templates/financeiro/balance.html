@@ -2,7 +2,8 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='overview.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='business.css') }}?v=2">
 <main class="hub business-reports">
-  <div class="hub-header"><div><span class="eyebrow">Financeiro · análise do período</span><h2>Balancete gerencial</h2><p>Receitas, despesas e resultado, com o regime de apuração explícito.</p></div><a class="button secondary" href="{{ url_for('web.finance_index') }}">Ver lançamentos</a></div>
+{% include 'financeiro/_tabs.html' %}
+  <div class="hub-header"><div><span class="eyebrow">Financeiro · análise do período</span><h2>Balancete gerencial</h2><p>Receitas, despesas e resultado, com o regime de apuração explícito.</p></div></div>
   <section class="hub-panel">
     <form class="hub-filters" method="get">
       <label>Regime<select name="basis"><option value="competencia" {{ 'selected' if basis == 'competencia' }}>Competência</option><option value="caixa" {{ 'selected' if basis == 'caixa' }}>Caixa · liquidado</option></select></label>

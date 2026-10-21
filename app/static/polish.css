@@ -30,3 +30,28 @@ dialog[open]{animation:dialog-in .2s ease-out}
 @keyframes dialog-in{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.45}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* Abas de seção (Financeiro, Relatórios) */
+body nav.section-tabs{display:flex;gap:4px;margin:0 0 18px;padding:4px;background:#f1f5f9;border-radius:12px;width:max-content;max-width:100%;overflow-x:auto}
+body nav.section-tabs a{padding:8px 16px;border-radius:9px;font-size:14px;font-weight:600;color:#475569;text-decoration:none;white-space:nowrap;transition:background-color .15s,color .15s}
+body nav.section-tabs a:hover{color:#0f172a}
+body nav.section-tabs a[aria-current=page]{background:#fff;color:#0f172a;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+
+/* Campos pouco usados ficam em "Avançado" */
+.hub-advanced{margin:14px 0 4px;border-top:1px solid #e5e7eb;padding-top:10px}
+.hub-advanced>summary{cursor:pointer;font-size:14px;font-weight:600;color:#475569;padding:4px 0;width:max-content}
+.hub-advanced[open]>summary{margin-bottom:12px}
+
+/* Menu "Mais ações": ações raras saem da barra principal */
+.more-menu{position:relative}
+.more-menu>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;height:40px;padding:0 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-size:14px;font-weight:600;color:#334155}
+.more-menu>summary::-webkit-details-marker{display:none}
+.more-menu>summary::after{content:'';width:5px;height:5px;border-right:1.5px solid;border-bottom:1.5px solid;transform:rotate(45deg);margin-top:-3px}
+body details.more-menu .more-menu-panel{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:210px!important;width:max-content;padding:6px;display:grid;gap:2px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 16px 34px rgba(15,23,42,.14)}
+.more-menu-panel form{margin:0}
+body .more-menu-panel a,body .more-menu-panel button{display:flex;width:100%;min-height:36px;align-items:center;padding:0 12px;border:0;border-radius:8px;background:transparent;box-shadow:none;font-size:14px;font-weight:500;color:#334155!important;text-decoration:none;text-align:left;white-space:nowrap;justify-content:flex-start;cursor:pointer}
+body .more-menu-panel a:hover,body .more-menu-panel button:hover{background:#f1f5f9}
+body .more-menu-panel button.danger{color:#c2410c!important}
+body nav.section-tabs{scrollbar-width:none}
+body nav.section-tabs::-webkit-scrollbar{display:none}
+@media(max-width:700px){body details.more-menu .more-menu-panel{left:0;right:auto}}

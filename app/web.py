@@ -4,7 +4,6 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
 from collections import OrderedDict
 import base64
-import os
 import io
 import json
 import re
@@ -687,65 +686,6 @@ def products_edit(product_id: int):
         return redirect(url_for('web.products_index'))
     return render_template('produtos/form.html', product=product)
 
-@web_bp.post('/produtos/importar-xml')
-@login_required
-@admin_required
-def products_import_xml():
-    upload = request.files.get('xml_file')
-    if not upload or not upload.filename:
-        flash('Selecione um arquivo XML.', 'error')
-        return redirect(url_for('web.products_index'))
-        
-    try:
-        raw_xml = upload.read()
-        parsed = parse_nfe_xml(raw_xml)
-        
-        novos = 0
-        atualizados = 0
-        
-        for item in parsed.get('itens', []):
-            # Tenta encontrar a peça pelo código original do fornecedor
-            product = Product.query.filter_by(codigo=item['codigo']).first()
-            old_stock = product.estoque_atual if product else Decimal('0')
-            
-            custo_unitario = parse_decimal(item['valor_unitario'])
-            
-            if product:
-                # Se a peça já existe, apenas atualiza o custo
-                product.custo = custo_unitario
-                product.ncm = item.get('ncm') or product.ncm
-                product.cfop = item.get('cfop') or product.cfop
-                product.estoque_atual = parse_decimal(product.estoque_atual) + parse_decimal(item.get('quantidade'))
-                atualizados += 1
-            else:
-                # Se não existe, cria a nova peça
-                product = Product(
-                    codigo=item['codigo'],
-                    nome=item['descricao'],
-                    unidade=item['unidade'],
-                    custo=custo_unitario,
-                    # Adicionando uma margem de lucro padrão inicial (ex: 50%)
-                    preco_venda=custo_unitario * Decimal('1.5'),
-                    estoque_atual=parse_decimal(item.get('quantidade')),
-                    ncm=item.get('ncm'),
-                    cfop=item.get('cfop'),
-                    ativo=True
-                )
-                db.session.add(product)
-                novos += 1
-            db.session.flush()
-            from .operations.services import register_inventory_change
-            register_inventory_change(product, old_stock, 'ENTRADA_XML', parsed.get('numero') or 'XML', current_user().id)
-                
-        db.session.commit()
-        flash(f'XML Importado com sucesso! {novos} peças adicionadas e {atualizados} peças atualizadas (custo).', 'success')
-        
-    except Exception as exc:
-        db.session.rollback()
-        flash(f'Falha ao importar peças pelo XML: {exc}', 'error')
-        
-    return redirect(url_for('web.products_index'))
-
 @web_bp.route('/produtos/importar-xml/preview', methods=['GET', 'POST'])
 @web_bp.route('/entrada-mercadoria/importar', methods=['GET', 'POST'])
 @login_required
@@ -753,20 +693,10 @@ def products_import_xml():
 def products_import_xml_preview():
     upload = request.files.get('xml_file') if request.method == 'POST' else None
     filename = upload.filename if upload and upload.filename else None
-    raw_xml = None
-
-    if upload and upload.filename:
-        raw_xml = upload.read()
-    else:
-        # Carrega o notateste.xml como padrão/teste se acessado via GET ou sem arquivo
-        test_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'notateste.xml')
-        if os.path.exists(test_path):
-            with open(test_path, 'rb') as f:
-                raw_xml = f.read()
-            filename = '35260910619557000320550010004151481058339653-procNFe.xml'
-        else:
-            flash('Selecione um arquivo XML.', 'error')
-            return redirect(url_for('web.products_index'))
+    if not filename:
+        flash('Selecione o arquivo XML da nota.', 'error')
+        return redirect(url_for('operations.inventory'))
+    raw_xml = upload.read()
 
     try:
         parsed = parse_nfe_xml(raw_xml)
@@ -802,7 +732,7 @@ def products_import_xml_preview():
         )
     except Exception as exc:
         flash(f'Falha ao ler XML: {exc}', 'error')
-        return redirect(url_for('web.products_index'))
+        return redirect(url_for('operations.inventory'))
 
 
 @web_bp.post('/produtos/importar-xml/confirmar')
@@ -958,7 +888,7 @@ def products_import_xml_confirm():
         db.session.rollback()
         flash(f'Falha ao importar mercadorias: {exc}', 'error')
 
-    return redirect(url_for('web.products_index'))
+    return redirect(url_for('operations.inventory'))
 
 
 @web_bp.get('/servicos')
@@ -1653,87 +1583,6 @@ def finance_settle(entry_id: int):
     return redirect(url_for('web.finance_index'))
 
 
-
-
-@web_bp.post('/financeiro/importar-xml/preview')
-@login_required
-@admin_required
-def finance_import_xml_preview():
-    upload = request.files.get('xml_file')
-    if not upload or not upload.filename:
-        flash('Selecione um arquivo XML.', 'error')
-        return redirect(url_for('web.finance_index'))
-    try:
-        raw_xml = upload.read()
-        parsed = parse_nfe_xml(raw_xml)
-        return render_template(
-            'financeiro/xml_preview.html',
-            parsed=parsed,
-            raw_xml_b64=base64.b64encode(raw_xml).decode('ascii'),
-            existing=XmlInvoiceImport.query.filter_by(chave_acesso=parsed['chave_acesso']).first(),
-        )
-    except Exception as exc:
-        flash(f'Falha ao ler XML: {exc}', 'error')
-        return redirect(url_for('web.finance_index'))
-
-
-@web_bp.post('/financeiro/importar-xml/confirmar')
-@login_required
-@admin_required
-def finance_import_xml_confirm():
-    raw_xml_b64 = request.form.get('raw_xml_b64') or ''
-    if not raw_xml_b64:
-        flash('Prévia do XML expirada. Envie o arquivo novamente.', 'error')
-        return redirect(url_for('web.finance_index'))
-    try:
-        raw_xml = base64.b64decode(raw_xml_b64.encode('ascii'))
-        parsed = parse_nfe_xml(raw_xml)
-        existing = XmlInvoiceImport.query.filter_by(chave_acesso=parsed['chave_acesso']).first()
-        if existing:
-            flash('Este XML já foi importado.', 'warning')
-            return redirect(url_for('web.finance_index'))
-
-        supplier = Client.query.filter_by(cpf_cnpj=parsed.get('emitente_cnpj')).first()
-        if not supplier:
-            supplier = Client(nome=parsed.get('emitente_nome') or 'Fornecedor XML', cpf_cnpj=parsed.get('emitente_cnpj'))
-            db.session.add(supplier)
-            db.session.flush()
-
-        xml_import = XmlInvoiceImport(
-            chave_acesso=parsed['chave_acesso'],
-            numero=parsed.get('numero'),
-            serie=parsed.get('serie'),
-            natureza_operacao=parsed.get('natureza_operacao'),
-            emitente_nome=parsed.get('emitente_nome'),
-            emitente_cnpj=parsed.get('emitente_cnpj'),
-            destinatario_nome=parsed.get('destinatario_nome'),
-            destinatario_cnpj=parsed.get('destinatario_cnpj'),
-            total_nota=parse_decimal(parsed.get('total_nota')),
-            emissao_em=parse_date(parsed.get('issued_at')),
-            informacoes_complementares=parsed.get('informacoes_complementares'),
-            raw_xml=raw_xml.decode('utf-8', errors='ignore'),
-        )
-        xml_import.set_items(parsed.get('itens') or [])
-        db.session.add(xml_import)
-        db.session.flush()
-
-        create_financial_entries(
-            entry_type='PAGAR',
-            descricao=f"NF-e {parsed.get('numero')} - {parsed.get('emitente_nome')}",
-            categoria='NF-e XML',
-            valor_total=parse_decimal(parsed.get('total_nota')),
-            vencimento=parsed.get('issued_at'),
-            status='PENDENTE',
-            reference_type='XML_NFE',
-            reference_id=xml_import.id,
-            installment_count=1,
-        )
-        db.session.commit()
-        flash('XML importado e conta a pagar gerada.', 'success')
-    except Exception as exc:
-        db.session.rollback()
-        flash(f'Falha ao importar XML: {exc}', 'error')
-    return redirect(url_for('web.finance_index'))
 
 
 @web_bp.get('/financeiro/xml/<int:xml_id>/preview')

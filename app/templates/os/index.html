@@ -4,6 +4,10 @@
   .os-page { padding-bottom: 40px; }
   .os-toolbar { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:34px; }
   .os-toolbar-actions { display:flex; gap:12px; flex-wrap:wrap; }
+  .os-table th:nth-child(1){width:11%}.os-table th:nth-child(2){width:33%}.os-table th:nth-child(3){width:17%}.os-table th:nth-child(4){width:15%}.os-table th:nth-child(5){width:12%}.os-table th:nth-child(6){width:12%}
+  .os-search { display:flex; gap:10px; max-width:640px; margin-bottom:18px; }
+  .os-search input { flex:1; min-width:0; }
+  .os-plate { font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.06em; padding:3px 6px; border-radius:5px; background:#0f172a; color:#fff; }
   .os-kpis { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:16px; margin-bottom:34px; }
   .os-kpi { padding:22px 24px; border:1px solid var(--color-mist); background:var(--color-canvas-white); border-radius:12px; }
   .os-kpi-label { display:block; color:var(--color-slate); font-size:12px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:12px; }
@@ -11,7 +15,7 @@
   .os-table-shell { width:100%; max-width:100%; overflow-x:auto; padding:4px; }
   .os-table { width:100%; min-width:0; table-layout:fixed; border-collapse:separate; border-spacing:0 12px; }
   .os-table th { padding:0 16px 8px; border-bottom:1px solid var(--color-graphite); white-space:nowrap; font-size:13px; }
-  .os-table td { padding:20px 12px; background:var(--color-canvas-white); border-top:1px solid var(--color-mist); border-bottom:1px solid var(--color-mist); vertical-align:middle; overflow-wrap:anywhere; }
+  .os-table td { padding:14px 12px; background:var(--color-canvas-white); border-top:1px solid var(--color-mist); border-bottom:1px solid var(--color-mist); vertical-align:middle; overflow-wrap:anywhere; }
   .os-table td:first-child { border-left:1px solid var(--color-mist); border-radius:10px 0 0 10px; }
   .os-table td:last-child { border-right:1px solid var(--color-mist); border-radius:0 10px 10px 0; }
   .os-number { color:var(--color-graphite); font-family:var(--font-polysans); font-size:18px; text-decoration:none; }
@@ -36,15 +40,6 @@
   .status-dialog::backdrop { background:rgba(32,32,32,.45); }
   .status-dialog-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
   .status-dialog-close { width:auto!important; font-size:24px!important; padding:0!important; height:auto!important; }
-  @media (max-width: 1150px) {
-    .os-table th:nth-child(3), .os-table td:nth-child(3), .os-table th:nth-child(4), .os-table td:nth-child(4) { display:none; }
-    .os-table th:nth-child(1), .os-table td:nth-child(1) { width:12%; }
-    .os-table th:nth-child(2), .os-table td:nth-child(2) { width:24%; }
-    .os-table th:nth-child(5), .os-table td:nth-child(5) { width:16%; }
-    .os-table th:nth-child(6), .os-table td:nth-child(6) { width:15%; }
-    .os-table th:nth-child(7), .os-table td:nth-child(7) { width:15%; }
-    .os-table th:nth-child(8), .os-table td:nth-child(8) { width:18%; }
-  }
   .os-finance-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
   .os-finance-actions .button, .os-finance-actions button { height:32px; padding:0 10px; font-size:12px; }
   .os-finance-note { display:block; margin-top:7px; }
@@ -59,54 +54,23 @@
     <div>
       <span class="eyebrow">Operação</span>
       <h2>Ordens de serviço</h2>
-      <p class="muted" style="margin-top:10px;">Acompanhe cada atendimento, seus recebimentos e as peças utilizadas.</p>
     </div>
     <div class="os-toolbar-actions">
-      {% if current_user().role == 'ADMINISTRADOR' %}<a class="button secondary" href="{{ url_for('web.finance_index') }}">Abrir financeiro</a>{% endif %}
       <a class="button" href="{{ url_for('web.work_orders_new') }}">+ Nova O.S.</a>
     </div>
   </div>
 
-  {% set total_orders = orders|length %}
-  {% set open_orders = orders|selectattr('status', 'equalto', 'ABERTA')|list|length %}
-  {% set progress_orders = orders|selectattr('status', 'equalto', 'EM_ANDAMENTO')|list|length %}
-  {% set finished_orders = orders|selectattr('status', 'in', ['FINALIZADA', 'ENTREGUE'])|list|length %}
-  <div class="os-kpis">
-    <div class="os-kpi"><span class="os-kpi-label">Total de O.S.</span><strong>{{ total_orders }}</strong></div>
-    <div class="os-kpi"><span class="os-kpi-label">Abertas</span><strong>{{ open_orders }}</strong></div>
-    <div class="os-kpi"><span class="os-kpi-label">Em andamento</span><strong>{{ progress_orders }}</strong></div>
-    <div class="os-kpi"><span class="os-kpi-label">Finalizadas</span><strong>{{ finished_orders }}</strong></div>
-  </div>
-
   <div class="card" style="padding:20px 16px 16px; background:var(--color-fog); margin-bottom:0;">
     <div class="os-table-shell">
-      <form method="GET" action="" style="margin-bottom: 25px;">
-        <div class="responsive-row" style="display: flex; gap: 10px; max-width: 600px; width: 100%;">
-          
-          <!-- Campo de Texto -->
-          <input type="text" name="q" class="form-control" 
-                style="flex-grow: 1;" 
-                value="{{ request.args.get('q', '') }}">
-          
-          <!-- Botão Pesquisar -->
-          <button type="submit" class="btn btn-primary" style="white-space: nowrap;">
-              Pesquisar
-          </button>
-          
-          <!-- Botão Limpar -->
-          {% if request.args.get('q') %}
-              <a href="{{ request.path }}" class="btn" 
-                style="display: flex; align-items: center; background-color: #6c757d; color: white; text-decoration: none; padding: 0 15px; border-radius: 4px; white-space: nowrap;">
-                  Limpar
-              </a>
-          {% endif %}
-          
-        </div>
+      <form method="GET" action="" class="os-search">
+        <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Buscar por cliente, placa ou número da O.S." aria-label="Buscar O.S.">
+        <button type="submit">Buscar</button>
+        {% if request.args.get('q') %}<a class="button secondary" href="{{ request.path }}">Limpar</a>{% endif %}
       </form>
 
       {% if orders %}
         <table data-mobile-cards class="table os-table">
-          <thead><tr><th>O.S.</th><th>Cliente</th><th>Responsável</th><th>Veículo</th><th>Status</th><th>Pagamento</th><th>Total</th><th style="text-align:right;">Ações</th></tr></thead>
+          <thead><tr><th>O.S.</th><th>Cliente</th><th>Situação</th><th>Pagamento</th><th>Total</th><th style="text-align:right;">Ações</th></tr></thead>
           <tbody>
             {% for order in orders %}
             {% set receivables = receivables_by_order.get(order.id, []) if receivables_by_order is defined else [] %}
@@ -114,9 +78,7 @@
             {% set all_received = has_receivables and (receivables|selectattr('status', 'equalto', 'RECEBIDO')|list|length == receivables|length) %}
             <tr>
               <td><a class="os-number" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">{{ order.numero }}</a><span class="muted small" style="display:block; margin-top:5px;">{{ order.data_entrada|date_br }}</span></td>
-              <td class="os-client"><strong>{{ order.client_nome or (order.client.nome if order.client else '-') }}</strong><span>{{ order.placa or 'Sem placa' }}{% if order.veiculo_descricao %} · {{ order.veiculo_descricao }}{% endif %}</span></td>
-              <td>{{ order.employee.nome if order.employee else '-' }}</td>
-              <td>{{ order.veiculo_descricao or '-' }}{% if order.placa %}<span class="muted small" style="display:block;">{{ order.placa }}</span>{% endif %}</td>
+              <td class="os-client"><strong>{{ order.client_nome or (order.client.nome if order.client else '-') }}</strong><span>{% if order.placa %}<b class="os-plate">{{ order.placa }}</b>{% else %}Sem placa{% endif %}{% if order.employee %} · {{ order.employee.nome }}{% endif %}</span></td>
               <td><span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span>{% if has_receivables %}<span class="os-finance-note muted small">{{ 'Recebido' if all_received else 'Conta pendente' }}</span>{% endif %}</td>
               <td class="os-payment">{{ order.payment_method.nome if order.payment_method else 'Não definido' }}{% if order.installment_count and order.installment_count > 1 %}<span class="muted small" style="display:block;">{{ order.installment_count }} parcelas</span>{% endif %}</td>
               <td class="os-total">{{ format_currency(order.total_geral) }}</td>

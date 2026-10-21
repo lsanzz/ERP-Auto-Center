@@ -265,6 +265,7 @@
     font-weight: 500;
   }
 
+  .nota-details{margin:0 0 20px}.nota-details>summary{cursor:pointer;padding:12px 4px;font-weight:600;color:var(--color-slate,#475569)}
   /* Faturas */
   .system-table {
     width: 100%;
@@ -315,7 +316,7 @@
   <div class="breadcrumb-nav">
     <a href="{{ url_for('web.dashboard') }}">Início</a>
     <span class="separator">&gt;</span>
-    <a href="{{ url_for('web.products_index') }}">Entrada de mercadoria</a>
+    <a href="{{ url_for('operations.inventory') }}">Estoque</a>
     <span class="separator">&gt;</span>
     <span>Importar</span>
   </div>
@@ -323,15 +324,10 @@
   <div class="page-header" style="margin-bottom: 20px;">
     <div>
       <span class="eyebrow">Entrada de Mercadoria</span>
-      <h2>Importar nota fiscal de entrada</h2>
+      <h2>Entrada de nota</h2>
     </div>
   </div>
 
-  <!-- Badge do Arquivo no padrão do sistema -->
-  <div class="arquivo-pill">
-    <strong>ARQUIVO:</strong>
-    <span>{{ filename }}</span>
-  </div>
 
   <form method="post" action="{{ url_for('web.products_import_xml_confirm') }}" id="import-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="raw_xml_b64" value="{{ raw_xml_b64 }}">
@@ -339,84 +335,14 @@
     <!-- 1. Informações da NF-e -->
     <div class="system-card">
       <div class="system-card-header">
-        <span>Informações da NF-e [{{ parsed.numero }}]</span>
+        <span>Nota {{ parsed.numero }}</span>
       </div>
       <div class="system-card-body">
         <div class="field-grid-4">
-          <div class="field-item">
-            <span class="field-label">Natureza da Operação</span>
-            <span class="field-value">{{ parsed.natureza_operacao }}</span>
-          </div>
-          <div class="field-item">
-            <span class="field-label">Série / NFe</span>
-            <span class="field-value">{{ parsed.serie }} / {{ parsed.numero }}</span>
-          </div>
-          <div class="field-item">
-            <span class="field-label">Data emissão</span>
-            <span class="field-value">{{ parsed.dh_emi_formatado or parsed.issued_at }}</span>
-          </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 2. Dados do emitente -->
-    <div class="system-card">
-      <div class="system-card-header">
-        <span>Dados do emitente</span>
-      </div>
-      <div class="system-card-body">
-        <div class="field-grid-2" style="margin-bottom: 14px;">
-          <div class="field-item">
-            <span class="field-label">Razão social</span>
-            <span class="field-value">{{ parsed.emitente_nome }}</span>
-          </div>
-          <div class="field-item">
-            <span class="field-label">Fantasia</span>
-            <span class="field-value">{{ parsed.emitente_fantasia or '-' }}</span>
-          </div>
-        </div>
-
-        <div class="field-grid-2" style="margin-bottom: 14px;">
-          <div class="field-item">
-            <span class="field-label">CNPJ / CPF</span>
-            <span class="field-value">{{ parsed.emitente_cnpj_formatado or parsed.emitente_cnpj }}</span>
-          </div>
-          <div class="field-item">
-            <span class="field-label">Inscrição estadual</span>
-            <span class="field-value">{{ parsed.emitente_ie }}</span>
-          </div>
-        </div>
-
-        <div class="field-grid-4 responsive-grid" style="grid-template-columns: 2fr 1fr 1fr; margin-bottom: 14px;">
-          <div class="field-item">
-            <span class="field-label">Endereço</span>
-            <span class="field-value">{{ parsed.emitente_endereco }}</span>
-          </div>
-          <div class="field-item">
-            <span class="field-label">Cidade / Estado</span>
-            <span class="field-value">{{ parsed.emitente_cidade }}</span>
-          </div>
-          <div class="field-item">
-            <span class="field-label">Telefone</span>
-            <span class="field-value">{{ parsed.emitente_telefone or '-' }}</span>
-          </div>
-        </div>
-
-        <div class="field-grid-2">
-          <div class="field-item">
-            <span class="field-label">Bairro</span>
-            <span class="field-value">{{ parsed.emitente_bairro }}</span>
-          </div>
-          <div class="field-item">
-            <span class="field-label">CEP</span>
-            <span class="field-value">{{ parsed.emitente_cep }}</span>
-          </div>
-        </div>
-
-        <div class="supplier-check-row">
-          <span class="supplier-check-circle">✓</span>
-          <span>Fornecedor cadastrado</span>
+          <div class="field-item"><span class="field-label">Fornecedor</span><span class="field-value">{{ parsed.emitente_nome }}</span></div>
+          <div class="field-item"><span class="field-label">Série / NF-e</span><span class="field-value">{{ parsed.serie }} / {{ parsed.numero }}</span></div>
+          <div class="field-item"><span class="field-label">Emissão</span><span class="field-value">{{ parsed.dh_emi_formatado or parsed.issued_at }}</span></div>
+          <div class="field-item"><span class="field-label">Total da nota</span><span class="field-value"><strong>{{ format_currency(parsed.total_nota) }}</strong></span></div>
         </div>
       </div>
     </div>
@@ -539,6 +465,118 @@
       </div>
     </div>
 
+    <!-- 6. Faturas -->
+    <div class="system-card">
+      <div class="system-card-header">
+        <span>Contas a pagar</span>
+        <div class="responsive-row" style="display: flex; align-items: center; gap: 24px;">
+          <label style="font-family: var(--font-inter); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin: 0;">
+            <input type="checkbox" name="lancar_contas" value="1" checked> Lançar no financeiro
+          </label>
+          <div class="responsive-row" style="display: inline-flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--color-slate); text-transform: uppercase;">Forma de pagto.</span>
+            <select name="forma_pagamento" class="system-input-field" style="padding: 4px 8px; width: 150px;">
+              <option value="Boleto" {% if parsed.forma_pagamento_sugerida == 'Boleto' %}selected{% endif %}>Boleto</option>
+              <option value="Dinheiro" {% if parsed.forma_pagamento_sugerida == 'Dinheiro' %}selected{% endif %}>Dinheiro</option>
+              <option value="Cartão de Crédito" {% if parsed.forma_pagamento_sugerida == 'Cartão de Crédito' %}selected{% endif %}>Cartão de Crédito</option>
+              <option value="Cartão de Débito" {% if parsed.forma_pagamento_sugerida == 'Cartão de Débito' %}selected{% endif %}>Cartão de Débito</option>
+              <option value="PIX" {% if parsed.forma_pagamento_sugerida == 'PIX' %}selected{% endif %}>PIX</option>
+              <option value="Transferência Bancária" {% if parsed.forma_pagamento_sugerida == 'Transferência Bancária' %}selected{% endif %}>Transferência Bancária</option>
+              <option value="Outros" {% if parsed.forma_pagamento_sugerida == 'Outros' %}selected{% endif %}>Outros</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="system-card-body" style="padding: 10px 20px;">
+        <table class="system-table">
+          <thead>
+            <tr>
+              <th style="width: 25%;">Duplicata</th>
+              <th style="width: 45%;">Vencimento</th>
+              <th style="width: 30%;">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fatura in parsed.faturas %}
+            <tr>
+              <td>{{ fatura.numero }}</td>
+              <td>{{ fatura.vencimento_fmt }}</td>
+              <td>{{ format_currency(fatura.valor) }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="3" style="color: var(--color-slate); padding: 12px 10px;">Nenhuma duplicata informada no XML da nota.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Detalhes fiscais: raramente consultados na entrada, ficam recolhidos. -->
+    <details class="nota-details">
+      <summary>Detalhes fiscais da nota (emitente, impostos, transporte, autorização)</summary>
+    <!-- 2. Dados do emitente -->
+    <div class="system-card">
+      <div class="system-card-header">
+        <span>Dados do emitente</span>
+      </div>
+      <div class="system-card-body">
+        <div class="field-grid-2" style="margin-bottom: 14px;">
+          <div class="field-item">
+            <span class="field-label">Razão social</span>
+            <span class="field-value">{{ parsed.emitente_nome }}</span>
+          </div>
+          <div class="field-item">
+            <span class="field-label">Fantasia</span>
+            <span class="field-value">{{ parsed.emitente_fantasia or '-' }}</span>
+          </div>
+        </div>
+
+        <div class="field-grid-2" style="margin-bottom: 14px;">
+          <div class="field-item">
+            <span class="field-label">CNPJ / CPF</span>
+            <span class="field-value">{{ parsed.emitente_cnpj_formatado or parsed.emitente_cnpj }}</span>
+          </div>
+          <div class="field-item">
+            <span class="field-label">Inscrição estadual</span>
+            <span class="field-value">{{ parsed.emitente_ie }}</span>
+          </div>
+        </div>
+
+        <div class="field-grid-4 responsive-grid" style="grid-template-columns: 2fr 1fr 1fr; margin-bottom: 14px;">
+          <div class="field-item">
+            <span class="field-label">Endereço</span>
+            <span class="field-value">{{ parsed.emitente_endereco }}</span>
+          </div>
+          <div class="field-item">
+            <span class="field-label">Cidade / Estado</span>
+            <span class="field-value">{{ parsed.emitente_cidade }}</span>
+          </div>
+          <div class="field-item">
+            <span class="field-label">Telefone</span>
+            <span class="field-value">{{ parsed.emitente_telefone or '-' }}</span>
+          </div>
+        </div>
+
+        <div class="field-grid-2">
+          <div class="field-item">
+            <span class="field-label">Bairro</span>
+            <span class="field-value">{{ parsed.emitente_bairro }}</span>
+          </div>
+          <div class="field-item">
+            <span class="field-label">CEP</span>
+            <span class="field-value">{{ parsed.emitente_cep }}</span>
+          </div>
+        </div>
+
+        <div class="supplier-check-row">
+          <span class="supplier-check-circle">✓</span>
+          <span>Fornecedor cadastrado</span>
+        </div>
+      </div>
+    </div>
+
     <!-- 4. Totais da nota -->
     <div class="system-card">
       <div class="system-card-header">
@@ -606,54 +644,6 @@
       </div>
     </div>
 
-    <!-- 6. Faturas -->
-    <div class="system-card">
-      <div class="system-card-header">
-        <span>Faturas</span>
-        <div class="responsive-row" style="display: flex; align-items: center; gap: 24px;">
-          <label style="font-family: var(--font-inter); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin: 0;">
-            <input type="checkbox" name="lancar_contas" value="1" checked> Lançar contas
-          </label>
-          <div class="responsive-row" style="display: inline-flex; align-items: center; gap: 8px;">
-            <span style="font-size: 11px; font-weight: 600; color: var(--color-slate); text-transform: uppercase;">Forma de pagto.</span>
-            <select name="forma_pagamento" class="system-input-field" style="padding: 4px 8px; width: 150px;">
-              <option value="Boleto" {% if parsed.forma_pagamento_sugerida == 'Boleto' %}selected{% endif %}>Boleto</option>
-              <option value="Dinheiro" {% if parsed.forma_pagamento_sugerida == 'Dinheiro' %}selected{% endif %}>Dinheiro</option>
-              <option value="Cartão de Crédito" {% if parsed.forma_pagamento_sugerida == 'Cartão de Crédito' %}selected{% endif %}>Cartão de Crédito</option>
-              <option value="Cartão de Débito" {% if parsed.forma_pagamento_sugerida == 'Cartão de Débito' %}selected{% endif %}>Cartão de Débito</option>
-              <option value="PIX" {% if parsed.forma_pagamento_sugerida == 'PIX' %}selected{% endif %}>PIX</option>
-              <option value="Transferência Bancária" {% if parsed.forma_pagamento_sugerida == 'Transferência Bancária' %}selected{% endif %}>Transferência Bancária</option>
-              <option value="Outros" {% if parsed.forma_pagamento_sugerida == 'Outros' %}selected{% endif %}>Outros</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <div class="system-card-body" style="padding: 10px 20px;">
-        <table class="system-table">
-          <thead>
-            <tr>
-              <th style="width: 25%;">Duplicata</th>
-              <th style="width: 45%;">Vencimento</th>
-              <th style="width: 30%;">Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for fatura in parsed.faturas %}
-            <tr>
-              <td>{{ fatura.numero }}</td>
-              <td>{{ fatura.vencimento_fmt }}</td>
-              <td>{{ format_currency(fatura.valor) }}</td>
-            </tr>
-            {% else %}
-            <tr>
-              <td colspan="3" style="color: var(--color-slate); padding: 12px 10px;">Nenhuma duplicata informada no XML da nota.</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
     <!-- 7. Data de autorização -->
     <div class="system-card">
       <div class="system-card-header">
@@ -681,10 +671,12 @@
       </div>
     </div>
 
+    </details>
+
     <!-- Botões de ação no padrão Ventriloc -->
     <div class="page-action-buttons">
-      <button type="submit" class="button">Importar nota fiscal</button>
-      <a href="{{ url_for('web.products_index') }}" class="button secondary">Cancelar</a>
+      <button type="submit" class="button">Confirmar entrada</button>
+      <a href="{{ url_for('operations.inventory') }}" class="button secondary">Cancelar</a>
     </div>
   </form>
 </div>
