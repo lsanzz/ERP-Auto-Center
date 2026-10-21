@@ -53,7 +53,14 @@ def apply(data: dict, commit: bool, other: bool = False):
     app = create_app({'AUTO_CREATE_SCHEMA': False})
     with app.app_context():
         report = []
-        log = lambda *parts: report.append(' '.join(str(p) for p in parts))
+        trace = Path(app.instance_path) / 'sync_vhsys_day.log'  # progresso em arquivo: o executor do cPanel perde a saída se matar o processo
+
+        def log(*parts):
+            line = ' '.join(str(p) for p in parts)
+            report.append(line)
+            with trace.open('a', encoding='utf-8') as stream:
+                stream.write(f'{datetime.now():%H:%M:%S} {line}\n')
+        log('início', 'outros' if other else 'O.S.', 'gravar' if commit else 'prévia')
         accounts = {normalize(a.nome): a.id for a in BankAccount.query.filter_by(ativo=True)}
         methods = {normalize(m.nome): m.id for m in PaymentMethod.query}
         method_id = lambda name: methods.get('pix' if normalize(name) == 'pix' else normalize(name)) if name else None
@@ -233,6 +240,7 @@ def apply_other(rows, accounts, method_id, log):
     from app.models import FinancialEntry, db
     from app.services import create_financial_entries, settle_financial_entry, settled_net_amount
     for row in rows:
+        log(".. lendo", row.get("Lancamento"))
         entrada, saida = money(row['Entrada']), money(row['Saida'])
         kind, amount = ('RECEBER', entrada) if entrada > 0 else ('PAGAR', saida)
         if amount <= 0:
