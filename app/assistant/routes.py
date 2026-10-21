@@ -11,7 +11,7 @@ from ..models import PaymentMethod, WorkOrder, db
 from ..operations.services import record_audit
 from ..services import recalculate_work_order_totals, replace_work_order_items
 from . import llm
-from .tools import OPEN_STATUSES
+from .tools import OPEN_STATUSES, edit_draft_items
 
 assistant_bp = Blueprint('assistant', __name__, url_prefix='/assistente')
 
@@ -102,13 +102,16 @@ def cancel(draft_id):
 @login_required
 @permission_required('work_orders.manage')
 def confirm(draft_id):
-    # Grava exatamente o que foi validado no servidor; o navegador só envia o id da proposta.
+    # Grava o que foi validado no servidor; do cartão editado o navegador só envia índices, variantes e quantidades.
     draft = _pop_draft(draft_id)
     if not draft:
         return jsonify(erro='Proposta expirada ou já usada. Peça de novo ao assistente.'), 404
     user = current_user()
     data = draft['data']
+    edits = (request.get_json(silent=True) or {}).get('itens')
     try:
+        if edits is not None and draft['kind'] == 'criar_os':
+            data = {**data, 'items': edit_draft_items(draft, edits)}
         if draft['kind'] == 'criar_os':
             from ..api import create_work_order_from_payload
             order = create_work_order_from_payload(dict(data))
@@ -131,7 +134,7 @@ def confirm(draft_id):
         else:
             raise ValueError('Proposta inválida.')
         db.session.flush()
-        record_audit(action, 'WORK_ORDER', order.id, user.id, {'origem': 'IA', 'resumo': draft['card']}, request.remote_addr)
+        record_audit(action, 'WORK_ORDER', order.id, user.id, {'origem': 'IA', 'resumo': draft['card'], 'itens': data['items']}, request.remote_addr)
         db.session.commit()
     except ValueError as exc:
         db.session.rollback()

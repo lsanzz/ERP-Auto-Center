@@ -37,25 +37,67 @@
     row('Responsável', draft.responsavel); row('Observações', draft.observacoes);
     if (draft.tipo === 'alterar_os') { row('Remover', (draft.removidos || []).join(', ')); row('Adicionar', (draft.adicionados || []).join(', ')); row('Total antes', money(draft.total_antes)); }
     wrap.append(dl);
-    if (draft.itens) {
-      const table = el('table');
-      draft.itens.forEach(item => {
-        const tr = el('tr');
-        tr.append(el('td', `${item.quantidade} × ${item.descricao}${item.desconto ? ` (desc. ${money(item.desconto)})` : ''}`));
-        const td = el('td', money(item.total)); td.className = 'num'; tr.append(td);
-        table.append(tr);
+    // Itens editáveis: variante (só entre as opções do servidor), quantidade e remover; o servidor revalida tudo ao confirmar.
+    const items = (draft.itens || []).map((item, indice) => ({...item, indice, escolha: item.catalogo_id, qtd: item.quantidade}));
+    const total = el('p'); total.className = 'ai-total';
+    const lineTotal = item => {
+      const option = (item.opcoes || []).find(o => o.id === item.escolha);
+      return item.escolha === item.catalogo_id ? item.qtd * item.valor_unitario - item.desconto : item.qtd * option.preco;
+    };
+    const refresh = () => {
+      total.textContent = `Total: ${money(items.reduce((sum, item) => sum + lineTotal(item), 0))}`;
+      total.classList.remove('ai-bump'); void total.offsetWidth; total.classList.add('ai-bump');
+      list.querySelectorAll('.ai-x').forEach(x => { x.disabled = items.length < 2; });
+    };
+    const list = el('ul'); list.className = 'ai-items';
+    items.forEach(item => {
+      const li = el('li'); li.className = 'ai-item';
+      const name = el('span', item.descricao); name.className = 'ai-item-name';
+      const remove = el('button', '×'); remove.type = 'button'; remove.className = 'ai-x'; remove.setAttribute('aria-label', `Remover ${item.descricao}`);
+      const top = el('div'); top.className = 'ai-item-top'; top.append(name, remove); li.append(top);
+      if (item.opcoes && item.opcoes.length) {
+        const chips = el('div'); chips.className = 'ai-chips'; chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', `Tipo de ${item.descricao}`);
+        item.opcoes.forEach(option => {
+          const chip = el('button', `${option.nome} · ${money(option.preco)}`); chip.type = 'button'; chip.className = 'ai-chip';
+          chip.setAttribute('aria-pressed', String(option.id === item.escolha));
+          chip.addEventListener('click', () => {
+            item.escolha = option.id; name.textContent = option.nome;
+            chips.querySelectorAll('.ai-chip').forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
+            price.textContent = money(lineTotal(item)); refresh();
+          });
+          chips.append(chip);
+        });
+        li.append(chips);
+      }
+      const qty = el('output', String(item.qtd));
+      const minus = el('button', '−'); minus.type = 'button'; minus.setAttribute('aria-label', 'Diminuir quantidade');
+      const plus = el('button', '+'); plus.type = 'button'; plus.setAttribute('aria-label', 'Aumentar quantidade');
+      const step = delta => {
+        item.qtd = Math.max(1, item.qtd + delta); qty.textContent = String(item.qtd); minus.disabled = item.qtd <= 1;
+        price.textContent = money(lineTotal(item)); refresh();
+      };
+      minus.disabled = item.qtd <= 1;
+      minus.addEventListener('click', () => step(-1)); plus.addEventListener('click', () => step(1));
+      const stepper = el('div'); stepper.className = 'ai-step'; stepper.append(minus, qty, plus);
+      const price = el('span', money(lineTotal(item))); price.className = 'num';
+      const bottom = el('div'); bottom.className = 'ai-item-bottom'; bottom.append(stepper, price); li.append(bottom);
+      remove.addEventListener('click', () => {
+        items.splice(items.indexOf(item), 1); refresh();
+        li.classList.add('ai-out'); setTimeout(() => li.remove(), 180);  // timer, não animationend: sem animação o evento não vem
       });
-      wrap.append(table);
-    }
-    const total = el('p', `Total: ${money(draft.total)}`); total.className = 'ai-total'; wrap.append(total);
+      list.append(li);
+    });
+    if (items.length) { wrap.append(list); refresh(); total.classList.remove('ai-bump'); } else total.textContent = `Total: ${money(draft.total)}`;
+    wrap.append(total);
     (draft.avisos || []).forEach(text => { const w = el('p', `⚠ ${text}`); w.className = 'ai-warn'; wrap.append(w); });
     const buttons = el('div'); buttons.className = 'ai-buttons';
     const ok = el('button', 'Confirmar'); ok.type = 'button';
     const cancel = el('button', 'Cancelar'); cancel.type = 'button'; cancel.className = 'secondary';
     buttons.append(ok, cancel); wrap.append(buttons);
     ok.addEventListener('click', async () => {
-      ok.disabled = cancel.disabled = true;
-      const {ok: success, data} = await post(panel.dataset.confirm.replace('__ID__', draft.draft_id));
+      wrap.querySelectorAll('button').forEach(b => { b.disabled = true; });
+      const body = items.length ? {itens: items.map(item => ({indice: item.indice, catalogo_id: item.escolha, quantidade: item.qtd}))} : {};
+      const {ok: success, data} = await post(panel.dataset.confirm.replace('__ID__', draft.draft_id), body);
       buttons.remove();
       if (success) {
         const done = el('p'); done.className = 'ai-total';
@@ -67,7 +109,7 @@
       save();
     });
     cancel.addEventListener('click', async () => {
-      ok.disabled = cancel.disabled = true;
+      wrap.querySelectorAll('button').forEach(b => { b.disabled = true; });
       await post(panel.dataset.cancel.replace('__ID__', draft.draft_id));
       buttons.replaceWith(Object.assign(el('p', 'Proposta cancelada.'), {className: 'ai-warn'}));
       save();
@@ -92,7 +134,7 @@
 
   // Histórico visual da aba; os botões de propostas antigas não funcionam após recarregar, então somem.
   const saved = sessionStorage.getItem(STORE);
-  if (saved) { log.innerHTML = saved; log.querySelectorAll('.ai-buttons').forEach(node => node.remove()); }
+  if (saved) { log.innerHTML = saved; log.querySelectorAll('.ai-buttons').forEach(node => node.remove()); log.querySelectorAll('.ai-card button').forEach(b => { b.disabled = true; }); }
 
   form.addEventListener('submit', async event => {
     event.preventDefault();

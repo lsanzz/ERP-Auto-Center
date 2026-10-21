@@ -29,6 +29,28 @@ body button.ai-launcher:hover .ai-spark{transform:rotate(90deg) scale(1.15)}
 .ai-card td{padding:4px 0;border-bottom:1px solid var(--border,#e5e7eb);vertical-align:top}
 .ai-card td.num{text-align:right;white-space:nowrap}
 .ai-card .ai-total{font-weight:700;text-align:right;margin:6px 0}
+.ai-items{list-style:none;margin:6px 0;padding:0;display:grid;gap:6px}
+.ai-item{border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:8px 10px;display:grid;gap:6px;animation:ai-item-in .2s ease-out backwards}
+.ai-item.ai-out{animation:ai-item-out .18s ease-in forwards}
+.ai-item-top,.ai-item-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ai-item-name{font-weight:600}
+.ai-item .num{font-variant-numeric:tabular-nums;font-weight:600}
+.ai-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ai-card button.ai-chip,.ai-card button.ai-x,.ai-card .ai-step button{min-height:0;padding:0;background:#fff;border:1px solid var(--border,#e5e7eb);box-shadow:none;color:var(--foreground,#333) !important;font-size:12px;filter:none;transition:transform .12s ease,background-color .12s,border-color .12s}
+.ai-card button.ai-chip{padding:5px 10px;border-radius:999px;line-height:1.2;text-align:left}
+.ai-card button.ai-chip[aria-pressed=true]{background:var(--color-primary,#3b82f6);border-color:var(--color-primary,#3b82f6);color:#fff !important}
+.ai-card button.ai-chip:active,.ai-card .ai-step button:active:not(:disabled){transform:scale(.94)}
+.ai-card button.ai-x{width:26px;height:26px;border-radius:50%;font-size:16px;color:var(--muted-foreground,#6b7280) !important}
+.ai-card button.ai-x:hover:not(:disabled){background:#fef2f2;border-color:#fecaca;color:#b91c1c !important}
+.ai-step{display:inline-flex;align-items:center;border:1px solid var(--border,#e5e7eb);border-radius:999px;overflow:hidden}
+.ai-card .ai-step button{width:30px;height:28px;border:0;border-radius:0;font-size:16px}
+.ai-card .ai-step button:hover:not(:disabled){background:var(--muted,#f3f4f6)}
+.ai-step output{min-width:28px;text-align:center;font-variant-numeric:tabular-nums;font-weight:600}
+.ai-total.ai-bump{animation:ai-bump .25s ease-out;transform-origin:right}
+@keyframes ai-item-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes ai-item-out{to{opacity:0;transform:translateX(16px) scale(.97)}}
+@keyframes ai-bump{40%{transform:scale(1.06)}}
+@media(prefers-reduced-motion:reduce){.ai-item,.ai-item.ai-out,.ai-total.ai-bump{animation:none}.ai-card button.ai-chip,.ai-card button.ai-x,.ai-card .ai-step button{transition:none}}
 .ai-card .ai-warn{color:#92400e;background:#fffbeb;padding:6px 8px;border-radius:6px;margin:4px 0}
 .ai-card .ai-buttons{display:flex;gap:8px;margin-top:8px}
 .ai-card .ai-buttons button{min-height:36px;padding:8px 14px;font-size:13px}
@@ -43,4 +65,5 @@ body button.ai-launcher{right:16px;bottom:calc(72px + env(safe-area-inset-bottom
 .ai-head{padding:10px 14px}.ai-log{padding:10px 12px}.ai-form{padding:10px 12px}
 .ai-msg{font-size:13.5px}
 .ai-form textarea{font-size:16px}
+.ai-card button.ai-x{width:32px;height:32px}.ai-card .ai-step button{width:36px;height:32px}.ai-card button.ai-chip{padding:7px 12px}
 }

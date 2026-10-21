@@ -22,6 +22,7 @@ from ..utils import parse_date
 
 OPEN_STATUSES = ('ABERTA', 'EM_ANDAMENTO', 'AGUARDANDO_PECA')
 MAX_DRAFTS = 3
+GENERIC_WORDS = {'TROCA', 'SERVICO', 'SERVIÇO', 'KIT', 'JOGO', 'DE', 'DO', 'DA'}
 
 
 def _money(value) -> float:
@@ -192,12 +193,50 @@ def _resolve_items(itens: list) -> tuple[list[dict], list[str]]:
     return payload, warnings
 
 
-def _store_draft(kind: str, data: dict, card: dict) -> dict:
+def _alternatives(kind: str, reference_id: int | None) -> list[dict]:
+    """Variantes do mesmo item no catálogo (ex.: tipos de alinhamento), pela primeira palavra não genérica do nome."""
+    model, price = (Service, 'preco_base') if kind == 'SERVICO' else (Product, 'preco_venda')
+    item = db.session.get(model, reference_id) if reference_id else None
+    word = next((w for w in item.nome.upper().split() if w not in GENERIC_WORDS), None) if item else None
+    if not word:
+        return []
+    found = model.query.filter_by(ativo=True).filter(model.nome.ilike(f'%{word}%')).order_by(model.nome).limit(6).all()
+    if item not in found:
+        found.append(item)
+    return [{'id': o.id, 'nome': o.nome, 'preco': _money(getattr(o, price))} for o in found] if len(found) > 1 else []
+
+
+def edit_draft_items(draft: dict, edits: list) -> list[dict]:
+    """Reaplica no servidor o que o usuário mudou no cartão: só índice, variante (dentre as opções oferecidas) e quantidade."""
+    base, choices = draft['data']['items'], draft.get('opcoes') or [[] for _ in draft['data']['items']]
+    try:
+        pairs = [(int(edit['indice']), int(edit.get('catalogo_id') or 0)) for edit in edits]
+    except (TypeError, ValueError, KeyError, AttributeError):
+        pairs = []
+    indexes = [index for index, _ in pairs]
+    if not pairs or len(set(indexes)) != len(indexes) or not all(0 <= i < len(base) for i in indexes):
+        raise ValueError('Itens editados inválidos. Peça de novo ao assistente.')
+    raw = []
+    for (index, chosen), edit in zip(pairs, edits):
+        item = base[index]
+        reference = chosen or item['reference_id']
+        if reference != item['reference_id']:
+            if reference not in choices[index]:
+                raise ValueError('Variante fora das opções da proposta.')
+            # Variante nova usa o preço do catálogo; a original mantém o preço e o desconto da proposta.
+            raw.append({'tipo': item['item_type'], 'catalogo_id': reference, 'quantidade': edit.get('quantidade')})
+        else:
+            raw.append({'tipo': item['item_type'], 'catalogo_id': reference, 'descricao': item['descricao'],
+                        'quantidade': edit.get('quantidade'), 'valor_unitario': item['valor_unitario'], 'desconto': item['desconto']})
+    return _resolve_items(raw)[0]
+
+
+def _store_draft(kind: str, data: dict, card: dict, **extra) -> dict:
     drafts = session.get('ai_drafts', {})
     while len(drafts) >= MAX_DRAFTS:
         drafts.pop(next(iter(drafts)))
     draft_id = secrets.token_urlsafe(8)
-    drafts[draft_id] = {'kind': kind, 'data': data, 'card': card}
+    drafts[draft_id] = {'kind': kind, 'data': data, 'card': card, **extra}
     session['ai_drafts'] = drafts
     session.modified = True
     return {'draft_id': draft_id, **card}
@@ -264,11 +303,15 @@ def propor_os(client_id: int | None = None, cliente_nome: str = '', vehicle_id: 
     card = {'tipo': 'criar_os', 'cliente': data['client_nome'], 'placa': plate, 'veiculo': data['veiculo_descricao'],
             'forma_pagamento': method.nome if method else 'Não definida', 'parcelas': installments,
             'responsavel': employee.nome if employee else None, 'observacoes': data['observacoes'],
-            'itens': [{'tipo': i['item_type'], 'descricao': i['descricao'], 'quantidade': float(i['quantidade']),
+            'itens': [{'tipo': i['item_type'], 'catalogo_id': i['reference_id'], 'descricao': i['descricao'], 'quantidade': float(i['quantidade']),
                        'valor_unitario': _money(i['valor_unitario']), 'desconto': _money(i['desconto']),
                        'total': _money(Decimal(i['quantidade']) * Decimal(i['valor_unitario']) - Decimal(i['desconto']))} for i in items],
             'total': _money(total), 'avisos': warnings}
-    return _store_draft('criar_os', data, card)
+    options = [_alternatives(i['item_type'], i['reference_id']) for i in items]
+    # Só os ids das opções vão para a sessão (cookie); nomes e preços vão apenas para o cartão.
+    result = _store_draft('criar_os', data, card, opcoes=[[o['id'] for o in opts] for opts in options])
+    result['itens'] = [{**item, 'opcoes': opts} for item, opts in zip(card['itens'], options)]
+    return result
 
 
 def propor_alteracao_os(numero: str = '', adicionar_itens: list | None = None, remover_itens: list | None = None,

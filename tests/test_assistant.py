@@ -7,7 +7,7 @@ from unittest.mock import patch
 from sqlalchemy.pool import StaticPool
 
 from app import create_app
-from app.assistant import llm
+from app.assistant import llm, routes as assistant_routes
 from app.models import Client, PaymentMethod, Service, User, WorkOrder, db
 from app.seeds import seed_database
 
@@ -53,6 +53,7 @@ class AssistantTest(unittest.TestCase):
         env = patch.dict('os.environ', {'GROQ_API_KEY': 'test-key', 'ASSISTANT_ENABLED': ''})
         env.start()
         self.addCleanup(env.stop)
+        assistant_routes._recent.clear()  # contador de mensagens por minuto é global ao processo
 
     def send(self, script, text='abre uma O.S.'):
         fake = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions(script)))
@@ -169,6 +170,44 @@ class AssistantTest(unittest.TestCase):
         self.assertEqual(response.get_json()['tempos'].__len__(), 2)
         self.assertIn('Formas de pagamento', fake.calls[0]['messages'][-1]['content'])
 
+
+    def test_card_edit_changes_variant_quantity_and_removes_item(self):
+        with self.app.app_context():
+            db.session.add_all([Service(nome='ALINHAMENTO 3D TESTE', preco_base=Decimal('150'), ativo=True),
+                                Service(nome='BALANCEAMENTO TESTE', preco_base=Decimal('40'), ativo=True)])
+            db.session.commit()
+            alt = Service.query.filter_by(nome='ALINHAMENTO 3D TESTE').one().id
+            other = Service.query.filter_by(nome='BALANCEAMENTO TESTE').one().id
+        script = [[('propor_os', {'client_id': self.ely, 'itens': [
+            {'tipo': 'SERVICO', 'catalogo_id': self.service, 'descricao': 'x'},
+            {'tipo': 'PECA', 'descricao': 'Bico de roda', 'valor_unitario': 20, 'quantidade': 2}]})], 'ok']
+
+        def propose():
+            return self.send(list(script))[0].get_json()['cartoes'][0]
+
+        card = propose()
+        self.assertIn(alt, [o['id'] for o in card['itens'][0]['opcoes']])
+        self.assertEqual(card['itens'][1]['opcoes'], [])
+        # Variante fora das opções, índice repetido ou lista vazia não passam.
+        for bad in ([{'indice': 0, 'catalogo_id': other, 'quantidade': 1}],
+                    [{'indice': 0, 'quantidade': 1}, {'indice': 0, 'quantidade': 1}], [], 'x'):
+            response = self.client.post(f"/assistente/confirmar/{propose()['draft_id']}", json={'itens': bad})
+            self.assertEqual(response.status_code, 400, bad)
+        before = self.os_count()
+        response = self.client.post(f"/assistente/confirmar/{card['draft_id']}",
+                                    json={'itens': [{'indice': 0, 'catalogo_id': alt, 'quantidade': 2}]})
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(self.os_count(), before + 1)
+        with self.app.app_context():
+            order = WorkOrder.query.filter_by(numero=response.get_json()['numero']).one()
+            self.assertEqual([(i.reference_id, i.quantidade, i.descricao) for i in order.items], [(alt, Decimal('2'), 'ALINHAMENTO 3D TESTE')])
+            self.assertEqual(order.total_geral, Decimal('300.00'))
+
+        # Mantendo o item avulso, o preço ditado continua valendo.
+        card = propose()
+        response = self.client.post(f"/assistente/confirmar/{card['draft_id']}", json={'itens': [{'indice': 1, 'quantidade': 3}]})
+        with self.app.app_context():
+            self.assertEqual(WorkOrder.query.filter_by(numero=response.get_json()['numero']).one().total_geral, Decimal('60.00'))
 
     def test_dictated_plate_overrides_model_guess(self):
         response, fake = self.send([
