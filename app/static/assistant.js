@@ -83,6 +83,7 @@
       const bottom = el('div'); bottom.className = 'ai-item-bottom'; bottom.append(stepper, price); li.append(bottom);
       remove.addEventListener('click', () => {
         items.splice(items.indexOf(item), 1); refresh();
+        wrap.querySelectorAll('.ai-warn').forEach(w => { if (w.textContent.includes(`"${item.descricao}"`)) w.remove(); });  // aviso do item removido
         li.classList.add('ai-out'); setTimeout(() => li.remove(), 180);  // timer, não animationend: sem animação o evento não vem
       });
       list.append(li);
