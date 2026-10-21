@@ -117,3 +117,32 @@ def change_stage(order, stage, user_id, blocking_reason=None, observation=None):
         order.status = 'AGUARDANDO_PECA'
     db.session.add(history)
     return history
+
+
+# Colunas do Painel do pátio: (chave, rótulo, etapas que entram nela, etapa ao soltar um carro nela).
+FLOOR_COLUMNS = (
+    ('aguardando', 'Aguardando', ('RECEPCAO', 'AGUARDANDO_APROVACAO', 'AGUARDANDO_PECA'), 'RECEPCAO'),
+    ('andamento', 'Em andamento', ('DIAGNOSTICO', 'EM_EXECUCAO', 'CONTROLE_QUALIDADE'), 'EM_EXECUCAO'),
+    ('atendida', 'Atendida', ('PRONTO',), 'PRONTO'),
+)
+
+
+def move_to_column(order, column, user_id):
+    """Arrastar no painel: muda a etapa e mantém o status da O.S. coerente com a coluna."""
+    spec = next((c for c in FLOOR_COLUMNS if c[0] == column), None)
+    if not spec:
+        raise ValueError('Coluna inválida.')
+    key, _, stages, target = spec
+    if order.status in ('ENTREGUE', 'CANCELADA'):
+        raise ValueError('Esta O.S. já foi encerrada.')
+    if order.current_stage in stages:
+        return order
+    if key != 'atendida' and order.status == 'FINALIZADA':
+        order.data_saida = None  # voltou para o pátio: ainda não saiu
+    change_stage(order, target, user_id)
+    status = {'aguardando': 'ABERTA', 'atendida': 'FINALIZADA'}.get(key)
+    if status and order.status != status:
+        from ..services import change_work_order_status
+        change_work_order_status(order, status)
+        record_work_order_status(order, status, user_id, 'Movida no painel do pátio')
+    return order

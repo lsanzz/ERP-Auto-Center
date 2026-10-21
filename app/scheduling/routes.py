@@ -1,6 +1,6 @@
 from datetime import date, datetime, time, timedelta
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -8,7 +8,7 @@ from ..auth import admin_required, current_user, login_required, permission_requ
 from ..models import Employee, WorkOrder, db
 from .floor import build_floor
 from .models import Appointment, WorkshopResource
-from .services import APPOINTMENT_STATUSES, STAGES, change_stage, convert_to_work_order, save_appointment
+from .services import APPOINTMENT_STATUSES, STAGES, change_stage, convert_to_work_order, move_to_column, save_appointment
 
 scheduling_bp = Blueprint('scheduling', __name__, url_prefix='/agenda')
 
@@ -102,6 +102,22 @@ def board_stage(work_order_id):
     if request.form.get('return_to') == 'painel':
         return redirect(url_for('scheduling.floor'))
     return redirect(url_for('scheduling.board'))
+
+
+@scheduling_bp.post('/patio/<int:work_order_id>/coluna')
+@login_required
+@permission_required('work_orders.progress')
+def board_move(work_order_id):
+    # Chamado ao arrastar um carro entre as colunas do Painel do pátio.
+    order = db.get_or_404(WorkOrder, work_order_id)
+    try:
+        move_to_column(order, (request.get_json(silent=True) or {}).get('coluna', ''), current_user().id)
+        db.session.commit()
+    except (ValueError, StaleDataError) as exc:
+        db.session.rollback()
+        message = 'A O.S. foi alterada por outra pessoa. Recarregue a página.' if isinstance(exc, StaleDataError) else str(exc)
+        return jsonify(erro=message), 409 if isinstance(exc, StaleDataError) else 400
+    return jsonify(ok=True, etapa=order.current_stage, status=order.status)
 
 
 @scheduling_bp.get('/painel')

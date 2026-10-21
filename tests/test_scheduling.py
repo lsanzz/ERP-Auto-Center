@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta
 
 from app import create_app, _normalize_database_url
-from app.models import Client, Employee, Product, User, WorkOrder, db
+from app.models import Client, Employee, User, WorkOrder, db
 from app.fleet.models import Vehicle
 from app.scheduling.floor import build_floor
 from app.scheduling.models import Appointment, WorkshopResource, WorkOrderStageHistory
@@ -89,36 +89,26 @@ class SchedulingTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('Revisão'.encode(), response.data)
 
-    def test_floor_panel_groups_bays_stages_and_low_stock(self):
+    def test_floor_panel_has_three_columns(self):
         now = datetime(2026, 9, 8, 10)
-        free_bay = WorkshopResource(nome='Box 2')
-        part = Product(codigo='OF-1', nome='Filtro de óleo', estoque_atual=1, estoque_minimo=5)
-        in_bay = WorkOrder(client_id=self.client_model.id, numero='OS-BOX', placa='ABC1D23',
-                           employee_id=self.employee.id, workshop_resource_id=self.resource.id,
-                           promised_at=now - timedelta(hours=1))
-        ready = WorkOrder(client_id=self.client_model.id, numero='OS-PRONTA', total_geral=250)
-        db.session.add_all([free_bay, part, in_bay, ready]); db.session.flush()
-        change_stage(in_bay, 'EM_EXECUCAO', self.user.id)
-        change_stage(ready, 'PRONTO', self.user.id)
+        waiting = WorkOrder(client_id=self.client_model.id, numero='OS-ESPERA', placa='ABC1D23',
+                            promised_at=now - timedelta(hours=1))
+        working = WorkOrder(client_id=self.client_model.id, numero='OS-ANDAMENTO')
+        done = WorkOrder(client_id=self.client_model.id, numero='OS-PRONTA')
+        db.session.add_all([waiting, working, done]); db.session.flush()
+        change_stage(waiting, 'AGUARDANDO_PECA', self.user.id)
+        change_stage(working, 'EM_EXECUCAO', self.user.id)
+        change_stage(done, 'PRONTO', self.user.id)
         db.session.commit()
 
         floor = build_floor(now)
 
-        bays = {bay['resource'].nome: bay for bay in floor['bays']}
-        self.assertEqual(bays['Elevador 1']['card']['order'].numero, 'OS-BOX')
-        self.assertTrue(bays['Elevador 1']['card']['overdue'])
-        self.assertEqual(bays['Elevador 1']['card']['action_stage'], 'CONTROLE_QUALIDADE')
-        self.assertIsNone(bays['Box 2']['card'])
-        self.assertEqual(floor['kpis']['busy_bays'], 1)
-        self.assertEqual(floor['kpis']['ready_count'], 1)
-        self.assertEqual(floor['kpis']['ready_total'], 250)
-        columns = {column['stage']: column['cards'] for column in floor['board']}
-        self.assertEqual([c['order'].numero for c in columns['PRONTO']], ['OS-PRONTA'])
-        self.assertEqual([p.codigo for p in floor['low_stock']], ['OF-1'])
-        self.assertEqual(floor['technicians'][0]['working']['order'].numero, 'OS-BOX')
+        columns = {c['key']: [card['order'].numero for card in c['cards']] for c in floor['columns']}
+        self.assertEqual(columns, {'aguardando': ['OS-ESPERA'], 'andamento': ['OS-ANDAMENTO'], 'atendida': ['OS-PRONTA']})
+        self.assertEqual(floor['overdue'], 1)
 
-    def test_floor_page_renders_and_stage_action_returns_to_panel(self):
-        order = WorkOrder(client_id=self.client_model.id, numero='OS-PAINEL', workshop_resource_id=self.resource.id)
+    def test_dragging_between_columns_updates_stage_and_status(self):
+        order = WorkOrder(client_id=self.client_model.id, numero='OS-ARRASTA')
         db.session.add(order); db.session.flush()
         change_stage(order, 'RECEPCAO', self.user.id)
         db.session.commit()
@@ -127,14 +117,22 @@ class SchedulingTest(unittest.TestCase):
         browser.post('/api/session', json={'username': 'agenda', 'password': 'test'}, headers={'X-CSRFToken': token})
         page = browser.get('/agenda/painel')
         self.assertEqual(page.status_code, 200)
-        self.assertIn('Painel do pátio'.encode(), page.data)
-        self.assertIn('Iniciar diagnóstico'.encode(), page.data)
+        for label in ('Painel do pátio', 'Aguardando', 'Em andamento', 'Atendida', 'OS-ARRASTA'):
+            self.assertIn(label.encode(), page.data)
         token = browser.get('/api/csrf').json['csrf_token']
+        move = lambda column: browser.post(f'/agenda/patio/{order.id}/coluna', json={'coluna': column}, headers={'X-CSRFToken': token})
+
+        self.assertEqual(move('andamento').json, {'ok': True, 'etapa': 'EM_EXECUCAO', 'status': 'EM_ANDAMENTO'})
+        self.assertEqual(move('atendida').json, {'ok': True, 'etapa': 'PRONTO', 'status': 'FINALIZADA'})
+        self.assertIsNotNone(db.session.get(WorkOrder, order.id).data_saida)
+        self.assertEqual(move('aguardando').json, {'ok': True, 'etapa': 'RECEPCAO', 'status': 'ABERTA'})
+        self.assertIsNone(db.session.get(WorkOrder, order.id).data_saida)
+        self.assertEqual(move('lixo').status_code, 400)
+
         response = browser.post(f'/agenda/patio/{order.id}/etapa', data={
-            'csrf_token': token, 'stage': 'DIAGNOSTICO', 'return_to': 'painel'})
-        self.assertEqual(response.status_code, 302)
+            'csrf_token': token, 'stage': 'ENTREGUE', 'return_to': 'painel'})
         self.assertTrue(response.headers['Location'].endswith('/agenda/painel'))
-        self.assertEqual(db.session.get(WorkOrder, order.id).current_stage, 'DIAGNOSTICO')
+        self.assertEqual(move('andamento').status_code, 400)  # entregue não volta ao pátio
 
 
 if __name__ == '__main__': unittest.main()
