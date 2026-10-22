@@ -11,7 +11,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from sqlalchemy import func
 
 from .auth import current_user, permission_required
-from .models import BankAccount, BankReconciliation, BankTransaction, ChartOfAccount, CommissionEntry, FinancialEntry, Product, PurchaseRequest, PurchaseRequestItem, WorkOrder, db
+from .models import BankAccount, BankReconciliation, BankTransaction, CommissionEntry, FinancialEntry, Product, PurchaseRequest, PurchaseRequestItem, WorkOrder, db
 from .operations.models import InventoryMovement
 from .operations.services import record_audit
 from .utils import parse_decimal
@@ -19,24 +19,42 @@ from .utils import parse_decimal
 management_bp = Blueprint('management', __name__, url_prefix='/gestao')
 
 
+# Palavras que marcam despesa fixa (repete todo mês); o resto da despesa é variável.
+FIXED_EXPENSE_WORDS = ('pro labore', 'salário', 'salario', 'encargos', 'aluguel', 'contabilidade', 'energia', 'água', 'agua',
+                       'telefonia', 'internet', 'plano de saude', 'plano de saúde', 'seguro', 'segurança', 'seguranca',
+                       'iptu', 'imposto', 'empréstimo', 'emprestimo', 'tarifa')
+
+
+def dre_section(entry_type: str, category: str) -> str:
+    if entry_type == 'RECEBER':
+        return 'Receitas'
+    return 'Despesas fixas' if any(word in category.lower() for word in FIXED_EXPENSE_WORDS) else 'Despesas variáveis'
+
+
 def management_summary(start: date, end: date) -> dict:
-    rows = db.session.query(FinancialEntry.entry_type, ChartOfAccount.code, ChartOfAccount.name,
-        func.coalesce(func.sum(FinancialEntry.valor), 0)).outerjoin(
-        ChartOfAccount, FinancialEntry.chart_account_id == ChartOfAccount.id).filter(
+    """DRE gerencial por competência, agrupada pela categoria do lançamento."""
+    category = func.coalesce(FinancialEntry.categoria, 'Não classificado')
+    grouped = db.session.query(FinancialEntry.entry_type, category, func.coalesce(func.sum(FinancialEntry.valor), 0)).filter(
         FinancialEntry.competence_on.between(start, end), FinancialEntry.status != 'CANCELADO').group_by(
-        FinancialEntry.entry_type, ChartOfAccount.code, ChartOfAccount.name).all()
-    revenue = sum((value for kind, _, _, value in rows if kind == 'RECEBER'), Decimal('0'))
-    expense = sum((value for kind, _, _, value in rows if kind == 'PAGAR'), Decimal('0'))
+        FinancialEntry.entry_type, category).all()
+    rows = sorted(((kind, dre_section(kind, name), name, value) for kind, name, value in grouped),
+                  key=lambda row: (row[1], -row[3]))
+    dre = []
+    for title in ('Receitas', 'Despesas fixas', 'Despesas variáveis'):
+        items = [(name, value) for _, section, name, value in rows if section == title]
+        dre.append({'title': title, 'total': sum((value for _, value in items), Decimal('0')), 'rows': items})
+    revenue = dre[0]['total']
+    expense = dre[1]['total'] + dre[2]['total']
     result = revenue - expense
     return {
         'rows': rows,
+        'dre': dre,
         'revenue': revenue,
         'expense': expense,
         'result': result,
         'expense_ratio': (expense / revenue * 100) if revenue else Decimal('0'),
         'margin_rate': (result / revenue * 100) if revenue else Decimal('0'),
     }
-
 
 def order_profitability(limit: int = 20) -> list[dict]:
     result = []

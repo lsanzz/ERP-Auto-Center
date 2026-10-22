@@ -6,8 +6,8 @@
       <div class="bank-account-name"><strong>{{ account.nome }}</strong><small>{{ account.banco or 'Banco não informado' }}</small></div>
       <button type="button" class="secondary bank-account-edit" onclick="document.getElementById('edit-bank-account-{{ account.id }}').showModal()">Editar</button>
     </div>
-    <div class="bank-account-balance"><small>Saldo disponível</small><strong>{{ format_currency(account.saldo_atual) }}</strong></div>
-    {% if account.agencia or account.conta %}<div class="bank-account-details"><span>Agência <strong>{{ account.agencia or '—' }}</strong></span><span>Conta <strong>{{ account.conta or '—' }}</strong></span></div>{% endif %}
+    <div class="bank-account-balance"><small>Saldo disponível</small><strong data-private="R$ ••••••">{{ format_currency(account.saldo_atual) }}</strong></div>
+    {% if account.agencia or account.conta %}<div class="bank-account-details"><span>Agência <strong data-private="••••">{{ account.agencia or '—' }}</strong></span><span>Conta <strong data-private="••••••">{{ account.conta or '—' }}</strong></span></div>{% endif %}
   </article>
   <dialog class="hub-dialog" id="edit-bank-account-{{ account.id }}">
     <div class="hub-panel-head"><h3>Editar conta</h3><button type="button" class="secondary" onclick="this.closest('dialog').close()" aria-label="Fechar">×</button></div>

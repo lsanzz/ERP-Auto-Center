@@ -5,6 +5,7 @@ import json
 from decimal import Decimal
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import event
 from sqlalchemy.dialects.mysql import LONGTEXT
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -482,6 +483,11 @@ class WorkOrder(db.Model, TimestampMixin, SerializableMixin):
     total_pecas = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     total_servicos = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     total_geral = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    desconto = db.Column(db.Numeric(12, 2), nullable=False, default=0, server_default='0')
+    tipo_atendimento = db.Column(db.String(20))  # INTERNO / EXTERNO / GARANTIA
+    problema_relatado = db.Column(db.Text)
+    laudo = db.Column(db.Text)
+    observacoes_cliente = db.Column(db.Text)
 
     __mapper_args__ = {'version_id_col': version}
 
@@ -587,6 +593,24 @@ class FinancialEntry(db.Model, TimestampMixin, SerializableMixin):
     payment_method = db.relationship('PaymentMethod', back_populates='financial_entries')
     chart_account = db.relationship('ChartOfAccount')
     cost_center = db.relationship('CostCenter')
+
+
+PURCHASE_REFERENCES = {'XML_NFE', 'ENTRADA_ESTOQUE'}
+
+
+def default_category(entry_type: str, reference_type: str | None) -> str:
+    """Categoria usada quando o lançamento chega sem uma (O.S., notas, importações e scripts)."""
+    if reference_type == 'OS':
+        return 'Ordens de Serviço'
+    if reference_type in PURCHASE_REFERENCES:
+        return 'Compra de peças'
+    return 'Outras receitas' if entry_type == 'RECEBER' else 'Outras despesas'
+
+
+@event.listens_for(FinancialEntry, 'before_insert')
+def _fill_category(_mapper, _connection, entry: FinancialEntry) -> None:
+    if not (entry.categoria or '').strip():
+        entry.categoria = default_category(entry.entry_type, entry.reference_type)
 
 
 class ChartOfAccount(db.Model, TimestampMixin, SerializableMixin):

@@ -36,13 +36,16 @@ def _section(title: str, styles: dict[str, ParagraphStyle]) -> list:
     return [Paragraph(escape(title).upper(), styles['section']), Spacer(1, 1.5 * mm)]
 
 
-def _items_table(title: str, items: list, item_type: str, styles: dict[str, ParagraphStyle]) -> list:
+def _items_table(title: str, items: list, item_type: str, styles: dict[str, ParagraphStyle], production: bool = False) -> list:
     story = _section(title, styles)
     if not items:
         story.extend([Paragraph('Nenhum item informado.', styles['muted']), Spacer(1, 3 * mm)])
         return story
 
-    if item_type == 'SERVICO':
+    if production:  # ordem de produção: o mecânico vê o que fazer, sem preços
+        headers = ['#', 'SERVIÇO' if item_type == 'SERVICO' else 'PRODUTO', 'QTDE.', 'FEITO']
+        widths = [8 * mm, 140 * mm, 24 * mm, 14 * mm]
+    elif item_type == 'SERVICO':
         headers = ['#', 'SERVIÇO', 'HORAS/QTDE', 'V. UNIT.', 'V. TOTAL']
         widths = [8 * mm, 104 * mm, 24 * mm, 23 * mm, 27 * mm]
     else:
@@ -51,7 +54,9 @@ def _items_table(title: str, items: list, item_type: str, styles: dict[str, Para
 
     data = [[_p(header, styles['thead']) for header in headers]]
     for index, item in enumerate(items, start=1):
-        if item_type == 'SERVICO':
+        if production:
+            row = [_p(f'{index}.', styles['cell']), _p(item.descricao, styles['cell']), _p(item.quantidade, styles['cell_right']), _p('[   ]', styles['cell'])]
+        elif item_type == 'SERVICO':
             row = [_p(f'{index}.', styles['cell']), _p(item.descricao, styles['cell']), _p(item.quantidade, styles['cell_right']), _p(_money(item.valor_unitario), styles['cell_right']), _p(_money(item.total), styles['cell_right'])]
         else:
             product = getattr(item, 'product', None)
@@ -73,7 +78,7 @@ def _items_table(title: str, items: list, item_type: str, styles: dict[str, Para
     return story
 
 
-def generate_work_order_pdf(order, service_items, part_items, company_name: str = 'ERP Auto Center', document_title: str = 'ORDEM DE SERVIÇO') -> bytes:
+def generate_work_order_pdf(order, service_items, part_items, company_name: str = 'ERP Auto Center', document_title: str = 'ORDEM DE SERVIÇO', production: bool = False) -> bytes:
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=10 * mm, rightMargin=10 * mm, topMargin=9 * mm, bottomMargin=12 * mm, title=f'{document_title} {order.numero}', author=company_name)
     base = getSampleStyleSheet()
@@ -106,8 +111,20 @@ def generate_work_order_pdf(order, service_items, part_items, company_name: str 
     client_table.setStyle(TableStyle([('SPAN', (0, 0), (1, 0)), ('LINEBELOW', (0, 0), (-1, 0), 0.7, colors.black), ('LINEBELOW', (0, 2), (-1, 2), 0.25, colors.HexColor('#aaaaaa')), ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('TOPPADDING', (0, 0), (-1, -1), 1.5), ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 2)]))
 
     story: list = [header, Spacer(1, 3 * mm), client_table, Spacer(1, 2.5 * mm)]
-    story.extend(_items_table('Serviços executados', service_items, 'SERVICO', styles))
-    story.extend(_items_table('Produtos utilizados', part_items, 'PECA', styles))
+    TIPOS = {'INTERNO': 'Interno', 'EXTERNO': 'Externo', 'GARANTIA': 'Garantia'}
+    details = [(label, value) for label, value in (
+        ('TIPO DE ATENDIMENTO', TIPOS.get(order.tipo_atendimento)),
+        ('ENTREGA PREVISTA', date_br(order.promised_at.date()) if order.promised_at else None),
+        ('PROBLEMA RELATADO', order.problema_relatado),
+        ('LAUDO / DIAGNÓSTICO', order.laudo)) if value]
+    if details:
+        story.extend(_section('ATENDIMENTO', styles))
+        story.extend(Paragraph(f'<b>{label}:</b> {escape(_safe(value))}', styles['small']) for label, value in details)
+        story.append(Spacer(1, 2.5 * mm))
+    story.extend(_items_table('Serviços executados', service_items, 'SERVICO', styles, production))
+    story.extend(_items_table('Produtos utilizados', part_items, 'PECA', styles, production))
+    if production:
+        story.append(Paragraph(f'<b>OBSERVAÇÕES INTERNAS:</b> {escape(_safe(order.observacoes, "Sem observações."))}', styles['small']))
 
     payment_name = order.payment_method.nome if order.payment_method else '-'
     service_quantity = sum((item.quantidade or 0) for item in service_items)
@@ -116,11 +133,16 @@ def generate_work_order_pdf(order, service_items, part_items, company_name: str 
         [_p('DADOS DE PAGAMENTO', styles['section']), '', '', ''],
         [_p('TOTAL DE HORAS/QTDE DE SERVIÇOS', styles['thead']), _p(service_quantity, styles['cell_right']), _p('VALOR TOTAL DOS SERVIÇOS', styles['thead']), _p(_money(order.total_servicos), styles['cell_right'])],
         [_p('TOTAL DE PRODUTOS', styles['thead']), _p(part_quantity, styles['cell_right']), _p('VALOR TOTAL DOS PRODUTOS', styles['thead']), _p(_money(order.total_pecas), styles['cell_right'])],
+        *([['', '', _p('DESCONTO', styles['thead']), _p('- ' + _money(order.desconto), styles['cell_right'])]] if order.desconto else []),
         ['', '', _p('VALOR TOTAL DA O.S.', styles['total_label']), _p(_money(order.total_geral), styles['total'])],
         [_p('PAGAMENTO', styles['thead']), _p(payment_name, styles['cell']), _p('PARCELAS', styles['thead']), _p(order.installment_count or 1, styles['cell'])],
     ], colWidths=[70 * mm, 25 * mm, 61 * mm, 34 * mm])
-    payment.setStyle(TableStyle([('SPAN', (0, 0), (-1, 0)), ('LINEBELOW', (0, 0), (-1, 0), 0.7, colors.black), ('LINEABOVE', (2, 3), (3, 3), 0.5, colors.black), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (1, 1), (1, -1), 'RIGHT'), ('ALIGN', (3, 1), (3, -1), 'RIGHT'), ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 2)]))
-    story.extend([payment, Spacer(1, 2.5 * mm), Paragraph(f'<b>OBSERVAÇÕES:</b> {escape(_safe(order.observacoes, "Sem observações."))}', styles['small'])])
+    total_row = 4 if order.desconto else 3
+    payment.setStyle(TableStyle([('SPAN', (0, 0), (-1, 0)), ('LINEBELOW', (0, 0), (-1, 0), 0.7, colors.black), ('LINEABOVE', (2, total_row), (3, total_row), 0.5, colors.black), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (1, 1), (1, -1), 'RIGHT'), ('ALIGN', (3, 1), (3, -1), 'RIGHT'), ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 2)]))
+    # shortcut: O.S. antigas só têm `observacoes` (usadas como texto geral); sem notas ao cliente, mantém o comportamento antigo.
+    customer_notes = order.observacoes_cliente or order.observacoes
+    if not production:
+        story.extend([payment, Spacer(1, 2.5 * mm), Paragraph(f'<b>OBSERVAÇÕES:</b> {escape(_safe(customer_notes, "Sem observações."))}', styles['small'])])
 
     def draw_footer(canvas, document):
         canvas.saveState()

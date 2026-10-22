@@ -580,6 +580,9 @@ def create_work_order_from_payload(data: dict) -> WorkOrder:
         placa=(data.get('placa') or '').upper() or None,
         veiculo_descricao=data.get('veiculo_descricao') or None,
         observacoes=data.get('observacoes') or None,
+        problema_relatado=data.get('problema_relatado') or None,
+        laudo=data.get('laudo') or None,
+        observacoes_cliente=data.get('observacoes_cliente') or None,
         installment_count=normalize_installment_count(data.get('payment_method_id'), data.get('installment_count')),
         emitir_nota=True,
     )
@@ -625,7 +628,7 @@ def work_order_resource(work_order_id: int):
         if any(key in data for key in ['items', 'servicos', 'pecas']):
             items_payload = _collect_work_order_item_payloads(data)
 
-        for field in ['placa', 'veiculo_descricao', 'observacoes']:
+        for field in ['placa', 'veiculo_descricao', 'observacoes', 'problema_relatado', 'laudo', 'observacoes_cliente']:
             if field in data:
                 value = data.get(field)
                 setattr(order, field, value.upper() if field == 'placa' and value else value)

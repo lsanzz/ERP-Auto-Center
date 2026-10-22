@@ -45,7 +45,7 @@
     <div class="hub-actions"><button type="submit">Confirmar entrada</button><button type="button" class="secondary" data-close>Cancelar</button></div>
   </form>
 </dialog>
-<script src="{{ url_for('static',filename='finance-overview.js') }}?v=3"></script>
+<script src="{{ url_for('static',filename='finance-overview.js') }}?v=4"></script>
 <style>.nota-xml{display:flex;gap:12px;align-items:end;flex-wrap:wrap;padding:14px;border:1px dashed var(--border,#cbd5e1);border-radius:12px;background:#f8fafc}.nota-xml label{flex:1;min-width:220px}.nota-or{display:flex;align-items:center;gap:10px;color:var(--muted-foreground,#64748b);font-size:13px;margin:16px 0}.nota-or::before,.nota-or::after{content:'';flex:1;border-top:1px solid var(--border,#e5e7eb)}@media(max-width:600px){ #stock-entry [data-stock-row]{grid-template-columns:1fr 1fr auto!important} #stock-entry [data-stock-row]>label:first-child{grid-column:1/-1}}</style>
 <script src="{{ url_for('static',filename='stock-entry.js') }}?v=2"></script>
 {% endif %}

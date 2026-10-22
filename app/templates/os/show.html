@@ -13,7 +13,9 @@
     <details class="more-menu">
       <summary>Mais ações</summary>
       <div class="more-menu-panel">
-        {% if can('inspections.manage') %}<a class="item" href="{{ url_for('operations.inspection', work_order_id=order.id) }}">Inspeção</a>{% endif %}
+        <a class="item" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, producao=1, download=0) }}" target="_blank">Ordem de produção (sem preços)</a>
+        {% if can('scheduling.manage') %}<a class="item" href="{{ url_for('scheduling.new', os=order.id) }}">Agendar</a>{% endif %}
+        {% if can('work_orders.progress') %}<button type="button" data-status-open>Alterar situação</button>{% endif %}
         <a class="item" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}" download>Baixar PDF</a>
         <form method="post" action="{{ url_for('operations.reserve_parts', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Reservar peças</button></form>
         <form method="post" action="{{ url_for('operations.release_parts', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Liberar reservas</button></form>
@@ -24,10 +26,27 @@
         {% endif %}
       </div>
     </details>
+    {% if can('inspections.manage') %}<a class="button secondary" href="{{ url_for('operations.inspection', work_order_id=order.id) }}">Inspeção e fotos</a>{% endif %}
+    {% if whatsapp_url %}<a class="button secondary" href="{{ whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
     <a class="button secondary" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id, download=0) }}" target="_blank">Imprimir</a>
     <a class="button" href="{{ url_for('web.work_orders_edit', work_order_id=order.id) }}">Editar O.S.</a>
   </div>
 </div>
+
+{% if can('work_orders.progress') %}
+<dialog class="hub-dialog hub" id="status-dialog" aria-labelledby="status-dialog-title">
+  <div class="hub-panel-head"><h3 id="status-dialog-title">Alterar situação</h3><button type="button" class="secondary" onclick="this.closest('dialog').close()" aria-label="Fechar">×</button></div>
+  <form method="post" action="{{ url_for('web.work_orders_change_status', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="hub-form-grid">
+      <label>Nova situação<select name="status">{% for status in statuses %}<option value="{{ status }}" {% if order.status == status %}selected{% endif %}>{{ status|replace('_', ' ') }}</option>{% endfor %}</select></label>
+      <label>Data de saída<input type="date" name="data_saida" value="{{ (order.data_saida or today).isoformat() }}"></label>
+      <label class="wide">Observação<input name="observation" placeholder="Opcional"></label>
+    </div>
+    <div class="hub-actions"><button type="submit">Salvar</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button></div>
+  </form>
+</dialog>
+<script>document.querySelector('[data-status-open]')?.addEventListener('click', () => { document.querySelector('.more-menu').open = false; document.getElementById('status-dialog').showModal(); });</script>
+{% endif %}
 
 <div class="responsive-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px; margin-bottom: 60px;">
   <div class="card asymmetric" style="margin-bottom: 0;">
@@ -50,12 +69,13 @@
         <strong style="color: var(--color-graphite);">{{ order.employee.nome if order.employee else '-' }}</strong>
       </div>
     </div>
-    {% if order.observacoes %}
-    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-mist);">
-      <span class="muted" style="display: block; margin-bottom: 4px;">Observações</span>
-      <p style="color: var(--color-steel);">{{ order.observacoes }}</p>
+    {% set tipos = {'INTERNO': 'Interno', 'EXTERNO': 'Externo', 'GARANTIA': 'Garantia'} %}
+    {% for label, value in [('Tipo de atendimento', tipos.get(order.tipo_atendimento)), ('Entrega prevista', order.promised_at|date_br if order.promised_at else None), ('Problema relatado', order.problema_relatado), ('Laudo / diagnóstico', order.laudo), ('Observações ao cliente', order.observacoes_cliente), ('Observações internas', order.observacoes)] if value %}
+    <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--color-mist);">
+      <span class="muted" style="display: block; margin-bottom: 4px;">{{ label }}</span>
+      <p style="color: var(--color-steel); white-space: pre-line;">{{ value }}</p>
     </div>
-    {% endif %}
+    {% endfor %}
   </div>
 
   <div class="card" style="background: var(--color-canvas-white); border: 1px solid var(--color-mist); border-radius: 8px; margin-bottom: 0; padding: 40px;">
@@ -68,6 +88,7 @@
       <span class="muted">Peças</span>
       <span style="color: var(--color-graphite);">{{ format_currency(order.total_pecas) }}</span>
     </div>
+    {% if order.desconto %}<div class="responsive-row" style="display: flex; justify-content: space-between; margin: -12px 0 24px;"><span class="muted">Desconto</span><span style="color: var(--color-graphite);">- {{ format_currency(order.desconto) }}</span></div>{% endif %}
     <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: baseline;">
       <strong style="color: var(--color-graphite);">Total</strong>
       <strong style="font-family: var(--font-polysans); font-size: 32px; color: var(--color-ember-orange); letter-spacing: -0.64px;">{{ format_currency(order.total_geral) }}</strong>
@@ -118,7 +139,7 @@
   {% if has_receivables %}<div class="responsive-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:24px;">{% for entry in receivables %}<div style="padding:16px; border:1px solid var(--color-mist); background:var(--color-canvas-white);"><span class="muted">Parcela {{ entry.installment_number }}/{{ entry.installment_total }}</span><strong style="display:block; margin-top:7px;">{{ format_currency(entry.valor) }}</strong><span class="muted small">{{ entry.status }}{% if entry.payment_method %} · {{ entry.payment_method.nome }}{% endif %}{% if entry.bank_account %} · {{ entry.bank_account.nome }}{% endif %}</span>{% if entry.status == 'PENDENTE' and bank_accounts %}<div class="hub" style="margin-top:10px"><button type="button" data-open="settle-{{ entry.id }}">Receber</button></div>{% endif %}</div>{% endfor %}</div>
   {% if bank_accounts %}<div class="hub">{% for entry in receivables if entry.status == 'PENDENTE' %}{% set settle_description = 'O.S. ' ~ order.numero ~ ' · ' ~ (order.client_nome or '') %}{% set settle_next = url_for('web.work_orders_show', work_order_id=order.id) %}{% include 'financeiro/_settle_dialog.html' %}{% endfor %}</div>
 {% endif %}{% endif %}
-  {% if bank_accounts %}<link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2"><script src="{{ url_for('static',filename='finance-overview.js') }}?v=3"></script>{% endif %}
+  {% if bank_accounts %}<link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2"><script src="{{ url_for('static',filename='finance-overview.js') }}?v=4"></script>{% endif %}
 </div>
 {% endif %}
 

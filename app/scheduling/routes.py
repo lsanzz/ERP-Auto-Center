@@ -25,10 +25,27 @@ def _selected_day():
 @permission_required('scheduling.view')
 def index():
     day = _selected_day()
+    if request.args.get('visao') == 'mes':
+        return _month_view(day)
     start, end = datetime.combine(day, time.min), datetime.combine(day + timedelta(days=1), time.min)
     appointments = Appointment.query.filter(Appointment.start_at >= start, Appointment.start_at < end).order_by(Appointment.start_at).all()
     return render_template('agenda/index.html', appointments=appointments, day=day,
                            previous=day-timedelta(days=1), following=day+timedelta(days=1))
+
+
+def _month_view(day):
+    """Visão mensal: cada dia mostra seus agendamentos; clicar abre a visão do dia."""
+    import calendar
+    first = day.replace(day=1)
+    weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(first.year, first.month)
+    start, end = datetime.combine(weeks[0][0], time.min), datetime.combine(weeks[-1][-1] + timedelta(days=1), time.min)
+    by_day = {}
+    for item in Appointment.query.filter(Appointment.start_at >= start, Appointment.start_at < end).order_by(Appointment.start_at):
+        by_day.setdefault(item.start_at.date(), []).append(item)
+    previous = (first - timedelta(days=1)).replace(day=1)
+    following = (first + timedelta(days=32)).replace(day=1)
+    return render_template('agenda/mes.html', weeks=weeks, by_day=by_day, month=first, previous=previous,
+                           following=following, today=date.today())
 
 
 @scheduling_bp.route('/novo', methods=['GET', 'POST'])
@@ -37,7 +54,17 @@ def index():
 def new():
     appointment = Appointment(start_at=datetime.now().replace(minute=0, second=0, microsecond=0),
                               end_at=(datetime.now()+timedelta(hours=1)).replace(minute=0, second=0, microsecond=0))
-    return _form(appointment)
+    order = db.session.get(WorkOrder, request.args.get('os', type=int)) if request.args.get('os') else None
+    if order:  # agendar a partir da O.S.: já vem com cliente, veículo e serviços
+        existing = Appointment.query.filter_by(work_order_id=order.id).first()
+        if existing:
+            flash('Esta O.S. já tem agendamento.', 'info')
+            return redirect(url_for('scheduling.edit', appointment_id=existing.id))
+        appointment.client_id, appointment.vehicle_id, appointment.work_order_id = order.client_id, order.vehicle_id, order.id
+        appointment.employee_id = order.employee_id
+        appointment.servico_previsto = (', '.join(item.descricao for item in order.items if item.item_type == 'SERVICO')
+                                        or f'O.S. {order.numero}')[:255]
+    return _form(appointment, order)
 
 
 @scheduling_bp.route('/<int:appointment_id>/editar', methods=['GET', 'POST'])
@@ -47,7 +74,7 @@ def edit(appointment_id):
     return _form(db.get_or_404(Appointment, appointment_id))
 
 
-def _form(appointment):
+def _form(appointment, order=None):
     code = 200
     if request.method == 'POST':
         try:
@@ -63,7 +90,7 @@ def _form(appointment):
             code = 400 if isinstance(exc, ValueError) else 409
     employees = Employee.query.filter_by(ativo=True).order_by(Employee.nome).all()
     resources = WorkshopResource.query.filter_by(ativo=True).order_by(WorkshopResource.nome).all()
-    return render_template('agenda/form.html', appointment=appointment, employees=employees,
+    return render_template('agenda/form.html', appointment=appointment, order=order, employees=employees,
                            resources=resources, statuses=APPOINTMENT_STATUSES), code
 
 

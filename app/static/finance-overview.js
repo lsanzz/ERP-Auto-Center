@@ -224,3 +224,5 @@ document.querySelectorAll('.hub-settle').forEach(form => {
     if (openCalendar && !openCalendar.wrapper.contains(event.target)) close(openCalendar);
   });
 })();
+// Atalho "+ Novo → Lançamento financeiro" do topo abre o formulário direto.
+if (location.hash === '#novo') document.getElementById('new-entry')?.showModal();

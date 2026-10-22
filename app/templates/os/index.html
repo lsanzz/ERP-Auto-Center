@@ -1,11 +1,15 @@
 {% extends 'base.html' %}
 {% block content %}
+{% macro sort_th(key, label) %}{% set args = dict(request.args) %}{% set _ = args.update({'ordem': key, 'dir': 'asc' if sort == key and direction == 'desc' else 'desc', 'page': 1}) %}<th aria-sort="{{ ('ascending' if direction == 'asc' else 'descending') if sort == key else 'none' }}"><a class="sort-link" href="{{ url_for(request.endpoint, **args) }}">{{ label }}{% if sort == key %} {{ '↑' if direction == 'asc' else '↓' }}{% endif %}</a></th>{% endmacro %}
+
 <style>
   .os-page { padding-bottom: 40px; }
   .os-toolbar { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:34px; }
   .os-toolbar-actions { display:flex; gap:12px; flex-wrap:wrap; }
   .os-table th:nth-child(1){width:11%}.os-table th:nth-child(2){width:33%}.os-table th:nth-child(3){width:17%}.os-table th:nth-child(4){width:15%}.os-table th:nth-child(5){width:12%}.os-table th:nth-child(6){width:12%}
-  .os-search { display:flex; gap:10px; max-width:640px; margin-bottom:18px; }
+  .os-search { display:flex; gap:10px; max-width:640px; margin-bottom:10px; }
+  .os-search-form { margin-bottom:14px; }
+  .os-table a.sort-link { color:inherit; text-decoration:none; }
   .os-search input { flex:1; min-width:0; }
   .os-plate { font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.06em; padding:3px 6px; border-radius:5px; background:#0f172a; color:#fff; }
   .os-kpis { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:16px; margin-bottom:34px; }
@@ -62,15 +66,29 @@
 
   <div class="card" style="padding:20px 16px 16px; background:var(--color-fog); margin-bottom:0;">
     <div class="os-table-shell">
-      <form method="GET" action="" class="os-search">
-        <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Buscar por cliente, placa ou número da O.S." aria-label="Buscar O.S.">
-        <button type="submit">Buscar</button>
-        {% if request.args.get('q') %}<a class="button secondary" href="{{ request.path }}">Limpar</a>{% endif %}
+      <form method="GET" action="" class="os-search-form">
+        <div class="os-search">
+          <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Buscar por cliente, placa ou número da O.S." aria-label="Buscar O.S.">
+          <button type="submit">Buscar</button>
+          {% if request.args.get('q') or request.args.get('status') or request.args.get('tipo') or request.args.get('de') or request.args.get('ate') or request.args.get('valor_min') or request.args.get('valor_max') %}<a class="button secondary" href="{{ request.path }}">Limpar</a>{% endif %}
+        </div>
+        <input type="hidden" name="ordem" value="{{ sort }}"><input type="hidden" name="dir" value="{{ direction }}">
+        <details class="hub-advanced"{% if request.args.get('status') or request.args.get('tipo') or request.args.get('de') or request.args.get('ate') or request.args.get('valor_min') or request.args.get('valor_max') %} open{% endif %}><summary>Mais filtros</summary>
+          <div class="filter-bar">
+            <label>Situação<select name="status"><option value="">Todas</option>{% for status in statuses %}<option value="{{ status }}" {% if request.args.get('status') == status %}selected{% endif %}>{{ status|replace('_', ' ') }}</option>{% endfor %}</select></label>
+            <label>Tipo<select name="tipo"><option value="">Todos</option>{% for value, label in [('INTERNO', 'Interno'), ('EXTERNO', 'Externo'), ('GARANTIA', 'Garantia')] %}<option value="{{ value }}" {% if request.args.get('tipo') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            <label>Entrada de<input type="date" name="de" value="{{ request.args.get('de', '') }}"></label>
+            <label>Até<input type="date" name="ate" value="{{ request.args.get('ate', '') }}"></label>
+            <label>Valor mín.<input type="text" inputmode="decimal" name="valor_min" value="{{ request.args.get('valor_min', '') }}" placeholder="R$"></label>
+            <label>Valor máx.<input type="text" inputmode="decimal" name="valor_max" value="{{ request.args.get('valor_max', '') }}" placeholder="R$"></label>
+            <button type="submit">Filtrar</button>
+          </div>
+        </details>
       </form>
 
       {% if orders %}
         <table data-mobile-cards class="table os-table">
-          <thead><tr><th>O.S.</th><th>Cliente</th><th>Situação</th><th>Pagamento</th><th>Total</th><th style="text-align:right;">Ações</th></tr></thead>
+          <thead><tr>{{ sort_th('numero', 'O.S.') }}{{ sort_th('cliente', 'Cliente') }}<th>Situação</th><th>Pagamento</th>{{ sort_th('total', 'Total') }}<th style="text-align:right;">Ações</th></tr></thead>
           <tbody>
             {% for order in orders %}
             {% set receivables = receivables_by_order.get(order.id, []) if receivables_by_order is defined else [] %}
@@ -143,5 +161,5 @@
     </div>
   </div>
 </div>
-<link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2"><script src="{{ url_for('static',filename='finance-overview.js') }}?v=3"></script>
+<link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2"><script src="{{ url_for('static',filename='finance-overview.js') }}?v=4"></script>
 {% endblock %}

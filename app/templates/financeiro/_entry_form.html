@@ -7,11 +7,12 @@
     <label>Vencimento<input type="date" name="vencimento" value="{{ iso_today() }}" required></label>
     <label>Forma de pagamento<select name="payment_method_id"><option value="">Definir depois</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.nome }}</option>{% endfor %}</select></label>
     <label>Situação<select name="status"><option value="PENDENTE">Em aberto</option><option value="LIQUIDADO">Já foi pago ou recebido</option></select></label>
+    <label>Categoria<input name="categoria" list="finance-categories" placeholder="Ex.: Compra de peças, Aluguel" required maxlength="80"></label>
+    <datalist id="finance-categories">{% for category in categories or [] %}<option value="{{ category }}">{% endfor %}</datalist>
     <label>Parcelas<input type="number" name="installment_count" min="1" max="120" value="1" required></label>
   </div>
   <details class="hub-advanced"><summary>Avançado</summary>
   <div class="hub-form-grid">
-    <label>Categoria<input name="categoria" placeholder="Ex.: Serviços ou fornecedores"></label>
     <label>Conta bancária<select name="bank_account_id"><option value="">Automática pela forma de pagamento</option>{% for account in bank_accounts %}<option value="{{ account.id }}">{{ account.nome }}</option>{% endfor %}</select></label>
     <label>Emissão<input type="date" name="issued_on" value="{{ iso_today() }}" required></label>
     <label>Competência<input type="date" name="competence_on" value="{{ iso_today() }}" required></label>

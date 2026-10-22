@@ -76,7 +76,8 @@ def home_context(role):
                 open_purchases=PurchaseRequest.query.filter(PurchaseRequest.status.in_(['ABERTA', 'APROVADA'])).count(),
                 unreconciled=unreconciled,
                 finance=financial_overview(today) if role in {'ADMINISTRADOR', 'FINANCEIRO'} else None,
-                charts=dashboard_charts(today, with_money=role in {'ADMINISTRADOR', 'FINANCEIRO'}))
+                charts=dashboard_charts(today, with_money=role in {'ADMINISTRADOR', 'FINANCEIRO'},
+                                       months_back=12 if request.args.get('meses') == '12' else 6))
 
 
 MONTHS_PT = ('jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez')
@@ -93,7 +94,7 @@ def area_path(values, width=600, height=180, pad=8):
     return {'line': line, 'area': area, 'points': points}
 
 
-def dashboard_charts(today=None, with_money=True):
+def dashboard_charts(today=None, with_money=True, months_back=6):
     """Dados dos gráficos do painel: faturamento de 6 meses, O.S. por situação, formas de pagamento e serviços."""
     from .services import services_rank
     today = today or date.today()
@@ -116,7 +117,9 @@ def dashboard_charts(today=None, with_money=True):
     charts['services'] = [dict(item, pct=round(item['quantidade'] * 100 / top)) for item in rank]
     if not with_money:
         return charts
-    first = (month_start - timedelta(days=150)).replace(day=1)
+    first = month_start
+    for _ in range(months_back - 1):
+        first = (first - timedelta(days=1)).replace(day=1)
     rows = db.session.query(WorkOrder.data_entrada, WorkOrder.total_geral).filter(
         WorkOrder.status.in_(closed), WorkOrder.data_entrada >= first).all()
     months = []

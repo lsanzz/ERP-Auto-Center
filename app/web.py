@@ -7,7 +7,7 @@ import base64
 import io
 import json
 import re
-from datetime import date, datetime
+from datetime import date, datetime, time
 from flask import abort, Blueprint, current_app, flash, redirect, render_template, request, send_file, session, url_for
 from decimal import Decimal
 
@@ -1073,7 +1073,30 @@ def work_orders_index():
             )
         )
         
-    orders_page = paginate_query(query.order_by(WorkOrder.id.desc()))
+    # Busca avançada: todos opcionais; datas e valores inválidos são ignorados.
+    args = request.args
+    if args.get('status') in WORK_ORDER_STATUSES:
+        query = query.filter(WorkOrder.status == args['status'])
+    if args.get('tipo') in ('INTERNO', 'EXTERNO', 'GARANTIA'):
+        query = query.filter(WorkOrder.tipo_atendimento == args['tipo'])
+    for key, compare in (('de', WorkOrder.data_entrada.__ge__), ('ate', WorkOrder.data_entrada.__le__)):
+        try:
+            day = parse_date(args.get(key))
+        except ValueError:
+            day = None
+        if day:
+            query = query.filter(compare(day))
+    for key, compare in (('valor_min', WorkOrder.total_geral.__ge__), ('valor_max', WorkOrder.total_geral.__le__)):
+        if args.get(key):
+            try:
+                query = query.filter(compare(parse_decimal(args.get(key))))
+            except (ArithmeticError, ValueError):
+                pass
+    sort_columns = {'numero': WorkOrder.id, 'data': WorkOrder.data_entrada, 'cliente': WorkOrder.client_nome, 'total': WorkOrder.total_geral}
+    sort = args.get('ordem') if args.get('ordem') in sort_columns else 'numero'
+    column = sort_columns[sort]
+    direction = 'asc' if args.get('dir') == 'asc' else 'desc'
+    orders_page = paginate_query(query.order_by(column.asc() if direction == 'asc' else column.desc(), WorkOrder.id.desc()))
     orders = orders_page['items']
     
     receivables_by_order: dict[int, list[FinancialEntry]] = {}
@@ -1094,7 +1117,7 @@ def work_orders_index():
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all() if current_user().role == 'ADMINISTRADOR' else []
     bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all() if current_user().role == 'ADMINISTRADOR' else []
     
-    return render_template('os/index.html', orders=orders, pagination=orders_page, statuses=WORK_ORDER_STATUSES, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts, method_accounts=method_account_map() if bank_accounts else {}, today=date.today())
+    return render_template('os/index.html', orders=orders, pagination=orders_page, sort=sort, direction=direction, statuses=WORK_ORDER_STATUSES, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts, method_accounts=method_account_map() if bank_accounts else {}, today=date.today())
 
 @web_bp.post('/os/<int:work_order_id>/copiar')
 @login_required
@@ -1209,8 +1232,30 @@ def work_orders_show(work_order_id: int):
         method_accounts=method_account_map() if current_user().role == 'ADMINISTRADOR' else {},
         today=date.today(),
         status_history=order.status_history,
+        whatsapp_url=whatsapp_url(order),
     )
 
+
+
+def whatsapp_url(order: WorkOrder) -> str | None:
+    """Link wa.me com mensagem pronta; o envio é feito pelo próprio WhatsApp do usuário."""
+    from urllib.parse import quote
+    from .cnpj import only_digits
+    phone = only_digits(order.client.telefone if order.client else '')
+    if len(phone) in (10, 11):
+        phone = '55' + phone  # número brasileiro sem DDI
+    if len(phone) not in (12, 13):
+        return None
+    company = get_system_settings().company_name or 'a oficina'
+    name = (order.client_nome or (order.client.nome if order.client else '')).split(' ')[0].title()
+    vehicle = ' '.join(filter(None, [order.veiculo_descricao, order.placa]))
+    if order.status in ('FINALIZADA', 'ENTREGUE'):
+        body = f'seu veículo {vehicle} está pronto para retirada.'
+    else:
+        body = f'segue a ordem de serviço do veículo {vehicle}.'
+    text = (f'Olá{" " + name if name else ""}, aqui é da {company}: {body}\n'
+            f'O.S. {order.numero} · Total {format_currency(order.total_geral)}')
+    return f'https://wa.me/{phone}?text={quote(text)}'
 
 
 @web_bp.get('/os/<int:work_order_id>/pdf')
@@ -1221,18 +1266,20 @@ def work_orders_pdf(work_order_id: int):
     if not order:
         return redirect(url_for('web.work_orders_index'))
     is_receipt = request.args.get('recibo') == '1'
+    production = request.args.get('producao') == '1'
     pdf_bytes = generate_work_order_pdf(
         order,
         [item for item in order.items if item.item_type == 'SERVICO'],
         [item for item in order.items if item.item_type == 'PECA'],
         company_name=get_system_settings().company_name or 'ERP Auto Center',
-        document_title='RECIBO COMPLETO DA O.S.' if is_receipt else 'ORDEM DE SERVIÇO',
+        document_title='ORDEM DE PRODUÇÃO' if production else 'RECIBO COMPLETO DA O.S.' if is_receipt else 'ORDEM DE SERVIÇO',
+        production=production,
     )
     return send_file(
         __import__('io').BytesIO(pdf_bytes),
         mimetype='application/pdf',
         as_attachment=request.args.get('download') != '0',
-        download_name=f'{"recibo" if is_receipt else "os"}-{order.numero}.pdf',
+        download_name=f'{"producao" if production else "recibo" if is_receipt else "os"}-{order.numero}.pdf',
     )
 
 
@@ -1476,6 +1523,8 @@ def finance_form_context() -> dict:
         chart_accounts=ChartOfAccount.query.filter_by(active=True).order_by(ChartOfAccount.code).all(),
         cost_centers=CostCenter.query.filter_by(active=True).order_by(CostCenter.name).all(),
         method_accounts=method_account_map(),
+        categories=[row[0] for row in db.session.query(FinancialEntry.categoria).filter(FinancialEntry.categoria.isnot(None))
+                    .distinct().order_by(FinancialEntry.categoria).limit(300)],
     )
 
 
@@ -2508,6 +2557,18 @@ def _fill_work_order_from_form(order: WorkOrder) -> None:
     order.veiculo_descricao = request.form.get('veiculo_descricao') or None
     order.data_entrada = parse_date(request.form.get('data_entrada'))
     order.observacoes = request.form.get('observacoes') or None
+    for field in ('problema_relatado', 'laudo', 'observacoes_cliente'):
+        setattr(order, field, (request.form.get(field) or '').strip() or None)
+    tipo = request.form.get('tipo_atendimento') or None
+    if tipo not in (None, 'INTERNO', 'EXTERNO', 'GARANTIA'):
+        raise ValueError('Tipo de atendimento inválido.')
+    order.tipo_atendimento = tipo
+    promised = parse_date(request.form.get('promised_at'))
+    if not promised:
+        order.promised_at = None
+    elif not order.promised_at or order.promised_at.date() != promised:  # mantém a hora vinda da agenda
+        order.promised_at = datetime.combine(promised, time(18, 0))
+    order.desconto = parse_decimal(request.form.get('desconto') or 0)
     order.emitir_nota = True
     from .fleet.services import link_vehicle
     link_vehicle(order, request.form)

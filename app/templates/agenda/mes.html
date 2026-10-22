@@ -1,0 +1,14 @@
+{% extends 'base.html' %}{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='overview.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='business.css') }}?v=3">
+{% set MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'] %}
+<main class="hub">
+  <nav class="section-tabs" aria-label="Visão da agenda"><a class="tab" href="{{ url_for('scheduling.index') }}">Dia</a><a class="tab" href="{{ url_for('scheduling.index', visao='mes') }}" aria-current="page">Mês</a></nav>
+  <div class="hub-header"><div><h2>Agenda · {{ MESES[month.month - 1] }} de {{ month.year }}</h2></div>{% if can('scheduling.manage') %}<div class="hub-actions"><a class="button" href="{{ url_for('scheduling.new') }}">Novo agendamento</a></div>{% endif %}</div>
+  <section class="hub-panel"><div class="calendar-nav"><a class="button secondary" href="{{ url_for('scheduling.index', visao='mes', dia=previous.isoformat()) }}" aria-label="Mês anterior">←</a><a class="button secondary" href="{{ url_for('scheduling.index', visao='mes') }}">Este mês</a><a class="button secondary" href="{{ url_for('scheduling.index', visao='mes', dia=following.isoformat()) }}" aria-label="Próximo mês">→</a></div>
+    <div class="calendar-scroll"><div class="business-calendar">
+      {% for label in ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'] %}<div class="calendar-weekday">{{ label }}</div>{% endfor %}
+      {% for week in weeks %}{% for cell in week %}{% set items = by_day.get(cell, []) %}<section class="calendar-day {{ 'outside' if cell.month != month.month }} {{ 'today' if cell == today }}" aria-label="{{ cell|date_br }}"><strong><a href="{{ url_for('scheduling.index', dia=cell.isoformat()) }}" class="day-link">{{ cell.day }}</a></strong>{% for item in items[:3] %}<a href="{{ url_for('scheduling.index', dia=cell.isoformat()) }}"><small>{{ item.start_at.strftime('%H:%M') }} · {{ item.client.nome }}</small><span>{{ item.servico_previsto }}</span></a>{% endfor %}{% if items|length > 3 %}<a href="{{ url_for('scheduling.index', dia=cell.isoformat()) }}"><small>+ {{ items|length - 3 }} agendamento(s)</small></a>{% endif %}</section>{% endfor %}{% endfor %}
+    </div></div>
+  </section>
+</main>{% endblock %}

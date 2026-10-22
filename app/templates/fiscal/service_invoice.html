@@ -3,6 +3,7 @@
 {% set invoice = payload.get('invoice') or {} %}
 {% set customer = payload.get('customer') or {} %}
 {% set totals = payload.get('totals') or {} %}
+{% if order and order.desconto %}<div class="flash warning" style="margin-bottom:18px">Esta O.S. tem desconto geral de {{ format_currency(order.desconto) }}. Os valores abaixo vêm dos itens: confira e informe o desconto na nota antes de emitir.</div>{% endif %}
 <div class="page-header fiscal-page-header">
   <div>
     <span class="eyebrow">Emissão fiscal · O.S. {{ order.numero }}</span>

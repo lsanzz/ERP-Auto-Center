@@ -27,7 +27,7 @@
         <span class="trend-chip {{ 'is-neutral' if not summary.revenue and not summary.expense else ('is-positive' if summary.result >= 0 else 'is-negative') }}">
           {{ 'Sem movimentação' if not summary.revenue and not summary.expense else ('Operação positiva' if summary.result >= 0 else 'Atenção ao caixa') }}
         </span>
-        <span>Saldo previsto em 30 dias: {{ format_currency(projected) }}</span>
+        <span>Saldo previsto em 30 dias: <b data-private="R$ ••••••">{{ format_currency(projected) }}</b></span>
         <span>Margem de {{ '%.1f'|format(summary.margin_rate|float) }}% sobre a receita</span>
       </div>
     </div>
@@ -41,16 +41,17 @@
   <div class="mgmt-grid" style="grid-template-columns:1fr">
     <section class="mgmt-section dre-section">
       <div class="section-title">
-        <div><h2>Composição do resultado</h2></div>
-        <span class="section-note">Regime de competência</span>
+        <div><h2>DRE gerencial</h2></div>
+        <span class="section-note">Por categoria · regime de competência</span>
       </div>
       <div class="table-shell"><table class="management-table">
-        <thead><tr><th>Conta gerencial</th><th>Natureza</th><th class="number">Valor</th></tr></thead>
-        <tbody>{% for kind, code, name, value in summary.rows %}<tr>
-          <td><span class="account-code">{{ code or '—' }}</span><strong>{{ name or 'Não classificado' }}</strong></td>
-          <td><span class="nature {{ 'income' if kind == 'RECEBER' else 'expense' }}">{{ 'Receita' if kind == 'RECEBER' else 'Despesa' }}</span></td>
-          <td class="number value-cell">{{ format_currency(value) }}</td>
-        </tr>{% else %}<tr><td class="empty-row" colspan="3">Nenhum lançamento encontrado neste período.</td></tr>{% endfor %}</tbody>
+        <thead><tr><th>Categoria</th><th class="number">Valor</th></tr></thead>
+        {% for section in summary.dre %}<tbody>
+          <tr class="dre-head"><td><strong>{{ section.title }}</strong></td><td class="number"><strong>{{ format_currency(section.total) }}</strong></td></tr>
+          {% for name, value in section.rows %}<tr><td style="padding-left:28px">{{ name }}</td><td class="number value-cell">{{ format_currency(value) }}</td></tr>
+          {% else %}<tr><td class="empty-row" colspan="2">Nada no período.</td></tr>{% endfor %}
+        </tbody>{% endfor %}
+        <tfoot><tr class="dre-head"><td><strong>Resultado</strong></td><td class="number"><strong>{{ format_currency(summary.result) }}</strong></td></tr></tfoot>
       </table></div>
     </section>
 
@@ -107,6 +108,7 @@
 </main>
 
 <style>
+  .dre-head td{background:#f5f7fa}
   .mgmt-page{--mgmt-ink:#172033;--mgmt-night:#101827;--mgmt-line:#dfe4ec;--mgmt-soft:#f5f7fa;display:grid;gap:48px;max-width:1500px;margin:0 auto;padding-bottom:72px;color:var(--mgmt-ink)}
   .mgmt-header{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;padding:12px 0 28px;border-bottom:1px solid var(--mgmt-line)}
   .mgmt-kicker,.section-index{display:block;margin-bottom:9px;color:var(--primary-active);font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}

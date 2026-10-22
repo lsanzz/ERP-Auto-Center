@@ -83,7 +83,10 @@ def recalculate_work_order_totals(order: WorkOrder) -> WorkOrder:
             total_servicos += parse_decimal(item.total)
     order.total_pecas = total_pecas
     order.total_servicos = total_servicos
-    order.total_geral = total_pecas + total_servicos
+    discount = parse_decimal(order.desconto or 0)
+    if discount < 0 or discount > total_pecas + total_servicos:
+        raise ValueError('O desconto deve ficar entre zero e o valor dos itens.')
+    order.total_geral = total_pecas + total_servicos - discount
     if order.total_geral < 0:
         order.total_geral = Decimal('0')
     return order

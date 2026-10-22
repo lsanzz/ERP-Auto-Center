@@ -12,6 +12,7 @@
 {% set tipo_documento = invoice.get('tipo_documento') or '1' %}
 {% set modalidade_frete = invoice.get('modalidade_frete') or '9' %}
 
+{% if order and order.desconto %}<div class="flash warning" style="margin-bottom:18px">Esta O.S. tem desconto geral de {{ format_currency(order.desconto) }}. Os valores abaixo vêm dos itens: confira e informe o desconto na nota antes de emitir.</div>{% endif %}
 <div class="page-header fiscal-page-header">
   <div>
     <span class="eyebrow">Emissão fiscal · O.S. {{ order.numero }}</span>

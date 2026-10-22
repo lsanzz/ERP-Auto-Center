@@ -67,3 +67,29 @@ body nav.section-tabs::-webkit-scrollbar{display:none}
 .calendar-nav .button{min-width:44px;justify-content:center}
 /* Botões de ações nunca grudados */
 .hub-actions,.page-header .actions{gap:10px}
+
+/* Paginação com números */
+.pagination{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pagination a[aria-current=page]{pointer-events:none}
+/* Botão "+ Novo" no topo */
+.quick-new>summary{font-weight:600;color:var(--color-primary,#2563eb)}
+.quick-new>summary::after{display:none}
+/* Botão flutuante único (assistente + consultar placa) */
+.fab{position:fixed;right:24px;bottom:24px;z-index:101}
+.fab>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 18px;border-radius:999px;background:var(--color-primary,#2563eb);color:#fff;font-weight:600;font-size:14px;box-shadow:0 10px 24px rgba(37,99,235,.3)}
+.fab>summary::-webkit-details-marker{display:none}
+.fab-menu{position:absolute;right:0;bottom:calc(100% + 10px);display:grid;gap:6px;min-width:200px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 16px 34px rgba(15,23,42,.18)}
+body .fab-menu .fab-item{display:flex;align-items:center;gap:8px;width:100%;min-height:42px;padding:0 14px;border:0;border-radius:10px;background:transparent;box-shadow:none;color:#1e293b!important;font-size:14px;font-weight:500;text-decoration:none;cursor:pointer}
+body .fab-menu .fab-item:hover{background:#f1f5f9}
+@media(max-width:600px){.fab{right:16px;bottom:calc(16px + env(safe-area-inset-bottom))}.fab-label{display:none}.fab>summary{width:52px;height:52px;padding:0;justify-content:center;font-size:20px}}
+
+/* Saldos ocultos por padrão; o botão "Mostrar valores" vale para este aparelho */
+html:not(.show-money) [data-private]{position:relative;color:transparent!important;user-select:none}
+html:not(.show-money) [data-private]::after{content:attr(data-private);position:absolute;left:0;top:0;white-space:nowrap;color:var(--foreground,#0f172a)}
+html:not(.show-money) .result-board [data-private]::after{color:#fff}
+.money-toggle .when-shown,html.show-money .money-toggle .when-hidden{display:none}
+html.show-money .money-toggle .when-shown{display:inline}
+
+.chart-period{display:flex;gap:4px;padding:3px;background:#f1f5f9;border-radius:10px}
+body .chart-period a.tab{padding:4px 10px;border-radius:7px;font-size:12px;font-weight:600;color:#475569;text-decoration:none}
+body .chart-period a.tab[aria-current=page]{background:#fff;color:#0f172a;box-shadow:0 1px 3px rgba(15,23,42,.12)}

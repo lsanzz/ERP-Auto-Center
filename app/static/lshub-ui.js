@@ -7,3 +7,18 @@ document.querySelectorAll('.grouped-nav a').forEach(link => {
     link.closest('.nav-group')?.classList.add('is-current');
   }
 });
+
+/* Mostrar/ocultar saldos (padrão: ocultos), lembrado neste aparelho. */
+(() => {
+  const root = document.documentElement;
+  const KEY = 'lshub-show-money';
+  try { root.classList.toggle('show-money', localStorage.getItem(KEY) === '1'); } catch (_) {}
+  const sync = () => document.querySelectorAll('[data-money-toggle]').forEach(button => button.setAttribute('aria-pressed', String(root.classList.contains('show-money'))));
+  sync();
+  document.addEventListener('click', event => {
+    if (!event.target.closest('[data-money-toggle]')) return;
+    const shown = root.classList.toggle('show-money');
+    try { localStorage.setItem(KEY, shown ? '1' : '0'); } catch (_) {}
+    sync();
+  });
+})();

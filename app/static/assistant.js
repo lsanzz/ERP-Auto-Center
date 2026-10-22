@@ -123,6 +123,7 @@
     panel.hidden = !state;
     launcher.setAttribute('aria-expanded', String(state));
     launcher.hidden = state;
+    launcher.closest('details')?.removeAttribute('open');  // fecha o menu de atalhos
     if (state) box.focus();
   };
   launcher.addEventListener('click', () => open(true));

@@ -95,9 +95,31 @@
     </div>
     <p class="muted" id="placa-status" style="margin-top: 8px;">Consulte a placa para preencher a descrição do veículo.</p>
     
-    <label style="margin-top: 12px;">Observações Internas (Problema relatado, etc)
+    <div class="form-grid-3" style="margin-top: 12px;">
+      <label>Tipo de atendimento
+        <select name="tipo_atendimento">
+          <option value="">Não informado</option>
+          {% for value, label in [('INTERNO', 'Interno'), ('EXTERNO', 'Externo'), ('GARANTIA', 'Garantia')] %}<option value="{{ value }}" {% if order and order.tipo_atendimento == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Entrega prevista
+        <input type="date" name="promised_at" value="{{ order.promised_at.date().isoformat() if order and order.promised_at else '' }}">
+      </label>
+    </div>
+    <label style="margin-top: 12px;">Problema relatado pelo cliente
+      <textarea name="problema_relatado" rows="2">{{ order.problema_relatado if order and order.problema_relatado else '' }}</textarea>
+    </label>
+    <label style="margin-top: 12px;">Observações internas
       <textarea name="observacoes" rows="2" style="text-transform: uppercase;">{{ order.observacoes if order else '' }}</textarea>
     </label>
+    <details class="hub-advanced"{% if order and (order.laudo or order.observacoes_cliente) %} open{% endif %}><summary>Laudo técnico e observações ao cliente</summary>
+      <label>Laudo / diagnóstico
+        <textarea name="laudo" rows="3">{{ order.laudo if order and order.laudo else '' }}</textarea>
+      </label>
+      <label style="margin-top: 12px;">Observações ao cliente (saem na O.S. impressa)
+        <textarea name="observacoes_cliente" rows="2">{{ order.observacoes_cliente if order and order.observacoes_cliente else '' }}</textarea>
+      </label>
+    </details>
   </div>
 
   <!-- BLOCO 2: Serviços e Peças -->
@@ -192,6 +214,10 @@
           <span class="muted">Total Peças</span>
           <strong id="preview-parts-total" style="font-family: var(--font-polysans); font-size: 18px;">R$ 0,00</strong>
         </div>
+        <label class="responsive-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <span class="muted">Desconto (R$)</span>
+          <input id="os-discount" type="text" inputmode="decimal" name="desconto" value="{{ ('%.2f'|format(order.desconto|float)).replace('.', ',') if order and order.desconto else '0,00' }}" style="max-width: 140px; text-align: right;">
+        </label>
         <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: baseline;">
           <span style="font-size: 18px; color: var(--color-graphite); font-weight: 500;">Total da O.S.</span>
           <strong id="preview-grand-total" style="font-family: var(--font-polysans); font-size: 32px; color: var(--color-ember-orange); letter-spacing: -0.64px;">R$ 0,00</strong>
@@ -266,7 +292,7 @@
   <div class="actions" style="margin-bottom: 60px;">
     <button type="submit">Salvar O.S.</button>
     <a class="button secondary" href="{{ url_for('web.work_orders_index') }}">Cancelar</a>
-    {% if order %}
+    {% if order and order.id %}
     <a class="button" style="background: transparent; color: var(--color-ember-orange) !important; border: 1px solid var(--color-ember-orange);" href="{{ url_for('web.work_orders_pdf', work_order_id=order.id) }}">Exportar PDF</a>
     {% endif %}
   </div>
@@ -424,6 +450,7 @@
       event.target.dataset.manual = '1';
       updateTotals();
     }
+    if (event.target.id === 'os-discount') updateTotals();
     if (event.target.classList.contains('payment-value-input')) {
       updatePaymentsTotals();
     }
@@ -522,7 +549,8 @@
     document.getElementById('preview-services-total').textContent = currency.format(services);
     document.getElementById('preview-parts-total').textContent = currency.format(parts);
     
-    const grandTotal = services + parts;
+    const discount = parseNumber(document.getElementById('os-discount').value);
+    const grandTotal = Math.max(0, services + parts - discount);
     const grand = document.getElementById('preview-grand-total');
     grand.textContent = currency.format(grandTotal);
     grand.dataset.raw = grandTotal.toFixed(2);

@@ -1,15 +1,12 @@
 {% if pagination and pagination.pages > 1 %}
+{% macro page_link(number, label=None, current=False) %}{% set args = dict(request.view_args or {}) %}{% set _ = args.update(request.args.to_dict()) %}{% set _ = args.update({'page': number}) %}<a class="button {{ '' if current else 'secondary' }} small"{% if current %} aria-current="page"{% endif %} href="{{ url_for(request.endpoint, **args) }}">{{ label or number }}</a>{% endmacro %}
+{% set first = [pagination.page - 2, 1]|max %}{% set last = [pagination.page + 2, pagination.pages]|min %}
 <nav class="pagination" aria-label="Paginação">
-  {% if pagination.has_prev %}
-    {% set prev_args = dict(request.args) %}
-    {% set _ = prev_args.update({'page': pagination.page - 1}) %}
-    <a class="button secondary small" href="{{ url_for(request.endpoint, **prev_args) }}">Anterior</a>
-  {% endif %}
-  <span>Página {{ pagination.page }} de {{ pagination.pages }} · {{ pagination.total }} registros</span>
-  {% if pagination.has_next %}
-    {% set next_args = dict(request.args) %}
-    {% set _ = next_args.update({'page': pagination.page + 1}) %}
-    <a class="button secondary small" href="{{ url_for(request.endpoint, **next_args) }}">Próxima</a>
-  {% endif %}
+  {% if pagination.has_prev %}{{ page_link(pagination.page - 1, 'Anterior') }}{% endif %}
+  {% if first > 1 %}{{ page_link(1) }}{% if first > 2 %}<span aria-hidden="true">…</span>{% endif %}{% endif %}
+  {% for number in range(first, last + 1) %}{{ page_link(number, current=number == pagination.page) }}{% endfor %}
+  {% if last < pagination.pages %}{% if last < pagination.pages - 1 %}<span aria-hidden="true">…</span>{% endif %}{{ page_link(pagination.pages) }}{% endif %}
+  {% if pagination.has_next %}{{ page_link(pagination.page + 1, 'Próxima') }}{% endif %}
+  <span class="muted small">{{ pagination.total }} registros</span>
 </nav>
 {% endif %}

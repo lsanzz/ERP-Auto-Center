@@ -39,12 +39,10 @@
         <td>{{ format_currency(product.preco_venda) }}</td>
         <td>
           {% if current_user().role == 'ADMINISTRADOR' %}
-          <div class="product-actions responsive-row" style="display: flex; gap: 10px; justify-content: flex-end;">
-            <a class="button secondary" href="{{ url_for('web.products_edit', product_id=product.id) }}">Editar</a>
-            <form method="post" action="{{ url_for('web.products_delete', product_id=product.id) }}" style="margin: 0;" onsubmit="return confirm('Inativar esta peça?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
-            </form>
-          </div>
+          <div class="product-actions"><details class="more-menu"><summary>Ações</summary><div class="more-menu-panel">
+            <a class="item" href="{{ url_for('web.products_edit', product_id=product.id) }}">Editar</a>
+            <form method="post" action="{{ url_for('web.products_delete', product_id=product.id) }}" onsubmit="return confirm('Inativar esta peça?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="danger">Excluir</button></form>
+          </div></details></div>
           {% else %}
           -
           {% endif %}

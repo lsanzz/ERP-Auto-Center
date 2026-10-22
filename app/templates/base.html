@@ -461,7 +461,7 @@
         </div></details>{% endif %}
         {% if can('inventory.view') %}<details class="nav-group"><summary>{{ icon('package') }}Estoque</summary><div class="nav-dropdown">
         <a href="{{ url_for('operations.inventory') }}">Estoque</a>
-        <a href="{{ url_for('web.products_index') }}">Peças e produtos</a>
+        <a href="{{ url_for('web.products_index') }}">Peças</a>
         {% if can('reports.view') %}<a href="{{ url_for('management.index', secao='estoque') }}">Relatório</a>{% endif %}
         </div></details>{% endif %}
         {% if can('finance.view') %}
@@ -476,6 +476,14 @@
 
       <div class="user-box">
         {% if current_user() %}
+        <details class="nav-group quick-new"><summary aria-label="Criar novo">+ Novo</summary><div class="nav-dropdown">
+          {% if can('work_orders.manage') %}<a href="{{ url_for('web.work_orders_new') }}">Ordem de serviço</a>{% endif %}
+          {% if can('estimates.manage') %}<a href="{{ url_for('web.budgets_new') }}">Orçamento</a>{% endif %}
+          {% if can('customers.manage') %}<a href="{{ url_for('web.clients_new') }}">Cliente</a>{% endif %}
+          {% if current_user().role == 'ADMINISTRADOR' %}<a href="{{ url_for('web.products_new') }}">Peça</a>{% endif %}
+          {% if can('finance.view') %}<a href="{{ url_for('web.finance_index') }}#novo">Lançamento financeiro</a>{% endif %}
+          {% if can('scheduling.manage') %}<a href="{{ url_for('scheduling.new') }}">Agendamento</a>{% endif %}
+        </div></details>
         {% if current_user().role == 'ADMINISTRADOR' %}
         <a class="nav-settings" href="{{ url_for('web.settings_index') }}" aria-label="Configurações" title="Configurações"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Zm-8.17 1.08a8.31 8.31 0 0 1 .65-1.57l-1.03-1.84 2.21-2.21 1.84 1.03a8.3 8.3 0 0 1 1.57-.65L9.6 2h3.13l.53 2.09c.55.15 1.08.37 1.57.65l1.84-1.03 2.21 2.21-1.03 1.84c.28.49.5 1.02.65 1.57L20.58 9.86v3.13l-2.08.53a8.3 8.3 0 0 1-.65 1.57l1.03 1.84-2.21 2.21-1.84-1.03a8.3 8.3 0 0 1-1.57.65l-.53 2.08H9.6l-.53-2.08a8.3 8.3 0 0 1-1.57-.65l-1.84 1.03-2.21-2.21 1.03-1.84a8.3 8.3 0 0 1-.65-1.57l-2.08-.53V9.86l2.08-.53Zm8.17.42a2.25 2.25 0 1 1 0 4.5 2.25 2.25 0 0 1 0-4.5Z" clip-rule="evenodd"/></svg></a>
         {% endif %}
@@ -518,9 +526,16 @@
     </main>
   </div>
   {% if current_user() %}
+  {% if assistant_enabled and can('work_orders.manage') %}
+  {# Um só botão flutuante: assistente e consulta de placa #}
+  <details class="fab"><summary aria-label="Atalhos"><span aria-hidden="true">✦</span><span class="fab-label">Atalhos</span></summary>
+    <div class="fab-menu"><button type="button" class="fab-item" data-ai-open aria-controls="ai-panel" aria-expanded="false">✦ Assistente</button><a class="fab-item" href="{{ url_for('web.plate_lookup_page') }}">⌕ Consultar placa</a></div>
+  </details>
+  {% else %}
   <a class="plate-float-button" href="{{ url_for('web.plate_lookup_page') }}" title="Consultar placa">
     <span aria-hidden="true">⌕</span> Consultar placa
   </a>
+  {% endif %}
   <!-- ================= LOADER DO SISTEMA ================= -->
 <style>
   /* Overlay que cobre a tela toda */
@@ -852,8 +867,8 @@ document.addEventListener('DOMContentLoaded', () => {
   <link rel="stylesheet" href="{{ url_for('static', filename='lshub-ui.css') }}?v=4">
   <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}?v=2">
 {% include '_design_system.html' %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=8">
-  <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=3" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=10">
+  <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=4" defer></script>
   <script src="{{ url_for('static', filename='responsive.js') }}?v=2" defer></script>
   {% if assistant_enabled and current_user() and can('work_orders.manage') %}{% include '_assistant.html' %}{% endif %}
 </body>

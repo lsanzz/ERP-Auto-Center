@@ -32,8 +32,8 @@ def _run_schema_updates(app: Flask) -> None:
         return
 
     statements = []
-    from .models import FiscalApiConfig, SystemSettings, UniNFeSubmission
-    for model in (SystemSettings, FiscalApiConfig, UniNFeSubmission):
+    from .models import FiscalApiConfig, SystemSettings, UniNFeSubmission, WorkOrder
+    for model in (SystemSettings, FiscalApiConfig, UniNFeSubmission, WorkOrder):
         table_name = model.__tablename__
         if table_name not in table_names:
             continue
