@@ -106,6 +106,27 @@ class FinanceStockFlowsTest(unittest.TestCase):
         self.assertNotIn('Peças no estoque mínimo', finance)
         self.assertIn('Exportar XML das notas', self.client.get('/fiscal').data.decode())
 
+    def test_partial_payment_keeps_rest_open_for_receivable_and_payable(self):
+        self.login()
+        with self.app.app_context():
+            account = BankAccount.query.filter_by(nome='JURIDICA').one().id
+            receivable = create_financial_entries('RECEBER', 'Cliente X', 'Serviços', Decimal('100'), '2026-10-30')[0]
+            payable = create_financial_entries('PAGAR', 'Fornecedor Y', 'Fornecedores', Decimal('40'), '2026-10-30')[0]
+            db.session.commit()
+            ids = (receivable.id, payable.id)
+        base = {'payment_receipt_at': '2026-10-21', 'bank_account_id': account, 'baixar_conta_presente': '1'}
+        self.client.post(f'/financeiro/{ids[0]}/liquidar', data={**base, 'valor_baixa': '30'})          # parcial
+        self.client.post(f'/financeiro/{ids[1]}/liquidar', data={**base, 'valor_baixa': '40', 'baixar_conta': '1'})  # quita
+        with self.app.app_context():
+            rest = db.session.get(FinancialEntry, ids[0])
+            self.assertEqual((rest.status, rest.valor, rest.vencimento.isoformat()), ('PENDENTE', Decimal('70.00'), '2026-10-30'))
+            part = FinancialEntry.query.filter(FinancialEntry.descricao.like('Cliente X (pagamento parcial)')).one()
+            self.assertEqual((part.status, part.valor), ('RECEBIDO', Decimal('30.00')))
+            self.assertEqual(db.session.get(FinancialEntry, ids[1]).status, 'PAGO')
+            self.assertEqual(BankAccount.query.filter_by(nome='JURIDICA').one().saldo_atual, Decimal('90'))  # 100 + 30 - 40
+        response = self.client.post(f'/financeiro/{ids[0]}/liquidar', data={**base, 'valor_baixa': '70'}, follow_redirects=True)
+        self.assertIn('menor que o valor em aberto'.encode(), response.data)  # parcial não pode quitar tudo
+
     def test_finance_page_has_new_entry_popup(self):
         self.login()
         page = self.client.get('/financeiro').data.decode()

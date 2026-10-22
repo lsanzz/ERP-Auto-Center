@@ -50,7 +50,11 @@
         {% for name, label in [('juros', 'Juros'), ('desconto', 'Desconto'), ('taxa', 'Taxa'), ('acrescimo', 'Acréscimo')] %}<label>{{ label }}<input type="number" name="{{ name }}" value="0" min="0" step="0.01"></label>{% endfor %}
       </div>
       <label class="settle-notes">Observações {{ 'do recebimento' if is_income else 'do pagamento' }}<textarea name="observacoes_pagamento" rows="2" placeholder="Opcional"></textarea></label>
-      <div class="settle-total"><span>{{ 'Valor a receber' if is_income else 'Valor a pagar' }}</span><output aria-live="polite">{{ format_currency(entry.valor) }}</output></div>
+      <div class="settle-bottom">
+        <label class="settle-check"><input type="hidden" name="baixar_conta_presente" value="1"><input type="checkbox" name="baixar_conta" value="1" checked> Baixar conta
+          <small>Desmarque para registrar um pagamento parcial: o restante continua em aberto.</small></label>
+        <div class="settle-total"><span>{{ 'Valor a receber' if is_income else 'Valor a pagar' }}</span><output aria-live="polite">{{ format_currency(entry.valor) }}</output></div>
+      </div>
       <button type="submit" class="settle-submit">Liquidar conta</button>
       {% if not bank_accounts %}<p class="settle-warning"><a href="{{ url_for('web.dashboard') }}#contas">Cadastre uma conta bancária para continuar.</a></p>{% endif %}
     </form>

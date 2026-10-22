@@ -1634,20 +1634,26 @@ def finance_settle(entry_id: int):
     if not entry:
         return redirect(url_for('web.finance_index'))
     try:
-        settle_financial_entry(
-            entry,
+        fields = dict(
             payment_method_id=int(request.form.get('payment_method_id')) if request.form.get('payment_method_id') else None,
             payment_receipt_at=request.form.get('payment_receipt_at'),
             bank_account_id=int(request.form.get('bank_account_id')) if request.form.get('bank_account_id') else None,
-            valor_baixa=request.form.get('valor_baixa'),
             juros=request.form.get('juros'),
             desconto=request.form.get('desconto'),
             taxa=request.form.get('taxa'),
             acrescimo=request.form.get('acrescimo'),
             observacoes_pagamento=request.form.get('observacoes_pagamento'),
         )
-        db.session.commit()
-        flash('Lançamento liquidado.', 'success')
+        # Formulários antigos (sem a caixa) continuam quitando a conta.
+        if 'baixar_conta_presente' in request.form and request.form.get('baixar_conta') != '1':
+            from .services import settle_partial_financial_entry
+            settle_partial_financial_entry(entry, request.form.get('valor_baixa'), **fields)
+            db.session.commit()
+            flash(f'Pagamento parcial registrado. Continua em aberto: {format_currency(entry.valor)}.', 'success')
+        else:
+            settle_financial_entry(entry, valor_baixa=request.form.get('valor_baixa'), **fields)
+            db.session.commit()
+            flash('Conta baixada.', 'success')
     except ValueError as exc:
         db.session.rollback()
         flash(str(exc), 'error')

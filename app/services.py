@@ -491,6 +491,25 @@ def settle_financial_entry(
     return entry
 
 
+def settle_partial_financial_entry(entry: FinancialEntry, valor_baixa, **settle_fields) -> FinancialEntry:
+    """Pagamento parcial ("Baixar conta" desmarcado): o valor pago vira um lançamento liquidado
+    e o restante continua em aberto no lançamento original, com o mesmo vencimento."""
+    if entry.status != 'PENDENTE':
+        raise ValueError('Só contas em aberto aceitam pagamento parcial.')
+    paid = parse_decimal(valor_baixa, strict=True)
+    if paid <= 0 or paid >= parse_decimal(entry.valor):
+        raise ValueError('No pagamento parcial, o valor de baixa deve ser maior que zero e menor que o valor em aberto.')
+    copied = {column.key: getattr(entry, column.key) for column in FinancialEntry.__table__.columns
+              if column.key not in {'id', 'version', 'created_at', 'updated_at', 'status', 'valor', 'payment_receipt_at',
+                                    'valor_baixa', 'juros', 'desconto', 'taxa', 'acrescimo'}}
+    part = FinancialEntry(**copied, valor=paid, status='PENDENTE')
+    part.descricao = f'{entry.descricao} (pagamento parcial)'[:255]
+    entry.valor = parse_decimal(entry.valor) - paid
+    db.session.add(part)
+    db.session.flush()
+    return settle_financial_entry(part, valor_baixa=paid, **settle_fields)
+
+
 def update_work_order_receivables(order: WorkOrder, status: str, payment_method_id: int | None = None, payment_receipt_at=None, bank_account_id: int | None = None) -> list[FinancialEntry]:
     entries = (FinancialEntry.query.filter_by(reference_type='OS', reference_id=order.id).order_by(FinancialEntry.installment_number.asc(), FinancialEntry.id.asc()).all())
     if not entries:
