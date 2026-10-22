@@ -66,8 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
       help.textContent = 'Nenhum veículo encontrado. Preencha placa e descrição manualmente.';
       return;
     }
-    box.style.display = 'block';
-    search.setAttribute('aria-expanded', 'true');
+    if (document.activeElement === search) {  // só abre a lista quando a pessoa está no campo
+      box.style.display = 'block';
+      search.setAttribute('aria-expanded', 'true');
+    }
     help.textContent = `${items.length} veículo${items.length === 1 ? '' : 's'} encontrado${items.length === 1 ? '' : 's'}.`;
   }
 

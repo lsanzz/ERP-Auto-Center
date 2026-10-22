@@ -1,13 +1,14 @@
+{% from '_privacy.html' import eye %}
 <div class="bank-accounts-grid">
   {% for account in finance.accounts %}
   <article class="bank-account-card">
     <div class="bank-account-top">
-      <span class="bank-account-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10h16M6 10v7m4-7v7m4-7v7m4-7v7M4 19h16M3 7l9-4 9 4v2H3V7Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      {% if account.nome|lower in ('dinheiro', 'caixa') or (account.nome|lower).startswith('caixa ') %}<span class="bank-account-icon is-cash" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v.01M18 14.5v.01"/></svg></span>{% else %}<span class="bank-account-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10h16M6 10v7m4-7v7m4-7v7m4-7v7M4 19h16M3 7l9-4 9 4v2H3V7Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>{% endif %}
       <div class="bank-account-name"><strong>{{ account.nome }}</strong><small>{{ account.banco or 'Banco não informado' }}</small></div>
       <button type="button" class="secondary bank-account-edit" onclick="document.getElementById('edit-bank-account-{{ account.id }}').showModal()">Editar</button>
     </div>
-    <div class="bank-account-balance"><small>Saldo disponível</small><strong data-private="R$ ••••••">{{ format_currency(account.saldo_atual) }}</strong></div>
-    {% if account.agencia or account.conta %}<div class="bank-account-details"><span>Agência <strong data-private="••••">{{ account.agencia or '—' }}</strong></span><span>Conta <strong data-private="••••••">{{ account.conta or '—' }}</strong></span></div>{% endif %}
+    <div class="bank-account-balance"><small>Saldo disponível {{ eye('conta-' ~ account.id, 'o saldo de ' ~ account.nome) }}</small><strong data-private="R$ ••••••" data-key="conta-{{ account.id }}">{{ format_currency(account.saldo_atual) }}</strong></div>
+    {% if account.agencia or account.conta %}<div class="bank-account-details"><span>Agência <strong data-private="••••" data-key="conta-{{ account.id }}">{{ account.agencia or '—' }}</strong></span><span>Conta <strong data-private="••••••" data-key="conta-{{ account.id }}">{{ account.conta or '—' }}</strong></span></div>{% endif %}
   </article>
   <dialog class="hub-dialog" id="edit-bank-account-{{ account.id }}">
     <div class="hub-panel-head"><h3>Editar conta</h3><button type="button" class="secondary" onclick="this.closest('dialog').close()" aria-label="Fechar">×</button></div>

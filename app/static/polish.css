@@ -81,12 +81,16 @@ body .fab-menu .fab-item{display:flex;align-items:center;gap:8px;width:100%;min-
 body .fab-menu .fab-item:hover{background:#f1f5f9}
 @media(max-width:600px){.fab{right:16px;bottom:calc(16px + env(safe-area-inset-bottom))}.fab-label{display:none}.fab>summary{width:52px;height:52px;padding:0;justify-content:center;font-size:20px}}
 
-/* Saldos ocultos por padrão; o botão "Mostrar valores" vale para este aparelho */
-html:not(.show-money) [data-private]{position:relative;color:transparent!important;user-select:none}
-html:not(.show-money) [data-private]::after{content:attr(data-private);position:absolute;left:0;top:0;white-space:nowrap;color:var(--foreground,#0f172a)}
-html:not(.show-money) .result-board [data-private]::after{color:#fff}
-.money-toggle .when-shown,html.show-money .money-toggle .when-hidden{display:none}
-html.show-money .money-toggle .when-shown{display:inline}
+/* Saldos ocultos por padrão; cada conta/grupo tem seu olho, lembrado neste aparelho */
+[data-private]:not(.is-shown){position:relative;color:transparent!important;user-select:none}
+[data-private]:not(.is-shown)::after{content:attr(data-private);position:absolute;left:0;top:0;white-space:nowrap;color:var(--foreground,#0f172a)}
+.result-board [data-private]:not(.is-shown)::after{color:#fff}
+body button.eye-toggle{display:inline-grid;place-items:center;width:28px;height:28px;min-height:0;padding:0;margin-left:4px;vertical-align:middle;border:1px solid #dbe3ef;border-radius:8px;background:#fff;box-shadow:none;color:#475569!important;cursor:pointer;transition:background-color .15s,color .15s,transform .15s}
+body button.eye-toggle:hover{background:#eff6ff;color:#1d4ed8!important;transform:translateY(-1px)}
+body button.eye-toggle svg{width:16px;height:16px}
+.eye-toggle .eye-open,.eye-toggle[aria-pressed=true] .eye-closed{display:none}
+.eye-toggle[aria-pressed=true] .eye-open{display:block}
+.bank-account-icon.is-cash{color:#15803d;background:#dcfce7}
 
 .chart-period{display:flex;gap:4px;padding:3px;background:#f1f5f9;border-radius:10px}
 body .chart-period a.tab{padding:4px 10px;border-radius:7px;font-size:12px;font-weight:600;color:#475569;text-decoration:none}
@@ -133,3 +137,25 @@ body a.back-link::before{content:'';width:24px;height:24px;border-radius:7px;bac
 body a.back-link:hover{background:#eff6ff;border-color:#bfdbfe;box-shadow:0 4px 12px rgba(37,99,235,.12);transform:translateY(-1px)}
 body a.back-link:hover::before{transform:translateX(-2px)}
 @media(prefers-reduced-motion:reduce){body :is(.hub-advanced,.finance-more,.nota-details,.fiscal-fold,.toggle-details)>summary,body a.back-link,body a.back-link::before{transition:none}}
+
+/* Cores por situação da O.S. (lista, menu de situação e página da O.S.) */
+body .status-badge{padding:4px 10px 4px 8px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em;background:var(--st-bg,#f1f5f9);color:var(--st-fg,#334155)}
+body .status-badge .status-dot{width:8px;height:8px;border-radius:50%;background:var(--st-dot,#94a3b8);box-shadow:0 0 0 3px var(--st-ring,rgba(148,163,184,.2))}
+body .status-aberta{--st-bg:#eff6ff;--st-fg:#1d4ed8;--st-dot:#2563eb;--st-ring:rgba(37,99,235,.18)}
+body .status-em-andamento{--st-bg:#fff7ed;--st-fg:#c2410c;--st-dot:#f97316;--st-ring:rgba(249,115,22,.2)}
+body .status-aguardando-peca{--st-bg:#f5f3ff;--st-fg:#6d28d9;--st-dot:#8b5cf6;--st-ring:rgba(139,92,246,.2)}
+body .status-finalizada{--st-bg:#f0fdf4;--st-fg:#15803d;--st-dot:#22c55e;--st-ring:rgba(34,197,94,.2)}
+body .status-entregue{--st-bg:#f1f5f9;--st-fg:#0f766e;--st-dot:#0f766e;--st-ring:rgba(15,118,110,.18)}
+body .status-cancelada{--st-bg:#fef2f2;--st-fg:#b91c1c;--st-dot:#ef4444;--st-ring:rgba(239,68,68,.2)}
+body .status-pendente{--st-bg:#fff7ed;--st-fg:#c2410c;--st-dot:#f97316;--st-ring:rgba(249,115,22,.2)}
+body .status-recebido,body .status-pago{--st-bg:#f0fdf4;--st-fg:#15803d;--st-dot:#22c55e;--st-ring:rgba(34,197,94,.2)}
+
+/* O.S.: bloco de pagamento e fechamento alinhado */
+body label.os-discount-row{display:flex!important;flex-direction:row!important;justify-content:space-between;align-items:center;gap:12px;margin:0;text-align:left}
+body label.os-discount-row input{width:140px;max-width:140px;margin:0;text-align:right}
+#payments-container .payment-row{align-items:end!important}
+#payments-container .payment-row label{margin:0}
+body button.remove-payment-btn{display:inline-grid;place-items:center;width:40px;height:40px;min-height:0;padding:0;border:1px solid #fecaca;border-radius:10px;background:#fff;box-shadow:none;color:#b91c1c!important;font-size:20px;line-height:1;transition:background-color .15s}
+body button.remove-payment-btn:hover{background:#fef2f2}
+body #add-payment-btn{min-height:36px;padding:0 14px;font-size:13px}
+@media(max-width:700px){#payments-container .payment-row{grid-template-columns:1fr 1fr!important}#payments-container .payment-row label:first-child{grid-column:1/-1}}

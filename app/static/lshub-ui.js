@@ -8,17 +8,23 @@ document.querySelectorAll('.grouped-nav a').forEach(link => {
   }
 });
 
-/* Mostrar/ocultar saldos (padrão: ocultos), lembrado neste aparelho. */
+/* Mostrar/ocultar saldos por conta/grupo (padrão: ocultos), lembrado neste aparelho. */
 (() => {
-  const root = document.documentElement;
-  const KEY = 'lshub-show-money';
-  try { root.classList.toggle('show-money', localStorage.getItem(KEY) === '1'); } catch (_) {}
-  const sync = () => document.querySelectorAll('[data-money-toggle]').forEach(button => button.setAttribute('aria-pressed', String(root.classList.contains('show-money'))));
-  sync();
+  const KEY = 'lshub-saldos-visiveis';
+  let shown;
+  try { shown = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); } catch (_) { shown = new Set(); }
+  const apply = () => {
+    document.querySelectorAll('[data-private][data-key]').forEach(el => el.classList.toggle('is-shown', shown.has(el.dataset.key)));
+    document.querySelectorAll('[data-privacy-toggle]').forEach(button => button.setAttribute('aria-pressed', String(shown.has(button.dataset.privacyToggle))));
+  };
+  apply();
   document.addEventListener('click', event => {
-    if (!event.target.closest('[data-money-toggle]')) return;
-    const shown = root.classList.toggle('show-money');
-    try { localStorage.setItem(KEY, shown ? '1' : '0'); } catch (_) {}
-    sync();
+    const button = event.target.closest('[data-privacy-toggle]');
+    if (!button) return;
+    event.preventDefault();  // o olho fica dentro de cartões que são links
+    const key = button.dataset.privacyToggle;
+    if (shown.has(key)) shown.delete(key); else shown.add(key);
+    try { localStorage.setItem(KEY, JSON.stringify([...shown])); } catch (_) {}
+    apply();
   });
 })();

@@ -880,8 +880,8 @@ document.addEventListener('DOMContentLoaded', () => {
   <link rel="stylesheet" href="{{ url_for('static', filename='lshub-ui.css') }}?v=4">
   <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}?v=2">
 {% include '_design_system.html' %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=12">
-  <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=4" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=15">
+  <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=5" defer></script>
   <script src="{{ url_for('static', filename='responsive.js') }}?v=2" defer></script>
   {% if assistant_enabled and current_user() and can('work_orders.manage') %}{% include '_assistant.html' %}{% endif %}
 </body>

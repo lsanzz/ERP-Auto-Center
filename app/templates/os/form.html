@@ -214,7 +214,7 @@
           <span class="muted">Total Peças</span>
           <strong id="preview-parts-total" style="font-family: var(--font-polysans); font-size: 18px;">R$ 0,00</strong>
         </div>
-        <label class="responsive-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+        <label class="os-discount-row" for="os-discount">
           <span class="muted">Desconto (R$)</span>
           <input id="os-discount" type="text" inputmode="decimal" name="desconto" value="{{ ('%.2f'|format(order.desconto|float)).replace('.', ',') if order and order.desconto else '0,00' }}" style="max-width: 140px; text-align: right;">
         </label>
@@ -229,7 +229,7 @@
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div class="responsive-row" style="display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 16px; color: var(--color-graphite); font-weight: 500;">Formas de Pagamento</span>
-          <button type="button" class="button secondary" id="add-payment-btn" style="height: 32px; padding: 0 16px; font-size: 13px;">+ Pagamento</button>
+          <button type="button" class="button secondary" id="add-payment-btn">+ Pagamento</button>
         </div>
         
         <div id="payments-container" style="display: flex; flex-direction: column; gap: 12px;">
@@ -255,7 +255,7 @@
               <label style="margin: 0;">Parcelas
                 <input type="number" name="payment_installments[]" class="payment-installments-input" min="1" max="24" value="{{ payment.installment_count or 1 }}">
               </label>
-              <button type="button" aria-label="Remover pagamento" class="secondary remove-payment-btn" style="height: 38px; padding: 0 12px; border: 1px solid var(--color-mist);">X</button>
+              <button type="button" aria-label="Remover pagamento" class="secondary remove-payment-btn">×</button>
             </div>
             {% endfor %}
           {% else %}
@@ -274,7 +274,7 @@
               <label style="margin: 0;">Parcelas
                 <input type="number" name="payment_installments[]" class="payment-installments-input" min="1" max="24" value="1">
               </label>
-              <button type="button" aria-label="Remover pagamento" class="secondary remove-payment-btn" style="height: 38px; padding: 0 12px; border: 1px solid var(--color-mist);">X</button>
+              <button type="button" aria-label="Remover pagamento" class="secondary remove-payment-btn">×</button>
             </div>
           {% endif %}
         </div>
@@ -345,7 +345,7 @@
     <label style="margin: 0;">Parcelas
       <input type="number" name="payment_installments[]" class="payment-installments-input" min="1" max="24" value="1">
     </label>
-    <button type="button" aria-label="Remover pagamento" class="secondary remove-payment-btn" style="height: 38px; padding: 0 12px; border: 1px solid var(--color-mist);">X</button>
+    <button type="button" aria-label="Remover pagamento" class="secondary remove-payment-btn">×</button>
   </div>
 </template>
 

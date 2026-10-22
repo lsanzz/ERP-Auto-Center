@@ -115,7 +115,7 @@ class VhsysParityTest(unittest.TestCase):
         dashboard = self.client.get('/dashboard?meses=12').data.decode()
         self.assertEqual(dashboard.count('class="area-dot"'), 12)
         self.assertIn('data-private=', dashboard)
-        self.assertIn('Mostrar valores', dashboard)
+        self.assertIn('data-privacy-toggle="saldo-total"', dashboard)
         self.assertIn('+ Novo', dashboard)
 
 
