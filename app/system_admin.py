@@ -12,6 +12,7 @@ from .fiscal import save_fiscal_config_from_form
 from .models import FiscalApiConfig, ManagedCompany, SystemAdmin, db
 from .operations.models import AuditEvent
 from .settings import get_system_settings
+from .subscription import subscription_status
 
 
 system_admin_bp = Blueprint('system_admin', __name__, url_prefix='/sistema')
@@ -82,6 +83,7 @@ def dashboard():
     return render_template(
         'sistema/dashboard.html', admin=current_system_admin(), companies=companies,
         search=search, local_company=get_system_settings(), fiscal_config=config,
+        subscription_state=subscription_status(get_system_settings()),
         total_companies=ManagedCompany.query.filter_by(remote_active=True).count(),
         synced_companies=ManagedCompany.query.filter(ManagedCompany.remote_active.is_(True), ManagedCompany.remote_status.in_(['ATIVA', 'ATIVO', 'CADASTRADA'])).count(),
     )
@@ -115,6 +117,26 @@ def integration():
         return redirect(url_for('system_admin.integration'))
     return render_template('sistema/integracao.html', admin=current_system_admin(), settings=get_system_settings(),
                            fiscal_config=FiscalApiConfig.query.order_by(FiscalApiConfig.id).first())
+
+
+@system_admin_bp.post('/admin/assinatura')
+@system_admin_required
+def update_subscription():
+    from .utils import parse_date
+    settings = get_system_settings()
+    if settings.id is None:
+        db.session.add(settings)
+    raw_date = (request.form.get('paid_until') or '').strip()
+    paid_until = parse_date(raw_date) if raw_date else None
+    if raw_date and not paid_until:
+        flash('Data de pagamento inválida.', 'error')
+        return redirect(url_for('system_admin.dashboard') + '#assinatura')
+    settings.subscription_plan = (request.form.get('plan') or '').strip()[:40] or None
+    settings.subscription_paid_until = paid_until
+    settings.subscription_suspended = request.form.get('suspended') == '1'
+    db.session.commit()
+    flash('Assinatura atualizada.', 'success')
+    return redirect(url_for('system_admin.dashboard') + '#assinatura')
 
 
 @system_admin_bp.post('/admin/senha')

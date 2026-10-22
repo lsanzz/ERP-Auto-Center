@@ -1,8 +1,8 @@
 {
   "app/__init__.py": {
-    "mtime": 1792711556.0454144,
-    "seen": 1792712113.0792725,
-    "ast_hash": "67936e351d92d524858def41732a0cf9",
+    "mtime": 1792712454.75072,
+    "seen": 1792712787.0393915,
+    "ast_hash": "023142e5982b5d3bbf1155200bf8dac7",
     "semantic_hash": ""
   },
   "app/api.py": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "app/models.py": {
-    "mtime": 1792711686.974705,
-    "seen": 1792712113.0793192,
-    "ast_hash": "86e7784e68eb7e23124d674d22212d62",
+    "mtime": 1792712387.2197907,
+    "seen": 1792712787.0402248,
+    "ast_hash": "b816707aa0ca6c86be09319333a0507c",
     "semantic_hash": ""
   },
   "app/observability.py": {
@@ -294,10 +294,10 @@
     "semantic_hash": ""
   },
   "app/system_admin.py": {
-    "mtime": 1792710447.8014882,
-    "seen": 1792712113.079358,
-    "ast_hash": "207ad9ccecda832c6b4f34614b1b548c",
-    "semantic_hash": "207ad9ccecda832c6b4f34614b1b548c"
+    "mtime": 1792712490.3612008,
+    "seen": 1792712787.0411062,
+    "ast_hash": "a2d23afbf27a01fbd5dd38d0b02017e1",
+    "semantic_hash": ""
   },
   "app/uninfe_config.py": {
     "mtime": 1792710447.80613,
@@ -360,9 +360,9 @@
     "semantic_hash": ""
   },
   "app/web.py": {
-    "mtime": 1792711597.7265816,
-    "seen": 1792712113.0793717,
-    "ast_hash": "db6dc0a8bc77b2f3178e3be297d4e29d",
+    "mtime": 1792712418.0496643,
+    "seen": 1792712787.0413556,
+    "ast_hash": "24c6b299e9f3227122ee07d9738e998e",
     "semantic_hash": ""
   },
   "app/xml_import.py": {
@@ -1032,9 +1032,9 @@
     "semantic_hash": ""
   },
   "app/templates/base.html": {
-    "mtime": 1792710447.8030488,
-    "seen": 1792712113.079489,
-    "ast_hash": "40cc9e43c8d35406c297254cf58acc02",
+    "mtime": 1792712410.043392,
+    "seen": 1792712787.0438538,
+    "ast_hash": "9e22ba4e06b059fa3a35a9315be0cbca",
     "semantic_hash": ""
   },
   "app/templates/clientes/_picker.html": {
@@ -1056,9 +1056,9 @@
     "semantic_hash": ""
   },
   "app/templates/clientes/show.html": {
-    "mtime": 1792710447.8032827,
-    "seen": 1792712113.079493,
-    "ast_hash": "eeb9515b6ca1626e1bbfc0d89d02dc2c",
+    "mtime": 1792712454.751104,
+    "seen": 1792712787.0439343,
+    "ast_hash": "ea6dc475629ff3c1b097e4b4713b5679",
     "semantic_hash": ""
   },
   "app/templates/configuracoes/_uninfe.html": {
@@ -1068,9 +1068,9 @@
     "semantic_hash": ""
   },
   "app/templates/configuracoes/index.html": {
-    "mtime": 1792710447.8034647,
-    "seen": 1792712113.0794954,
-    "ast_hash": "46a77d223ecadc8af647f55d62a8ffe0",
+    "mtime": 1792712468.74994,
+    "seen": 1792712787.0439687,
+    "ast_hash": "36907bba1c20ae2af9a940141b87ba0c",
     "semantic_hash": ""
   },
   "app/templates/configuracoes/usuario_form.html": {
@@ -1110,9 +1110,9 @@
     "semantic_hash": ""
   },
   "app/templates/error.html": {
-    "mtime": 1792710447.8037019,
-    "seen": 1792712113.0795026,
-    "ast_hash": "38196976cd0c9bcf0fabcf5a605bdc9b",
+    "mtime": 1792712410.044022,
+    "seen": 1792712787.0441506,
+    "ast_hash": "6de652ac60340c18b1fe186efef49bad",
     "semantic_hash": ""
   },
   "app/templates/financeiro/_entry_form.html": {
@@ -1380,9 +1380,9 @@
     "semantic_hash": ""
   },
   "app/templates/sistema/dashboard.html": {
-    "mtime": 1792710447.8060348,
-    "seen": 1792712113.0795517,
-    "ast_hash": "454e77a013f39fa240d14e334e29f9a0",
+    "mtime": 1792712490.3619063,
+    "seen": 1792712787.0455234,
+    "ast_hash": "209f72a51d05583adcae60cad496917f",
     "semantic_hash": ""
   },
   "app/templates/sistema/integracao.html": {
@@ -1869,6 +1869,90 @@
     "mtime": 1792710447.819623,
     "seen": 1792712113.0796375,
     "ast_hash": "1fe71f90922ba73d7396d14e044ae247",
+    "semantic_hash": ""
+  },
+  "app/lgpd.py": {
+    "mtime": 1792712454.7502255,
+    "seen": 1792712787.0401905,
+    "ast_hash": "522529d5dd874dc681b4b84314d14431",
+    "semantic_hash": ""
+  },
+  "app/subscription.py": {
+    "mtime": 1792712387.2269142,
+    "seen": 1792712787.041103,
+    "ast_hash": "52fbc31dfc5502caab32b1ff0663e715",
+    "semantic_hash": ""
+  },
+  "migrations/versions/20261022_20_subscription.py": {
+    "mtime": 1792712518.5121245,
+    "seen": 1792712787.041956,
+    "ast_hash": "47bc2f6f1a9e2067c576e1b941427bba",
+    "semantic_hash": ""
+  },
+  "tests/test_business_readiness.py": {
+    "mtime": 1792712528.1218538,
+    "seen": 1792712787.0424356,
+    "ast_hash": "52ece2c71cf3622db443280f72316d07",
+    "semantic_hash": ""
+  },
+  "app/templates/assinatura_suspensa.html": {
+    "mtime": 1792712468.754046,
+    "seen": 1792712787.0437765,
+    "ast_hash": "426026d43d1548e7f8b29df546d429e1",
+    "semantic_hash": ""
+  },
+  "docs/comercial/README.md": {
+    "mtime": 1792712603.4429016,
+    "seen": 1792712787.0458024,
+    "ast_hash": "8a1f8200543253b8dd0d224c674930ef",
+    "semantic_hash": ""
+  },
+  "docs/comercial/acordo-tratamento-dados.md": {
+    "mtime": 1792712603.450337,
+    "seen": 1792712787.045806,
+    "ast_hash": "ffa697cc325e923caceac05ba6378327",
+    "semantic_hash": ""
+  },
+  "docs/comercial/cobranca.md": {
+    "mtime": 1792712661.920133,
+    "seen": 1792712787.0458078,
+    "ast_hash": "3f024618ad7a03d4801c6312cb1af3e5",
+    "semantic_hash": ""
+  },
+  "docs/comercial/contrato-assinatura.md": {
+    "mtime": 1792712603.4441295,
+    "seen": 1792712787.0458095,
+    "ast_hash": "17231a2788d0456b916fedb530ff1a96",
+    "semantic_hash": ""
+  },
+  "docs/comercial/homologacao-fiscal.md": {
+    "mtime": 1792712679.595867,
+    "seen": 1792712787.0458114,
+    "ast_hash": "09f48efe43f1b7b6d71044d869e811b1",
+    "semantic_hash": ""
+  },
+  "docs/comercial/implantacao.md": {
+    "mtime": 1792712679.5938318,
+    "seen": 1792712787.0458133,
+    "ast_hash": "bac6beeef802164ee1d3e9c95ea74268",
+    "semantic_hash": ""
+  },
+  "docs/comercial/politica-privacidade.md": {
+    "mtime": 1792712603.448547,
+    "seen": 1792712787.045815,
+    "ast_hash": "f9fa3933de9510c087a672201f6d1256",
+    "semantic_hash": ""
+  },
+  "docs/comercial/suporte.md": {
+    "mtime": 1792712661.924133,
+    "seen": 1792712787.0458171,
+    "ast_hash": "6362afee27459ce7b6a5e4327f22c6fb",
+    "semantic_hash": ""
+  },
+  "docs/comercial/termos-de-uso.md": {
+    "mtime": 1792712603.4467175,
+    "seen": 1792712787.0458188,
+    "ast_hash": "6ea5b296f61bcd7a775f81080fd5ae78",
     "semantic_hash": ""
   }
 }

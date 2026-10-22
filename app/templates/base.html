@@ -490,6 +490,8 @@
         <details class="nav-group profile-menu"><summary aria-label="Perfil"><span class="profile-avatar">{{ current_user().nome[:1]|upper }}</span><span>Perfil</span></summary><div class="nav-dropdown">
           <div class="profile-info"><strong>{{ current_user().nome }}</strong><small>{{ current_user().role|replace('_', ' ') }}</small></div>
           <a href="{{ url_for('web.mfa_setup') }}">Segurança da conta</a>
+          {% if support_whatsapp %}<a href="https://wa.me/{{ support_whatsapp|replace('+', '')|replace(' ', '')|replace('-', '') }}" target="_blank" rel="noopener">Suporte (WhatsApp)</a>{% endif %}
+          {% if support_email %}<a href="mailto:{{ support_email }}">Suporte por e-mail</a>{% endif %}
           <form method="post" action="{{ url_for('web.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="nav-logout" type="submit">Sair</button></form>
         </div></details>
         {% endif %}
@@ -521,6 +523,9 @@
         </section>
         {% endif %}
       {% endwith %}
+      {% if subscription_state == 'CARENCIA' %}
+      <section class="flash-list"><div class="flash error" role="alert">A assinatura do LS Hub está em atraso. O acesso será bloqueado em {{ subscription_grace_ends|date_br }}. {% if support_whatsapp or support_email %}Fale com o suporte para regularizar.{% endif %}</div></section>
+      {% endif %}
 
       {% set top_level = ['web.dashboard', 'web.work_orders_index', 'web.clients_index', 'fleet.index', 'web.services_index', 'scheduling.index', 'scheduling.floor', 'web.budgets_index', 'operations.inventory', 'web.products_index', 'web.finance_index', 'business.finance_calendar', 'web.fiscal_index', 'web.reports_index', 'management.index', 'web.settings_index'] %}
       {% if current_user() and request.endpoint not in top_level %}<a class="back-link" href="{{ url_for('web.dashboard') }}" data-back>Voltar</a>{% endif %}

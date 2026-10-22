@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block page_title %} · Assinatura suspensa{% endblock %}
+{% block content %}
+<section class="card" style="max-width:720px;margin:48px auto;">
+  <h2>Assinatura suspensa</h2>
+  <p class="muted">O acesso ao LS Hub está bloqueado por falta de pagamento. Seus dados continuam guardados com segurança e nada foi apagado.</p>
+  <p>Para liberar o acesso, regularize o pagamento com o suporte{% if support_whatsapp %} pelo WhatsApp {{ support_whatsapp }}{% endif %}{% if support_email %} ou pelo e-mail {{ support_email }}{% endif %}.</p>
+  <div class="actions responsive-row" style="display:flex;gap:10px;flex-wrap:wrap;">
+    {% if support_whatsapp %}<a class="button" href="https://wa.me/{{ support_whatsapp|replace('+', '')|replace(' ', '')|replace('-', '') }}" target="_blank" rel="noopener">Falar com o suporte</a>{% endif %}
+    {% if current_user().role == 'ADMINISTRADOR' %}<a class="button secondary" href="{{ url_for('lgpd.export_all') }}">Baixar todos os dados da oficina</a>{% endif %}
+    <form method="post" action="{{ url_for('web.logout') }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Sair</button></form>
+  </div>
+</section>
+{% endblock %}

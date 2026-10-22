@@ -150,6 +150,10 @@ class SystemSettings(db.Model, TimestampMixin, SerializableMixin):
     work_order_prefix = db.Column(db.String(10), nullable=False, default='OS')
     budget_validity_days = db.Column(db.Integer, nullable=False, default=7)
     warranty_days = db.Column(db.Integer, nullable=False, default=90)
+    # Assinatura do LS Hub nesta instalação; sem data paga o acesso não é controlado (instalação própria).
+    subscription_plan = db.Column(db.String(40))
+    subscription_paid_until = db.Column(db.Date)
+    subscription_suspended = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
 
     partners = db.relationship('CompanyPartner', back_populates='settings', cascade='all, delete-orphan', order_by='CompanyPartner.id')
 

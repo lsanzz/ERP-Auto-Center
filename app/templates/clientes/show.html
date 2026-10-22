@@ -8,6 +8,9 @@
       <button type="submit" class="button secondary" style="color: var(--color-ember-orange) !important; border-color: var(--color-ember-orange) !important;">Excluir</button>
     </form>
     {% endif %}
+    {% if current_user().role == 'ADMINISTRADOR' %}
+    <a class="button secondary" href="{{ url_for('lgpd.export_client', client_id=client.id) }}">Exportar dados (LGPD)</a>
+    {% endif %}
     <a class="button secondary" href="{{ url_for('web.clients_edit', client_id=client.id) }}">Editar</a>
     <a class="button secondary" href="{{ url_for('web.clients_index') }}">Voltar</a>
   </div>
@@ -28,6 +31,17 @@
     <div class="kv"><strong>Última atualização</strong><span>{{ client.updated_at|datetime_br }}</span></div>
   </div>
 </div>
+{% if current_user().role == 'ADMINISTRADOR' %}
+<details class="card" style="margin-top:16px">
+  <summary><strong>Pedido de eliminação de dados (LGPD)</strong></summary>
+  <p class="muted">Apaga nome, CPF/CNPJ, contatos, endereço e chassi/Renavam dos veículos. O.S., financeiro e notas fiscais continuam guardados por obrigação legal. Não pode ser desfeito.</p>
+  <form method="post" action="{{ url_for('lgpd.anonymize_client', client_id=client.id) }}" class="responsive-row" style="display:flex;gap:10px;align-items:end">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Digite ANONIMIZAR para confirmar<input name="confirmacao" autocomplete="off" required></label>
+    <button type="submit" class="button secondary">Anonimizar cliente</button>
+  </form>
+</details>
+{% endif %}
 <div class="table-card">
   <h3>Histórico de ordens de serviço</h3>
   <table data-mobile-cards class="table">

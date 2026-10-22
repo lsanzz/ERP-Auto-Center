@@ -226,6 +226,8 @@ def create_app(test_config: dict | None = None) -> Flask:
         SQLALCHEMY_ECHO=False,  # nunca logar SQL em produção (performance)
         SQLALCHEMY_ENGINE_OPTIONS=engine_options,
         MAX_CONTENT_LENGTH=12 * 1024 * 1024,
+        SUPPORT_WHATSAPP=os.getenv('SUPPORT_WHATSAPP', ''),
+        SUPPORT_EMAIL=os.getenv('SUPPORT_EMAIL', ''),
         ASYNC_EXTERNAL_CALLS=os.getenv('ASYNC_EXTERNAL_CALLS', 'false').lower() == 'true',
         UNINFE_TRANSPORT=os.getenv('UNINFE_TRANSPORT', 'local'),
         UNINFE_CONNECTOR_ID=os.getenv('UNINFE_CONNECTOR_ID', ''),
@@ -324,6 +326,8 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.register_blueprint(business_bp)
     from .assistant.routes import assistant_bp
     app.register_blueprint(assistant_bp)
+    from .lgpd import lgpd_bp
+    app.register_blueprint(lgpd_bp)
     from .system_admin import register_system_admin_cli, system_admin_bp
     app.register_blueprint(system_admin_bp)
     register_system_admin_cli(app)

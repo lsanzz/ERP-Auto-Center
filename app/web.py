@@ -106,6 +106,35 @@ def not_found(_error):
     return render_template('error.html', code=404, message='Página não encontrada.'), 404
 
 
+SUBSCRIPTION_OPEN_ENDPOINTS = {'web.login', 'web.login_mfa', 'web.logout', 'web.root', 'static', 'service_worker',
+                               'api.health', 'api.session_create', 'api.session_delete', 'csrf_token_endpoint',
+                               'lgpd.export_all'}
+
+
+@web_bp.before_app_request
+def enforce_subscription():
+    from .subscription import subscription_status
+    endpoint = request.endpoint or ''
+    if endpoint in SUBSCRIPTION_OPEN_ENDPOINTS or endpoint.startswith('system_admin.') or not current_user():
+        return None
+    if subscription_status(get_system_settings()) != 'SUSPENSA':
+        return None
+    # Bloqueia o uso, mas o administrador ainda baixa os dados da oficina (LGPD e contrato).
+    if request.path.startswith('/api/'):
+        return {'error': 'Assinatura suspensa. Regularize o pagamento para continuar.', 'code': 'SUBSCRIPTION_SUSPENDED'}, 402
+    return render_template('assinatura_suspensa.html'), 402
+
+
+@web_bp.app_context_processor
+def inject_subscription():
+    from .subscription import grace_ends, subscription_status
+    if not current_user():
+        return {}
+    settings = get_system_settings()
+    return {'subscription_state': subscription_status(settings), 'subscription_grace_ends': grace_ends(settings),
+            'support_whatsapp': current_app.config.get('SUPPORT_WHATSAPP'), 'support_email': current_app.config.get('SUPPORT_EMAIL')}
+
+
 @web_bp.app_errorhandler(StaleDataError)
 def concurrent_change(_error):
     db.session.rollback()

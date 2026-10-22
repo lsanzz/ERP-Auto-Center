@@ -98,6 +98,7 @@
     <div class="error-actions">
       <a class="button" href="{{ url_for('web.root') }}">Ir para o início</a>
       <button class="error-back" type="button" onclick="history.back()">Voltar à página anterior</button>
+      {% if code >= 500 and support_whatsapp %}<a class="error-back" href="https://wa.me/{{ support_whatsapp|replace('+', '')|replace(' ', '')|replace('-', '') }}" target="_blank" rel="noopener">Falar com o suporte</a>{% endif %}
     </div>
   </section>
 </main>
