@@ -46,3 +46,12 @@ Em caso de falha de migration, não improvise alterações manuais no schema. In
 - `TZ`: o sistema assume `America/Sao_Paulo` quando a variável não está definida, para "hoje" ser o dia da oficina. Só defina outro valor se a oficina estiver em outro fuso.
 - `TRUSTED_PROXY_COUNT`: número de proxies na frente do sistema (ex.: `1` com Cloudflare ou proxy reverso). Sem isso, atrás de proxy todos os usuários aparecem com o mesmo IP e 5 senhas erradas de uma pessoa bloqueiam o login de todos. Deixe vazio quando o acesso for direto.
 - Migration `20261022_19` cria `assistant_states` (conversa e propostas do assistente de IA, antes guardadas no cookie). Rode `flask --app run.py db upgrade` antes de subir esta versão.
+
+## Painel do dono do sistema (privado)
+
+- Senha + **código do aplicativo autenticador obrigatório** (configurado no primeiro login). A sessão expira após 30 minutos parada, e 5 erros bloqueiam o IP por 15 minutos.
+- `SYSTEM_ADMIN_PATH`: endereço secreto do painel (ex.: `/painel-k8w3q`). Sem a variável, fica em `/sistema`. Fora do endereço certo, a resposta é 404.
+- `SYSTEM_ADMIN_ALLOWED_IPS`: IPs ou faixas autorizados, separados por vírgula (ex.: `189.10.20.30,2804:abcd::/32`). Qualquer outro IP recebe 404, como se o painel não existisse. Atrás de Cloudflare, defina também `TRUSTED_PROXY_COUNT`.
+- Criar o acesso: `flask --app run.py criar-admin-sistema --username SEU_USUARIO`. Mostra uma senha temporária uma única vez.
+- Esqueceu a senha ou perdeu o celular: `flask --app run.py redefinir-acesso-admin-sistema --username SEU_USUARIO` gera uma senha nova e zera o autenticador. Só funciona com acesso ao servidor.
+- Migration `20261022_21` adiciona o autenticador aos administradores do sistema.

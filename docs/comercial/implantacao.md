@@ -22,11 +22,13 @@ Modelo adotado: **uma instalação (aplicação + banco MySQL) por oficina**. Os
    SUPPORT_WHATSAPP=+55 19 9XXXX-XXXX
    SUPPORT_EMAIL=suporte@lshub.com.br
    TRUSTED_PROXY_COUNT=1   # só se passar pela Cloudflare
+   SYSTEM_ADMIN_PATH=/painel-<algo-aleatório>
+   SYSTEM_ADMIN_ALLOWED_IPS=<seu IP fixo ou faixa da sua operadora>
    ```
    Um `SECRET_KEY` aleatório se gera com: `python -c "import secrets; print(secrets.token_hex(32))"`.
 4. Instale as dependências e rode `flask --app run.py db upgrade`.
 5. Crie o seu acesso de dono do sistema: `flask --app run.py criar-admin-sistema --username SEU_USUARIO --name "SEU NOME"` (mostra uma senha temporária; troque no primeiro acesso).
-6. Em `/sistema/admin`, defina o **plano** e o **Pago até**.
+6. No painel do dono do sistema (`SYSTEM_ADMIN_PATH`/admin), defina o **plano** e o **Pago até**.
 
 ## 3. Tarefas em segundo plano (obrigatório)
 Importações e consultas fiscais rodam no processador de tarefas. No cPanel, que não mantém processos rodando, crie um **Cron Job a cada minuto**:

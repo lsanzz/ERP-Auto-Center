@@ -228,6 +228,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         MAX_CONTENT_LENGTH=12 * 1024 * 1024,
         SUPPORT_WHATSAPP=os.getenv('SUPPORT_WHATSAPP', ''),
         SUPPORT_EMAIL=os.getenv('SUPPORT_EMAIL', ''),
+        SYSTEM_ADMIN_ALLOWED_IPS=os.getenv('SYSTEM_ADMIN_ALLOWED_IPS', ''),
         ASYNC_EXTERNAL_CALLS=os.getenv('ASYNC_EXTERNAL_CALLS', 'false').lower() == 'true',
         UNINFE_TRANSPORT=os.getenv('UNINFE_TRANSPORT', 'local'),
         UNINFE_CONNECTOR_ID=os.getenv('UNINFE_CONNECTOR_ID', ''),
@@ -329,7 +330,8 @@ def create_app(test_config: dict | None = None) -> Flask:
     from .lgpd import lgpd_bp
     app.register_blueprint(lgpd_bp)
     from .system_admin import register_system_admin_cli, system_admin_bp
-    app.register_blueprint(system_admin_bp)
+    admin_path = '/' + (os.getenv('SYSTEM_ADMIN_PATH') or 'sistema').strip('/')
+    app.register_blueprint(system_admin_bp, url_prefix=admin_path)
     register_system_admin_cli(app)
 
     # Explicit migrations are opt-in during the transition from the legacy bootstrap.

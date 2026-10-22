@@ -87,3 +87,30 @@ class BusinessReadinessTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SystemAdminPrivacyTest(unittest.TestCase):
+    def make_app(self, **config):
+        app = create_app({'TESTING': True, 'WTF_CSRF_ENABLED': False, 'SQLALCHEMY_DATABASE_URI': 'sqlite://',
+                          'SQLALCHEMY_ENGINE_OPTIONS': {'poolclass': StaticPool, 'connect_args': {'check_same_thread': False}},
+                          **config})
+        with app.app_context():
+            db.create_all()
+        return app
+
+    def test_unlisted_ip_gets_404(self):
+        app = self.make_app(SYSTEM_ADMIN_ALLOWED_IPS='10.0.0.0/8, 203.0.113.7')
+        client = app.test_client()
+        self.assertEqual(client.get('/sistema/login').status_code, 404)
+        self.assertEqual(client.get('/sistema/login', environ_base={'REMOTE_ADDR': '203.0.113.7'}).status_code, 200)
+        self.assertEqual(client.get('/sistema/login', environ_base={'REMOTE_ADDR': '10.1.2.3'}).status_code, 200)
+
+    def test_secret_path(self):
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ, {'SYSTEM_ADMIN_PATH': '/painel-x7k2'}):
+            client = self.make_app().test_client()
+        self.assertEqual(client.get('/sistema/login').status_code, 404)
+        response = client.get('/painel-x7k2/login')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers['X-Robots-Tag'], 'noindex, nofollow')

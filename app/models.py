@@ -64,6 +64,7 @@ class SystemAdmin(db.Model, TimestampMixin, SerializableMixin):
     display_name = db.Column(db.String(120), nullable=False, default='Dono do sistema')
     active = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
     last_login_at = db.Column(db.DateTime)
+    mfa_secret_encrypted = db.Column(db.Text)  # obrigatório: configurado no primeiro acesso
 
     def set_password(self, raw_password: str) -> None:
         self.password_hash = generate_password_hash(raw_password)

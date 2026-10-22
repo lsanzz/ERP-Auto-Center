@@ -233,7 +233,16 @@ class StructureTest(unittest.TestCase):
         response = isolated.post('/sistema/login', data={
             'username': 'owner', 'password': 'senha-muito-segura',
         }, follow_redirects=True)
+        # Senha certa não basta: o painel exige o código do autenticador (configurado no primeiro acesso).
+        self.assertIn('Primeiro acesso'.encode(), response.data)
+        self.assertEqual(isolated.get('/sistema/admin').status_code, 302)
+        with isolated.session_transaction() as flask_session:
+            secret = flask_session['system_admin_pending']['secret']
+        self.assertIn('Código inválido'.encode(), isolated.post('/sistema/verificar', data={'otp': '000000'}, follow_redirects=True).data)
+        import pyotp
+        response = isolated.post('/sistema/verificar', data={'otp': pyotp.TOTP(secret).now()}, follow_redirects=True)
         self.assertEqual(response.status_code, 200, response.data.decode(errors='ignore'))
+        self.assertIsNotNone(db.session.get(SystemAdmin, owner.id).mfa_secret_encrypted)
         self.assertIn('Empresa Um'.encode(), response.data)
         self.assertIn('Integração Focus NFe'.encode(), response.data)
         self.assertNotIn(b'PRIVATE-MASTER', response.data)

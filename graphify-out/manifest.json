@@ -1,8 +1,8 @@
 {
   "app/__init__.py": {
-    "mtime": 1792712454.75072,
-    "seen": 1792712787.0393915,
-    "ast_hash": "023142e5982b5d3bbf1155200bf8dac7",
+    "mtime": 1792713123.0767882,
+    "seen": 1792713297.3255122,
+    "ast_hash": "90abf9b3310c3a8e1c2b8193a954ec88",
     "semantic_hash": ""
   },
   "app/api.py": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "app/models.py": {
-    "mtime": 1792712387.2197907,
-    "seen": 1792712787.0402248,
-    "ast_hash": "b816707aa0ca6c86be09319333a0507c",
+    "mtime": 1792713114.7618902,
+    "seen": 1792713297.3262281,
+    "ast_hash": "16f1c8e6a8b2d9658466a854d66f7206",
     "semantic_hash": ""
   },
   "app/observability.py": {
@@ -294,9 +294,9 @@
     "semantic_hash": ""
   },
   "app/system_admin.py": {
-    "mtime": 1792712490.3612008,
-    "seen": 1792712787.0411062,
-    "ast_hash": "a2d23afbf27a01fbd5dd38d0b02017e1",
+    "mtime": 1792713123.0759418,
+    "seen": 1792713297.3269005,
+    "ast_hash": "6647dc774946c87763f14ab37d80273b",
     "semantic_hash": ""
   },
   "app/uninfe_config.py": {
@@ -594,9 +594,9 @@
     "semantic_hash": ""
   },
   "tests/test_structure.py": {
-    "mtime": 1792710447.8181992,
-    "seen": 1792712113.0794368,
-    "ast_hash": "306906e719a9c48276d365e31fff00af",
+    "mtime": 1792713144.578308,
+    "seen": 1792713297.3283694,
+    "ast_hash": "859ab4794f7457f917ff08ddb90217eb",
     "semantic_hash": ""
   },
   "tests/test_uninfe.py": {
@@ -1392,9 +1392,9 @@
     "semantic_hash": ""
   },
   "app/templates/sistema/login.html": {
-    "mtime": 1792710447.8060348,
-    "seen": 1792712113.079554,
-    "ast_hash": "5a3fa3c15e27334723e23ff28b04b75d",
+    "mtime": 1792713131.5404541,
+    "seen": 1792713297.3309135,
+    "ast_hash": "90ab1ec02a6c5764eac95f1dab0d12ce",
     "semantic_hash": ""
   },
   "app/templates/veiculos/_selector.html": {
@@ -1494,9 +1494,9 @@
     "semantic_hash": ""
   },
   "docs/operacao-producao.md": {
-    "mtime": 1792711971.844092,
-    "seen": 1792712113.0795727,
-    "ast_hash": "1e258fb0a5f60d211a9a225f3d02d0a5",
+    "mtime": 1792713293.2881706,
+    "seen": 1792713297.3314912,
+    "ast_hash": "811959442c730f12bced759098410b87",
     "semantic_hash": ""
   },
   "docs/painel-dono-focus.md": {
@@ -1758,15 +1758,15 @@
     "semantic_hash": ""
   },
   "website/templates/privacy.html": {
-    "mtime": 1792710447.8201845,
-    "seen": 1792712113.079619,
-    "ast_hash": "aa49257a92b42751a00f5477601bc044",
+    "mtime": 1792713078.6999228,
+    "seen": 1792713297.3324842,
+    "ast_hash": "81b64da140ee9afd6dc733e6d2a7aa08",
     "semantic_hash": ""
   },
   "website/templates/thanks.html": {
-    "mtime": 1792710447.8201845,
-    "seen": 1792712113.07962,
-    "ast_hash": "4068a5442ef05cb937b0c3b706721ff3",
+    "mtime": 1792713078.7004437,
+    "seen": 1792713297.3324866,
+    "ast_hash": "581cf63265a465f224987eb7866e34b1",
     "semantic_hash": ""
   },
   "app/static/android-chrome-192x192.png": {
@@ -1890,9 +1890,9 @@
     "semantic_hash": ""
   },
   "tests/test_business_readiness.py": {
-    "mtime": 1792712528.1218538,
-    "seen": 1792712787.0424356,
-    "ast_hash": "52ece2c71cf3622db443280f72316d07",
+    "mtime": 1792713144.5801618,
+    "seen": 1792713297.328098,
+    "ast_hash": "850e7fd418ce141b63fb824a5d3440ae",
     "semantic_hash": ""
   },
   "app/templates/assinatura_suspensa.html": {
@@ -1932,9 +1932,9 @@
     "semantic_hash": ""
   },
   "docs/comercial/implantacao.md": {
-    "mtime": 1792712679.5938318,
-    "seen": 1792712787.0458133,
-    "ast_hash": "bac6beeef802164ee1d3e9c95ea74268",
+    "mtime": 1792713293.2993958,
+    "seen": 1792713297.3312502,
+    "ast_hash": "39eafd1b502fcc7aea4df6f69b78f23f",
     "semantic_hash": ""
   },
   "docs/comercial/politica-privacidade.md": {
@@ -1953,6 +1953,12 @@
     "mtime": 1792712603.4467175,
     "seen": 1792712787.0458188,
     "ast_hash": "6ea5b296f61bcd7a775f81080fd5ae78",
+    "semantic_hash": ""
+  },
+  "migrations/versions/20261022_21_system_admin_mfa.py": {
+    "mtime": 1792713131.5441608,
+    "seen": 1792713297.3276916,
+    "ast_hash": "895d5d59dbdae7c87e0b7606f8643ede",
     "semantic_hash": ""
   }
 }

@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+  <meta name="robots" content="noindex, nofollow">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Acesso do proprietário · LSHub</title>
@@ -30,9 +31,18 @@
     {% with messages=get_flashed_messages() %}
       {% for message in messages %}<div class="message">{{ message }}</div>{% endfor %}
     {% endwith %}
+    {% if step == 'codigo' %}
+      {% if setup_secret %}
+      <div class="message">Primeiro acesso: adicione esta chave ao seu aplicativo autenticador (Google Authenticator, Microsoft Authenticator ou similar) e digite o código gerado.<br><code style="overflow-wrap:anywhere;font-size:16px">{{ setup_secret }}</code></div>
+      <details><summary>URI para aplicativos compatíveis</summary><code style="overflow-wrap:anywhere">{{ provisioning_uri }}</code></details>
+      {% endif %}
+      <label>Código de 6 dígitos<input name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus></label>
+      <button type="submit">Verificar</button>
+    {% else %}
     <label>Usuário<input name="username" autocomplete="username" required></label>
     <label>Senha<input type="password" name="password" autocomplete="current-password" required></label>
     <button type="submit">Entrar</button>
+    {% endif %}
   </form>
 {% include '_design_system.html' %}
 </body>
