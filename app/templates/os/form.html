@@ -85,12 +85,12 @@
       </label>
       <label>Placa
         <div class="os-plate-control">
-          <input id="placa" type="text" name="placa" value="{{ order.placa if order else '' }}" style="text-transform: uppercase;">
+          <input id="placa" type="text" name="placa" value="{{ order.placa if order else request.args.get('placa', '') }}" style="text-transform: uppercase;">
           <button type="button" class="secondary" id="buscar-placa">Buscar</button>
         </div>
       </label>
       <label style="grid-column: span 3;">Veículo e Detalhes Iniciais
-        <input id="veiculo_descricao" type="text" name="veiculo_descricao" value="{{ order.veiculo_descricao if order else '' }}" style="text-transform: uppercase;">
+        <input id="veiculo_descricao" type="text" name="veiculo_descricao" value="{{ order.veiculo_descricao if order else request.args.get('veiculo', '') }}" style="text-transform: uppercase;">
       </label>
     </div>
     <p class="muted" id="placa-status" style="margin-top: 8px;">Consulte a placa para preencher a descrição do veículo.</p>

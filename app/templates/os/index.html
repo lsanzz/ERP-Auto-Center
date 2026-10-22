@@ -73,7 +73,7 @@
           {% if request.args.get('q') or request.args.get('status') or request.args.get('tipo') or request.args.get('de') or request.args.get('ate') or request.args.get('valor_min') or request.args.get('valor_max') %}<a class="button secondary" href="{{ request.path }}">Limpar</a>{% endif %}
         </div>
         <input type="hidden" name="ordem" value="{{ sort }}"><input type="hidden" name="dir" value="{{ direction }}">
-        <details class="hub-advanced"{% if request.args.get('status') or request.args.get('tipo') or request.args.get('de') or request.args.get('ate') or request.args.get('valor_min') or request.args.get('valor_max') %} open{% endif %}><summary>Mais filtros</summary>
+        <details class="hub-advanced"{% if request.args.get('status') or request.args.get('tipo') or request.args.get('de') or request.args.get('ate') or request.args.get('valor_min') or request.args.get('valor_max') %} open{% endif %}>{% set counter = namespace(n=0) %}{% for key in ['status','tipo','de','ate','valor_min','valor_max'] if request.args.get(key) %}{% set counter.n = counter.n + 1 %}{% endfor %}{% set active_filters = counter.n %}<summary class="filter-toggle">Mais filtros{% if active_filters %}<span class="toggle-count">{{ active_filters }}</span>{% endif %}</summary>
           <div class="filter-bar">
             <label>Situação<select name="status"><option value="">Todas</option>{% for status in statuses %}<option value="{{ status }}" {% if request.args.get('status') == status %}selected{% endif %}>{{ status|replace('_', ' ') }}</option>{% endfor %}</select></label>
             <label>Tipo<select name="tipo"><option value="">Todos</option>{% for value, label in [('INTERNO', 'Interno'), ('EXTERNO', 'Externo'), ('GARANTIA', 'Garantia')] %}<option value="{{ value }}" {% if request.args.get('tipo') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
@@ -94,10 +94,19 @@
             {% set receivables = receivables_by_order.get(order.id, []) if receivables_by_order is defined else [] %}
             {% set has_receivables = receivables|length > 0 %}
             {% set all_received = has_receivables and (receivables|selectattr('status', 'equalto', 'RECEBIDO')|list|length == receivables|length) %}
-            <tr>
+            <tr id="os-{{ order.id }}">
               <td><a class="os-number" href="{{ url_for('web.work_orders_show', work_order_id=order.id) }}">{{ order.numero }}</a><span class="muted small" style="display:block; margin-top:5px;">{{ order.data_entrada|date_br }}</span></td>
               <td class="os-client"><strong>{{ order.client_nome or (order.client.nome if order.client else '-') }}</strong><span>{% if order.placa %}<b class="os-plate">{{ order.placa }}</b>{% else %}Sem placa{% endif %}{% if order.employee %} · {{ order.employee.nome }}{% endif %}</span></td>
-              <td><span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span>{% if has_receivables %}<span class="os-finance-note muted small">{{ 'Recebido' if all_received else 'Conta pendente' }}</span>{% endif %}</td>
+              <td>{% if can('work_orders.progress') or can('work_orders.manage') %}<details class="status-menu"><summary title="Alterar situação ou responsável"><span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span><span class="status-caret" aria-hidden="true"></span></summary>
+                <div class="status-menu-panel">
+                  {% if can('work_orders.progress') %}<form method="post" action="{{ url_for('web.work_orders_change_status', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.full_path }}">
+                    <span class="status-menu-title">Situação</span>
+                    {% for status in statuses %}<button type="submit" name="status" value="{{ status }}" class="status-option{{ ' is-current' if status == order.status }}"{% if status == order.status %} disabled{% endif %}><span class="status-badge status-{{ status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ status|replace('_', ' ') }}</span></button>{% endfor %}
+                  </form>{% endif %}
+                  {% if can('work_orders.manage') and employees %}<form method="post" action="{{ url_for('web.work_orders_change_employee', work_order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.full_path }}">
+                    <label class="status-menu-title">Responsável<select name="employee_id" onchange="this.form.requestSubmit()"><option value="">Sem responsável</option>{% for employee in employees %}<option value="{{ employee.id }}" {% if order.employee_id == employee.id %}selected{% endif %}>{{ employee.nome }}</option>{% endfor %}</select></label>
+                  </form>{% endif %}
+                </div></details>{% else %}<span class="status-badge status-{{ order.status|lower|replace('_', '-') }}"><span class="status-dot"></span>{{ order.status|replace('_', ' ') }}</span>{% endif %}{% if has_receivables %}<span class="os-finance-note muted small">{{ 'Recebido' if all_received else 'Conta pendente' }}</span>{% endif %}</td>
               <td class="os-payment">{{ order.payment_method.nome if order.payment_method else 'Não definido' }}{% if order.installment_count and order.installment_count > 1 %}<span class="muted small" style="display:block;">{{ order.installment_count }} parcelas</span>{% endif %}</td>
               <td class="os-total">{{ format_currency(order.total_geral) }}</td>
               <td>

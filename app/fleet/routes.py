@@ -40,7 +40,10 @@ def index():
 @login_required
 @permission_required('vehicles.manage')
 def new():
-    return _form(Vehicle())
+    # Vindo da consulta de placa: já chega com placa e dados do veículo.
+    args = request.args
+    return _form(Vehicle(placa=(args.get('placa') or '')[:10] or None, descricao=(args.get('descricao') or '')[:160],
+                         marca=(args.get('marca') or '')[:80] or None, modelo=(args.get('modelo') or '')[:100] or None))
 
 
 @fleet_bp.route('/<int:vehicle_id>/editar', methods=['GET', 'POST'])

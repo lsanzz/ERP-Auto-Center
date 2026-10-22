@@ -39,8 +39,6 @@ body nav.section-tabs a[aria-current=page]{background:#fff;color:#0f172a;box-sha
 
 /* Campos pouco usados ficam em "Avançado" */
 .hub-advanced{margin:14px 0 4px;border-top:1px solid #e5e7eb;padding-top:10px}
-.hub-advanced>summary{cursor:pointer;font-size:14px;font-weight:600;color:#475569;padding:4px 0;width:max-content}
-.hub-advanced[open]>summary{margin-bottom:12px}
 
 /* Menu "Mais ações": ações raras saem da barra principal */
 .more-menu{position:relative}
@@ -94,6 +92,44 @@ html.show-money .money-toggle .when-shown{display:inline}
 body .chart-period a.tab{padding:4px 10px;border-radius:7px;font-size:12px;font-weight:600;color:#475569;text-decoration:none}
 body .chart-period a.tab[aria-current=page]{background:#fff;color:#0f172a;box-shadow:0 1px 3px rgba(15,23,42,.12)}
 
-/* Botão "Voltar" das telas internas */
-body a.back-link{display:inline-flex;align-items:center;gap:6px;margin:0 0 14px;padding:6px 12px 6px 8px;border-radius:9px;font-size:14px;font-weight:600;color:#475569;text-decoration:none}
-body a.back-link:hover{background:#f1f5f9;color:#0f172a}
+
+/* Alterar situação/responsável direto na lista de O.S. */
+.status-menu{position:relative;display:inline-block}
+.status-menu>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 6px 2px 2px;transition:background-color .15s}
+.status-menu>summary::-webkit-details-marker{display:none}
+.status-menu>summary:hover{background:#eef2ff}
+.status-caret{width:6px;height:6px;border-right:1.5px solid #64748b;border-bottom:1.5px solid #64748b;transform:rotate(45deg);margin:-3px 2px 0;transition:transform .2s}
+.status-menu[open] .status-caret{transform:rotate(225deg);margin-top:3px}
+.status-menu-panel{position:absolute;left:0;top:calc(100% + 6px);z-index:45;width:240px;padding:10px;display:grid;gap:10px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 18px 40px rgba(15,23,42,.16);animation:menu-in .16s ease-out}
+.status-menu-panel form{display:grid;gap:4px;margin:0}
+.status-menu-title{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#64748b;display:grid;gap:6px}
+.status-menu-title select{text-transform:none;letter-spacing:0;font-weight:500}
+body .status-menu-panel button.status-option{display:flex;width:100%;min-height:34px;padding:0 8px;border:0;border-radius:8px;background:transparent;box-shadow:none;cursor:pointer;justify-content:flex-start}
+body .status-menu-panel button.status-option:hover:not(:disabled){background:#f1f5f9}
+body .status-menu-panel button.status-option.is-current{background:#eff6ff;cursor:default;opacity:1}
+@keyframes menu-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.status-menu-panel{animation:none}.status-caret{transition:none}}
+
+/* Botões de abrir/recolher (Mais filtros, Avançado, detalhes) e "Voltar": um só padrão */
+body :is(.hub-advanced,.finance-more,.nota-details,.fiscal-fold,.toggle-details)>summary{
+  list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;width:max-content;max-width:100%;
+  min-height:36px;padding:0 14px;margin:0;border:1px solid #dbe3ef;border-radius:10px;background:#fff;
+  font:600 13px/1 var(--font-sans,inherit);color:#1e3a8a;box-shadow:0 1px 2px rgba(15,23,42,.05);
+  transition:background-color .15s,border-color .15s,box-shadow .15s,transform .15s}
+body :is(.hub-advanced,.finance-more,.nota-details,.fiscal-fold,.toggle-details)>summary::-webkit-details-marker{display:none}
+body :is(.hub-advanced,.finance-more,.nota-details,.fiscal-fold,.toggle-details)>summary::after{
+  content:'';width:6px;height:6px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;
+  transform:rotate(45deg);margin:-3px 0 0 2px;transition:transform .2s}
+body :is(.hub-advanced,.finance-more,.nota-details,.fiscal-fold,.toggle-details)[open]>summary::after{transform:rotate(225deg);margin-top:3px}
+body :is(.hub-advanced,.finance-more,.nota-details,.fiscal-fold,.toggle-details)>summary:hover{background:#eff6ff;border-color:#bfdbfe;box-shadow:0 4px 12px rgba(37,99,235,.12);transform:translateY(-1px)}
+body :is(.hub-advanced,.finance-more,.nota-details,.fiscal-fold,.toggle-details)[open]>summary{background:#eff6ff;border-color:#bfdbfe;margin-bottom:14px}
+body summary.filter-toggle::before{content:'';width:14px;height:14px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M4 6h16M7 12h10M10 18h4'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M4 6h16M7 12h10M10 18h4'/%3E%3C/svg%3E") center/contain no-repeat}
+.toggle-count{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#2563eb;color:#fff;font-size:11px;font-weight:700}
+.toggle-details>summary{margin:2px 0}
+body a.back-link{display:inline-flex;align-items:center;gap:8px;margin:0 0 16px;padding:0 14px 0 6px;min-height:36px;border:1px solid #dbe3ef;border-radius:10px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.05);font-size:13px;font-weight:600;color:#1e3a8a;text-decoration:none;transition:background-color .15s,border-color .15s,box-shadow .15s,transform .15s}
+body a.back-link::before{content:'';width:24px;height:24px;border-radius:7px;background:#eff6ff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d4ed8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 18l-6-6 6-6'/%3E%3C/svg%3E") center/14px no-repeat;transition:transform .2s}
+body a.back-link:hover{background:#eff6ff;border-color:#bfdbfe;box-shadow:0 4px 12px rgba(37,99,235,.12);transform:translateY(-1px)}
+body a.back-link:hover::before{transform:translateX(-2px)}
+@media(prefers-reduced-motion:reduce){body :is(.hub-advanced,.finance-more,.nota-details,.fiscal-fold,.toggle-details)>summary,body a.back-link,body a.back-link::before{transition:none}}

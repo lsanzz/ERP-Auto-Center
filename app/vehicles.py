@@ -76,10 +76,50 @@ def normalize_plate_payload(payload: dict, fallback_plate: str) -> dict:
     ]
     vehicle_description = ' '.join(part for part in description_parts if part).upper()
 
+    extra = payload.get('extra') if isinstance(payload.get('extra'), dict) else data.get('extra')
+    extra = extra if isinstance(extra, dict) else {}
+
+    def field(*keys):
+        return _first_value(data, *keys) or _first_value(extra, *keys)
+
+    chassi = field('chassi', 'CHASSI')
+    details = {
+        'marca': field('MARCA', 'marca', 'brand'),
+        'modelo': field('MODELO', 'modelo', 'model'),
+        'versao': field('VERSAO', 'versao', 'SUBMODELO', 'submodelo'),
+        'ano_fabricacao': field('ano', 'ano_fabricacao', 'anoFabricacao'),
+        'ano_modelo': field('anoModelo', 'ano_modelo'),
+        'cor': field('cor', 'COR', 'color'),
+        'combustivel': field('combustivel', 'COMBUSTIVEL'),
+        'cilindradas': field('cilindradas', 'cilindrada'),
+        'potencia': field('potencia', 'POTENCIA'),
+        'tipo': field('tipo_veiculo', 'tipo', 'segmento'),
+        'passageiros': field('quantidade_passageiro', 'passageiros'),
+        'nacionalidade': field('nacionalidade'),
+        'municipio': field('municipio', 'MUNICIPIO'),
+        'uf': field('uf', 'UF'),
+        'situacao': field('situacao', 'SITUACAO', 'situacao_veiculo'),
+        'chassi_final': chassi[-4:] if len(chassi) >= 4 else '',  # só o final: o resto vem mascarado ou não interessa à oficina
+    }
+    situation = details['situacao'].lower()
     return {
         'placa': plate,
         'veiculo_descricao': vehicle_description,
+        'detalhes': {key: value for key, value in details.items() if value},
+        'alerta_roubo': any(word in situation for word in ('roubo', 'furto')),
+        'fipe': _best_fipe(payload.get('fipe')),
     }
+
+
+def _best_fipe(fipe) -> dict | None:
+    """Escolhe a entrada FIPE de maior pontuação (a API pode devolver várias versões)."""
+    rows = fipe.get('dados') if isinstance(fipe, dict) else fipe
+    rows = [row for row in rows or [] if isinstance(row, dict) and row.get('texto_valor')]
+    if not rows:
+        return None
+    best = max(rows, key=lambda row: float(row.get('score') or 0))
+    return {'valor': best.get('texto_valor'), 'modelo': best.get('texto_modelo'), 'codigo': best.get('codigo_fipe'),
+            'referencia': best.get('mes_referencia')}
 
 
 def _first_value(data: dict, *keys: str) -> str:

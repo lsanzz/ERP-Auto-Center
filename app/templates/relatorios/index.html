@@ -108,7 +108,7 @@
       </div>
       <div class="report-filter-actions"><button type="submit" class="button">Pesquisar</button><a href="{{ url_for('web.reports_index') }}" class="button secondary">Limpar</a></div>
     </div>
-    <details class="hub-advanced"{% if selected_client or employee_id or placa or is_faturada or date_type != 'data_entrada' or show_items != 'both' %} open{% endif %}><summary>Mais filtros</summary>
+    <details class="hub-advanced"{% if selected_client or employee_id or placa or is_faturada or date_type != 'data_entrada' or show_items != 'both' %} open{% endif %}><summary class="filter-toggle">Mais filtros</summary>
     <div class="report-filter-grid">
       {{ client_picker(client_id=selected_client.id if selected_client else '', text=selected_client.nome if selected_client else '',
                        empty_help='Deixe em branco para todos os clientes.') }}

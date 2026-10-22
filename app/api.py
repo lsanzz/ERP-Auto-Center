@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from functools import wraps
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, url_for
 from sqlalchemy.orm.exc import StaleDataError
 
 from .auth import current_user, has_permission, login_user, logout_user
@@ -945,11 +945,30 @@ def employee_resource(employee_id: int):
 @api_bp.get('/veiculos/placa/<string:placa>')
 @api_login_required
 def lookup_placa(placa: str):
+    history = plate_history(placa)
     try:
-        return as_json(lookup_plate(placa))
+        return as_json({**lookup_plate(placa), 'historico': history})
     except ValueError as exc:
-        return as_json({'error': str(exc)}, 400)
+        return as_json({'error': str(exc), 'historico': history}, 400)
     except LookupError as exc:
-        return as_json({'error': str(exc)}, 404)
+        return as_json({'error': str(exc), 'historico': history}, 404)
     except RuntimeError as exc:
-        return as_json({'error': str(exc)}, 503)
+        return as_json({'error': str(exc), 'historico': history}, 503)
+
+
+def plate_history(placa: str) -> dict | None:
+    """O que a oficina já sabe da placa: cliente e últimas O.S. (só para quem vê O.S.)."""
+    from .auth import has_permission
+    from .vehicles import only_plate_chars
+    plate = only_plate_chars(placa)
+    if len(plate) != 7 or not has_permission('work_orders.view'):
+        return None
+    orders = (WorkOrder.query.filter(db.func.upper(db.func.replace(WorkOrder.placa, '-', '')) == plate)
+              .order_by(WorkOrder.id.desc()).limit(6).all())
+    return {
+        'total': WorkOrder.query.filter(db.func.upper(db.func.replace(WorkOrder.placa, '-', '')) == plate).count(),
+        'cliente': (orders[0].client_nome or (orders[0].client.nome if orders[0].client else None)) if orders else None,
+        'ordens': [{'numero': order.numero, 'data': order.data_entrada.isoformat() if order.data_entrada else None,
+                    'status': order.status, 'total': float(order.total_geral or 0),
+                    'url': url_for('web.work_orders_show', work_order_id=order.id)} for order in orders],
+    }

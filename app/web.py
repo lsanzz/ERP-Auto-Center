@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from .auth import (
     USER_ROLES, admin_required, current_user, login_required, login_user, logout_user,
-    permission_required, safe_next_url,
+    has_permission, permission_required, safe_next_url,
 )
 from .cep import lookup_cep
 from .cnpj import is_cnpj, is_cpf, lookup_cnpj, lookup_cpf
@@ -1117,7 +1117,8 @@ def work_orders_index():
     payment_methods = PaymentMethod.query.filter_by(ativo=True).order_by(PaymentMethod.nome).all() if current_user().role == 'ADMINISTRADOR' else []
     bank_accounts = BankAccount.query.filter_by(ativo=True).order_by(BankAccount.nome).all() if current_user().role == 'ADMINISTRADOR' else []
     
-    return render_template('os/index.html', orders=orders, pagination=orders_page, sort=sort, direction=direction, statuses=WORK_ORDER_STATUSES, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts, method_accounts=method_account_map() if bank_accounts else {}, today=date.today())
+    employees = Employee.query.filter_by(ativo=True).order_by(Employee.nome).all() if has_permission('work_orders.manage') else []
+    return render_template('os/index.html', orders=orders, pagination=orders_page, sort=sort, direction=direction, employees=employees, statuses=WORK_ORDER_STATUSES, receivables_by_order=receivables_by_order, payment_methods=payment_methods, bank_accounts=bank_accounts, method_accounts=method_account_map() if bank_accounts else {}, today=date.today())
 
 @web_bp.post('/os/<int:work_order_id>/copiar')
 @login_required
@@ -1331,11 +1332,35 @@ def work_orders_change_status(work_order_id: int):
             order.data_saida = parse_date(request.form.get('data_saida'))
         record_work_order_status(order, status, current_user().id, request.form.get('observation'))
         db.session.commit()
-        flash('Status atualizado.', 'success')
+        flash(f'O.S. {order.numero}: situação alterada para {status.replace("_", " ").lower()}.', 'success')
     except ValueError as exc:
         db.session.rollback()
         flash(str(exc), 'error')
+    return _back_to_list_or(order)
+
+
+def _back_to_list_or(order: WorkOrder):
+    """Volta para a lista de onde veio (com filtros e na linha da O.S.) ou para a própria O.S."""
+    target = safe_next_url(request.form.get('next'), '')
+    if target:
+        return redirect(f'{target}#os-{order.id}')
     return redirect(url_for('web.work_orders_show', work_order_id=order.id))
+
+
+@web_bp.post('/os/<int:work_order_id>/responsavel')
+@login_required
+@permission_required('work_orders.manage')
+def work_orders_change_employee(work_order_id: int):
+    order = db.get_or_404(WorkOrder, work_order_id)
+    employee_id = request.form.get('employee_id', type=int)
+    employee = db.session.get(Employee, employee_id) if employee_id else None
+    if employee_id and (not employee or not employee.ativo):
+        flash('Funcionário não encontrado ou inativo.', 'error')
+        return _back_to_list_or(order)
+    order.employee_id = employee.id if employee else None
+    db.session.commit()
+    flash(f'O.S. {order.numero}: responsável {"alterado para " + employee.nome if employee else "removido"}.', 'success')
+    return _back_to_list_or(order)
 
 
 @web_bp.post('/os/<int:work_order_id>/lancar-estoque')

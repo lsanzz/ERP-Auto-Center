@@ -119,5 +119,47 @@ class VhsysParityTest(unittest.TestCase):
         self.assertIn('+ Novo', dashboard)
 
 
+    def test_plate_payload_details_fipe_and_theft_alert(self):
+        from app.vehicles import normalize_plate_payload
+        data = normalize_plate_payload({
+            'MARCA': 'VW', 'MODELO': 'GOL', 'VERSAO': '1.6 MSI', 'ano': '2019', 'anoModelo': '2020', 'cor': 'Prata',
+            'situacao': 'Roubo/Furto', 'chassi': '*****AB1234', 'municipio': 'Campinas', 'uf': 'SP',
+            'extra': {'combustivel': 'Alcool / Gasolina', 'cilindradas': '1598', 'potencia': '120'},
+            'fipe': {'dados': [{'texto_valor': 'R$ 50.000,00', 'texto_modelo': 'Gol 1.6', 'score': 10},
+                               {'texto_valor': 'R$ 60.000,00', 'texto_modelo': 'Gol 1.6 MSI', 'score': 90}]}}, 'ABC1D23')
+        self.assertEqual(data['detalhes']['combustivel'], 'Alcool / Gasolina')
+        self.assertEqual((data['detalhes']['ano_fabricacao'], data['detalhes']['ano_modelo']), ('2019', '2020'))
+        self.assertEqual(data['detalhes']['chassi_final'], '1234')
+        self.assertTrue(data['alerta_roubo'])
+        self.assertEqual(data['fipe']['valor'], 'R$ 60.000,00')
+        self.assertIsNone(normalize_plate_payload({'MARCA': 'VW'}, 'ABC1D23')['fipe'])
+
+    def test_plate_lookup_returns_workshop_history_even_without_api(self):
+        db.session.add(WorkOrder(client_id=self.customer.id, client_nome='MARIA SILVA', numero='H-1', placa='ABC-1D23', total_geral=Decimal('99')))
+        db.session.commit()
+        from unittest import mock
+        with mock.patch('app.api.lookup_plate', side_effect=RuntimeError('Serviço de consulta de placa indisponível.')):
+            response = self.client.get('/api/veiculos/placa/ABC1D23')  # API fora do ar: ainda mostra o histórico
+        payload = response.get_json()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(payload['historico']['total'], 1)
+        self.assertEqual(payload['historico']['ordens'][0]['numero'], 'H-1')
+        self.assertIn('class="mplate"', self.client.get('/consultas/placa').data.decode())
+
+    def test_status_and_employee_change_from_list_return_to_list(self):
+        from app.models import Employee
+        employee = Employee(nome='RENAN', funcao='MECÂNICO', ativo=True); db.session.add(employee)
+        order = WorkOrder(client_id=self.customer.id, client_nome='MARIA SILVA', numero='L-1', status='ABERTA')
+        db.session.add(order); db.session.commit()
+        self.assertIn('status-menu', self.client.get('/os').data.decode())
+        response = self.client.post(f'/os/{order.id}/status', data={'status': 'EM_ANDAMENTO', 'next': '/os?q=L-1'})
+        self.assertEqual(response.headers['Location'], f'/os?q=L-1#os-{order.id}')
+        response = self.client.post(f'/os/{order.id}/responsavel', data={'employee_id': employee.id, 'next': '//evil.example/x'})
+        self.assertTrue(response.headers['Location'].endswith(f'/os/{order.id}'))  # destino externo é ignorado
+        db.session.refresh(order)
+        self.assertEqual((order.status, order.employee_id), ('EM_ANDAMENTO', employee.id))
+        self.assertIsNotNone(order.data_saida if order.status in ('FINALIZADA', 'ENTREGUE') else True)
+
+
 if __name__ == '__main__':
     unittest.main()
