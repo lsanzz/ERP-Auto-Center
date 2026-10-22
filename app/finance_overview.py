@@ -196,6 +196,23 @@ def render_finance():
             'Cliente', 'Fornecedor', 'Código fornecedor', 'Documento', 'Observações',
             'Data de Agendamento', 'Emissão', 'Data de Cadastro', 'Data de Alteração',
         ) if raw.get(label)]
+    def entry_party(entry):
+        """Cliente (receita) ou fornecedor (despesa) para o pop-up de baixa."""
+        order = orders.get(entry.reference_id) if entry.reference_type == 'OS' else None
+        if order:
+            return order.client_nome or (order.client.nome if order.client else None)
+        details = dict(imported_details(entry))
+        return details.get('Cliente') or details.get('Fornecedor')
+    from .models import User
+    from .operations.models import AuditEvent
+    entry_ids = [entry.id for entry in page['items']]
+    events = AuditEvent.query.filter(AuditEvent.entity_type == 'FINANCIALENTRY', AuditEvent.entity_id.in_(entry_ids)).order_by(
+        AuditEvent.created_at.desc()).limit(500).all() if entry_ids else []
+    users = {user.id: user.nome for user in User.query.filter(User.id.in_({event.user_id for event in events if event.user_id}))} if events else {}
+    history = {}
+    for event in events:
+        history.setdefault(event.entity_id, []).append({'when': event.created_at, 'action': event.action, 'user': users.get(event.user_id),
+                                                         'fields': (json.loads(event.details or '{}') or {}).get('campos', [])})
     def view_url(value, selected_kind=None):
         args = request.args.to_dict(); args.pop('page', None); args['view'] = value
         if selected_kind:
@@ -207,4 +224,5 @@ def render_finance():
     return render_template('financeiro/overview.html', today=today, view=view, view_url=view_url,
         kind=kind, finance=financial_overview(today), entries=page['items'], pagination=page,
         net_amount=settled_net_amount, entry_description=entry_description, imported_details=imported_details,
+        entry_party=entry_party, entry_history=history,
         **finance_form_context())

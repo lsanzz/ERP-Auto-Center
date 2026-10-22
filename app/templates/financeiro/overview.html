@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% from '_privacy.html' import eye %}{% block content %}
 <link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2">
-<link rel="stylesheet" href="{{ url_for('static',filename='finance.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static',filename='finance.css') }}?v=3">
 {% set date_label = 'Pagamento' if view == 'received' else 'Vencimento' %}
 <main class="hub fin">
 {% include 'financeiro/_tabs.html' %}
@@ -43,7 +43,7 @@
 
   <p class="fin-count">{{ pagination.total }} conta(s){% if pagination.total %} · uma linha por parcela{% endif %}</p>
   <div class="fin-table-shell"><table data-mobile-cards class="fin-table">
-    <thead><tr><th>{{ date_label }}</th><th>Descrição</th><th>Forma</th><th class="money">Valor</th><th>Situação</th><th class="fin-actcol">Ação</th></tr></thead>
+    <thead><tr><th>{{ date_label }}</th><th>Descrição</th><th>Forma</th><th class="money">Valor</th><th>Situação</th></tr></thead>
     <tbody>{% for entry in entries %}
       {% set late = entry.status == 'PENDENTE' and entry.vencimento < today %}
       {% set paid = entry.status in ['RECEBIDO','PAGO'] %}
@@ -54,20 +54,13 @@
         </td>
         <td data-label="Forma">{{ entry.payment_method.nome if entry.payment_method else '—' }}{% if entry.bank_account %}<span class="fin-sub">{{ entry.bank_account.nome }}</span>{% endif %}</td>
         <td class="money" data-label="Valor"><strong>{{ format_currency(net_amount(entry) if paid else entry.valor) }}</strong></td>
-        <td data-label="Situação"><span class="fin-status {{ 'is-late' if late else 'is-done' if paid else 'is-open' }}"><i></i>{{ 'Vencida' if late else 'Em aberto' if entry.status == 'PENDENTE' else 'Recebida' if entry.status == 'RECEBIDO' else 'Paga' if entry.status == 'PAGO' else entry.status|capitalize }}</span></td>
-        <td class="fin-actcol" data-label="Ação">
-          {% if entry.status == 'PENDENTE' %}<button type="button" class="fin-act" data-open="settle-{{ entry.id }}">{{ 'Receber' if entry.entry_type == 'RECEBER' else 'Pagar' }}</button>
-          {% elif paid %}<details class="more-menu"><summary>Ações</summary><div class="more-menu-panel">
-            {% if entry.entry_type == 'RECEBER' %}<a class="item" href="{{ url_for('business.receipt',entry_id=entry.id) }}" target="_blank" rel="noopener">Recibo</a>{% endif %}
-            <form method="post" action="{{ url_for('web.finance_revert',entry_id=entry.id) }}" onsubmit="return confirm('Estornar esta conta? O saldo será revertido e a conta voltará a ficar em aberto.')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="danger">Estornar</button></form>
-          </div></details>{% endif %}
-        </td>
+        <td data-label="Situação"><button type="button" class="fin-status-btn" data-open="settle-{{ entry.id }}" title="{{ 'Ver conta' if paid else ('Receber' if entry.entry_type == 'RECEBER' else 'Pagar') }}"><span class="fin-status {{ 'is-late' if late else 'is-done' if paid else 'is-open' }}"><i></i>{{ 'Vencida' if late else 'Em aberto' if entry.status == 'PENDENTE' else 'Recebida' if entry.status == 'RECEBIDO' else 'Paga' if entry.status == 'PAGO' else entry.status|capitalize }}</span><span class="fin-status-caret" aria-hidden="true"></span></button></td>
       </tr>
-    {% else %}<tr><td colspan="6"><div class="hub-empty">Nenhuma conta encontrada.<br>Altere a busca ou registre um novo lançamento.</div></td></tr>{% endfor %}</tbody>
+    {% else %}<tr><td colspan="5"><div class="hub-empty">Nenhuma conta encontrada.<br>Altere a busca ou registre um novo lançamento.</div></td></tr>{% endfor %}</tbody>
   </table></div>
   {% include '_pagination.html' %}
 </section>
 
-{% for entry in entries if entry.status == 'PENDENTE' %}{% set settle_description = entry_description(entry) %}{% set settle_details = imported_details(entry) %}{% include 'financeiro/_settle_dialog.html' %}{% endfor %}
+{% for entry in entries if entry.status in ['PENDENTE', 'RECEBIDO', 'PAGO'] %}{% set settle_description = entry_description(entry) %}{% set settle_details = imported_details(entry) %}{% set settle_party = entry_party(entry) %}{% set settle_history = entry_history.get(entry.id) %}{% include 'financeiro/_settle_dialog.html' %}{% endfor %}
 <dialog class="hub-dialog hub-dialog-wide" id="new-entry" aria-labelledby="new-entry-title"><div class="hub-panel-head"><h3 id="new-entry-title">Novo lançamento</h3><button type="button" class="secondary" data-close aria-label="Fechar">×</button></div>{% set new_entry_type = 'RECEBER' %}{% set in_dialog = True %}{% include 'financeiro/_entry_form.html' %}</dialog>
-</main><script src="{{ url_for('static',filename='finance-overview.js') }}?v=4"></script>{% endblock %}
+</main><script src="{{ url_for('static',filename='finance-overview.js') }}?v=5"></script>{% endblock %}

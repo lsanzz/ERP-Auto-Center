@@ -25,7 +25,7 @@ body .fin-segments a.seg[aria-current=page]{background:#fff;color:#0f172a;box-sh
 .fin-table-shell{width:100%;overflow-x:auto}
 .fin-table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0 8px}
 .fin-table th{background:transparent!important;padding:0 12px 6px;font-size:12px;font-weight:600;color:#64748b;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap}
-.fin-table th:nth-child(1){width:11%}.fin-table th:nth-child(2){width:37%}.fin-table th:nth-child(3){width:15%}.fin-table th:nth-child(4){width:13%}.fin-table th:nth-child(5){width:12%}.fin-table th:nth-child(6){width:12%}
+.fin-table th:nth-child(1){width:12%}.fin-table th:nth-child(2){width:42%}.fin-table th:nth-child(3){width:16%}.fin-table th:nth-child(4){width:14%}.fin-table th:nth-child(5){width:16%}
 .fin-table td{padding:11px 12px;font-size:13px;background:#fff;border-top:1px solid #edf1f6;border-bottom:1px solid #edf1f6;vertical-align:middle;overflow-wrap:anywhere}
 .fin-table td:first-child{border-left:1px solid #edf1f6;border-radius:10px 0 0 10px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .fin-table td:last-child{border-right:1px solid #edf1f6;border-radius:0 10px 10px 0}
@@ -58,3 +58,40 @@ body button.fin-act{min-height:34px;padding:0 14px;font-size:13px}
 .settle-details{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0 0 12px;font-size:13px}
 .settle-details dt{color:#64748b}
 .settle-details dd{margin:0}
+
+/* Situação clicável: abre o pop-up da conta */
+body button.fin-status-btn{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:0 10px 0 8px;border:1px solid transparent;border-radius:9px;background:transparent;box-shadow:none;color:inherit!important;cursor:pointer;transition:background-color .15s,border-color .15s}
+body button.fin-status-btn:hover{background:#f1f5f9;border-color:#e2e8f0}
+.fin-status-caret{width:5px;height:5px;border-right:1.5px solid #94a3b8;border-bottom:1.5px solid #94a3b8;transform:rotate(-45deg)}
+
+/* Pop-up da conta (liquidar / ver pagamento) */
+.settle-dialog{width:min(760px,calc(100% - 32px))!important;padding:0!important;border:0!important;border-radius:16px!important;overflow:hidden}
+.settle-head{display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid #e2e8f0}
+.settle-head h3{margin:0;font-size:19px;color:#1e3a8a}
+body button.settle-close{width:32px;height:32px;min-height:0;padding:0;border:0;border-radius:8px;background:transparent;box-shadow:none;color:#64748b!important;font-size:22px}
+body button.settle-close:hover{background:#f1f5f9}
+.settle-info{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 20px;margin:0;padding:18px 24px}
+.settle-info dt{font-size:12px;font-weight:700;color:#334155;margin-bottom:3px}
+.settle-info dd{margin:0;font-size:13px;color:#475569;overflow-wrap:anywhere}
+.settle-info-compact{padding:16px 0 4px;grid-template-columns:repeat(4,minmax(0,1fr))}
+.settle-tabs{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid #e2e8f0}
+body button.settle-tab{min-height:40px;padding:0 16px;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;box-shadow:none;color:#475569!important;font-size:13px;font-weight:600;margin-bottom:-1px}
+body button.settle-tab[aria-selected=true]{background:#fff;border-color:#e2e8f0;color:#1d4ed8!important}
+.settle-panel{padding:18px 24px 22px}
+.settle-grid{display:grid;gap:12px;margin-bottom:12px}
+.settle-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.settle-grid-5{grid-template-columns:1.4fr repeat(4,minmax(0,1fr))}
+.settle-grid label,.settle-notes{display:grid;gap:5px;font-size:12px;font-weight:700;color:#334155;margin:0}
+.settle-grid input,.settle-grid select,.settle-notes textarea{margin:0;font-weight:400}
+.settle-notes{margin-bottom:12px}
+.settle-total{display:flex;justify-content:flex-end;align-items:baseline;gap:10px;margin-bottom:14px;color:#475569;font-size:13px}
+.settle-total output{font-size:20px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums}
+body button.settle-submit{display:block;width:min(320px,100%);min-height:44px;margin:0 auto;font-size:15px;font-weight:700}
+.settle-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+.settle-footer form{margin:0}
+body button.settle-danger{color:#b91c1c!important;border-color:#fecaca!important}
+.settle-warning{margin:10px 0 0;text-align:center}
+.settle-history{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.settle-history li{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:10px 12px;border-radius:10px;background:#f8fafc;font-size:13px}
+.settle-history b{font-variant-numeric:tabular-nums;color:#334155}
+@media(max-width:700px){.settle-info,.settle-info-compact{grid-template-columns:1fr 1fr}.settle-grid-3,.settle-grid-5{grid-template-columns:1fr 1fr}.settle-history li{grid-template-columns:1fr}}

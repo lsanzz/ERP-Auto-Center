@@ -1,5 +1,67 @@
-<dialog class="hub-dialog" id="settle-{{ entry.id }}" aria-labelledby="settle-title-{{ entry.id }}"><div class="hub-panel-head"><h3 id="settle-title-{{ entry.id }}">{{ 'Receber receita' if entry.entry_type == 'RECEBER' else 'Pagar despesa' }}</h3><button type="button" class="secondary" data-close aria-label="Fechar">×</button></div><p>{{ settle_description }}</p>{% if settle_details is defined and settle_details %}<details class="toggle-details"><summary>Detalhes da conta</summary><dl class="settle-details">{% for label, value in settle_details %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></details>{% endif %}<p><strong>{{ format_currency(entry.valor) }}</strong> · vencimento {{ entry.vencimento|date_br }}</p>
-<form method="post" action="{{ url_for('web.finance_settle',entry_id=entry.id) }}" class="hub-settle" data-method-accounts='{{ method_accounts|tojson }}'><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if settle_next %}<input type="hidden" name="next" value="{{ settle_next }}">{% endif %}<div class="hub-form-grid"><label>Data {{ 'do recebimento' if entry.entry_type == 'RECEBER' else 'do pagamento' }}<input type="date" name="payment_receipt_at" value="{{ today.isoformat() }}" required></label><label>Conta bancária<select name="bank_account_id" required><option value="">Selecione uma conta</option>{% for account in bank_accounts %}<option value="{{ account.id }}" {% if (entry.bank_account_id or method_accounts.get(entry.payment_method_id|string)) == account.id %}selected{% endif %}>{{ account.nome }}</option>{% endfor %}</select></label><label>Valor principal (R$)<input type="number" name="valor_baixa" value="{{ entry.valor }}" min="0.01" step="0.01" required></label><label>Forma de pagamento<select name="payment_method_id"><option value="">Não informada</option>{% for method in payment_methods %}<option value="{{ method.id }}" {% if method.id == entry.payment_method_id %}selected{% endif %}>{{ method.nome }}</option>{% endfor %}</select></label></div>
-<details><summary>Juros, desconto, taxas e observações</summary><div class="hub-form-grid">{% for name,label in [('juros','Juros'),('desconto','Desconto'),('taxa','Taxa'),('acrescimo','Acréscimo')] %}<label>{{ label }} (R$)<input type="number" name="{{ name }}" value="0" min="0" step="0.01"></label>{% endfor %}<label class="wide">Observações<textarea name="observacoes_pagamento"></textarea></label></div></details>
-<p class="hub-note">Use juros, desconto, taxa ou acréscimo quando o valor efetivamente movimentado for diferente do valor original.</p>
-<div class="hub-panel-head"><strong>Total líquido: <output aria-live="polite">{{ format_currency(entry.valor) }}</output></strong><button type="submit">Confirmar {{ 'recebimento' if entry.entry_type == 'RECEBER' else 'pagamento' }}</button></div>{% if not bank_accounts %}<p><a href="{{ url_for('web.dashboard') }}#contas">Cadastre uma conta bancária para continuar.</a></p>{% endif %}</form></dialog>
+{# Pop-up da conta: dados, baixa (liquidar) e histórico. Variáveis opcionais: settle_details, settle_party, settle_history, settle_next, net_amount. #}
+{% set is_income = entry.entry_type == 'RECEBER' %}
+{% set is_paid = entry.status in ['RECEBIDO', 'PAGO'] %}
+{% set is_late = entry.status == 'PENDENTE' and entry.vencimento < today %}
+{% set details = settle_details if settle_details is defined and settle_details else [] %}
+{% set history = settle_history if settle_history is defined and settle_history else [] %}
+<dialog class="hub-dialog hub-dialog-wide settle-dialog" id="settle-{{ entry.id }}" aria-labelledby="settle-title-{{ entry.id }}">
+  <div class="settle-head">
+    <h3 id="settle-title-{{ entry.id }}">{% if is_paid %}{{ 'Conta recebida' if is_income else 'Conta paga' }}{% else %}Liquidar conta {{ 'a receber' if is_income else 'a pagar' }}{% endif %}</h3>
+    <button type="button" class="settle-close" data-close aria-label="Fechar">×</button>
+  </div>
+
+  <dl class="settle-info">
+    <div><dt>{{ 'Nome da receita' if is_income else 'Nome da despesa' }}</dt><dd>{{ settle_description }}</dd></div>
+    <div><dt>{{ 'Cliente' if is_income else 'Fornecedor' }}</dt><dd>{{ (settle_party if settle_party is defined and settle_party else None) or '—' }}</dd></div>
+    <div><dt>Situação</dt><dd><span class="fin-status {{ 'is-late' if is_late else 'is-done' if is_paid else 'is-open' }}"><i></i>{{ 'Vencida' if is_late else 'Em aberto' if entry.status == 'PENDENTE' else 'Recebida' if entry.status == 'RECEBIDO' else 'Paga' if entry.status == 'PAGO' else entry.status|capitalize }}</span></dd></div>
+    <div><dt>Vencimento</dt><dd>{{ entry.vencimento|date_br }}</dd></div>
+    <div><dt>{{ 'Valor da receita' if is_income else 'Valor da despesa' }}</dt><dd>{{ format_currency(entry.valor) }}</dd></div>
+    <div><dt>Valor em aberto</dt><dd><strong>{{ format_currency(0 if is_paid else entry.valor) }}</strong></dd></div>
+    <div><dt>Categoria</dt><dd>{{ entry.categoria or '—' }}{% if entry.installment_total > 1 %} · parcela {{ entry.installment_number }}/{{ entry.installment_total }}{% endif %}</dd></div>
+    {% for label, value in details if label not in ('Cliente', 'Fornecedor') %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}
+  </dl>
+
+  <div class="settle-tabs" role="tablist">
+    <button type="button" role="tab" class="settle-tab" aria-selected="true" data-tab="settle-main-{{ entry.id }}">{{ 'Pagamento' if is_paid else 'Baixa manual' }}</button>
+    <button type="button" role="tab" class="settle-tab" aria-selected="false" data-tab="settle-history-{{ entry.id }}">Histórico</button>
+  </div>
+
+  <div class="settle-panel" id="settle-main-{{ entry.id }}" role="tabpanel">
+  {% if is_paid %}
+    <dl class="settle-info settle-info-compact">
+      <div><dt>Data {{ 'do recebimento' if is_income else 'do pagamento' }}</dt><dd>{{ entry.payment_receipt_at|date_br if entry.payment_receipt_at else '—' }}</dd></div>
+      <div><dt>Conta bancária</dt><dd>{{ entry.bank_account.nome if entry.bank_account else '—' }}</dd></div>
+      <div><dt>Forma de pagamento</dt><dd>{{ entry.payment_method.nome if entry.payment_method else '—' }}</dd></div>
+      <div><dt>Valor líquido</dt><dd><strong>{{ format_currency(net_amount(entry) if net_amount is defined else (entry.valor_baixa or entry.valor)) }}</strong></dd></div>
+    </dl>
+    <div class="settle-footer">
+      {% if is_income %}<a class="button secondary" href="{{ url_for('business.receipt', entry_id=entry.id) }}" target="_blank" rel="noopener">Recibo</a>{% endif %}
+      <form method="post" action="{{ url_for('web.finance_revert', entry_id=entry.id) }}" onsubmit="return confirm('Estornar esta conta? O saldo será revertido e a conta voltará a ficar em aberto.')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="secondary settle-danger">Estornar</button></form>
+    </div>
+  {% else %}
+    <form method="post" action="{{ url_for('web.finance_settle', entry_id=entry.id) }}" class="hub-settle" data-method-accounts='{{ method_accounts|tojson }}'><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if settle_next is defined and settle_next %}<input type="hidden" name="next" value="{{ settle_next }}">{% endif %}
+      <div class="settle-grid settle-grid-3">
+        <label>Data {{ 'do recebimento' if is_income else 'do pagamento' }} *<input type="date" name="payment_receipt_at" value="{{ today.isoformat() }}" required></label>
+        <label>Conta bancária *<select name="bank_account_id" required><option value="">Selecione</option>{% for account in bank_accounts %}<option value="{{ account.id }}" {% if (entry.bank_account_id or method_accounts.get(entry.payment_method_id|string)) == account.id %}selected{% endif %}>{{ account.nome }}</option>{% endfor %}</select></label>
+        <label>Forma de pagamento<select name="payment_method_id"><option value="">Não informada</option>{% for method in payment_methods %}<option value="{{ method.id }}" {% if method.id == entry.payment_method_id %}selected{% endif %}>{{ method.nome }}</option>{% endfor %}</select></label>
+      </div>
+      <div class="settle-grid settle-grid-5">
+        <label>Valor de baixa<input type="number" name="valor_baixa" value="{{ entry.valor }}" min="0.01" step="0.01" required></label>
+        {% for name, label in [('juros', 'Juros'), ('desconto', 'Desconto'), ('taxa', 'Taxa'), ('acrescimo', 'Acréscimo')] %}<label>{{ label }}<input type="number" name="{{ name }}" value="0" min="0" step="0.01"></label>{% endfor %}
+      </div>
+      <label class="settle-notes">Observações {{ 'do recebimento' if is_income else 'do pagamento' }}<textarea name="observacoes_pagamento" rows="2" placeholder="Opcional"></textarea></label>
+      <div class="settle-total"><span>{{ 'Valor a receber' if is_income else 'Valor a pagar' }}</span><output aria-live="polite">{{ format_currency(entry.valor) }}</output></div>
+      <button type="submit" class="settle-submit">Liquidar conta</button>
+      {% if not bank_accounts %}<p class="settle-warning"><a href="{{ url_for('web.dashboard') }}#contas">Cadastre uma conta bancária para continuar.</a></p>{% endif %}
+    </form>
+  {% endif %}
+  </div>
+
+  <div class="settle-panel" id="settle-history-{{ entry.id }}" role="tabpanel" hidden>
+    <ul class="settle-history">
+      {% for item in history %}<li><b>{{ item.when|datetime_br }}</b><span>{{ {'CRIAR': 'Conta criada', 'ALTERAR': ('Baixa ou estorno' if 'status' in item.fields else 'Conta alterada'), 'EXCLUIR': 'Conta excluída'}.get(item.action, item.action|capitalize) }}{% if item.user %} por {{ item.user }}{% endif %}</span></li>{% endfor %}
+      {% if entry.payment_receipt_at %}<li><b>{{ entry.payment_receipt_at|date_br }}</b><span>{{ 'Recebida' if is_income else 'Paga' }}{% if entry.bank_account %} na conta {{ entry.bank_account.nome }}{% endif %}</span></li>{% endif %}
+      {% if entry.created_at %}<li><b>{{ entry.created_at|datetime_br }}</b><span>Registro no sistema{% if entry.reference_type == 'OS' %} (gerada pela O.S.){% elif entry.reference_type == 'MIGRACAO_FINANCEIRO' %} (importada do sistema anterior){% endif %}</span></li>{% endif %}
+    </ul>
+  </div>
+</dialog>

@@ -226,3 +226,14 @@ document.querySelectorAll('.hub-settle').forEach(form => {
 })();
 // Atalho "+ Novo → Lançamento financeiro" do topo abre o formulário direto.
 if (location.hash === '#novo') document.getElementById('new-entry')?.showModal();
+
+// Abas dentro do pop-up da conta (Baixa manual / Histórico).
+document.querySelectorAll('.settle-tabs').forEach(tabs => tabs.addEventListener('click', event => {
+  const tab = event.target.closest('[data-tab]');
+  if (!tab) return;
+  tabs.querySelectorAll('[data-tab]').forEach(item => {
+    const selected = item === tab;
+    item.setAttribute('aria-selected', String(selected));
+    document.getElementById(item.dataset.tab).hidden = !selected;
+  });
+}));

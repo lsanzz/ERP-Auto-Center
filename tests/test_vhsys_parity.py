@@ -146,6 +146,16 @@ class VhsysParityTest(unittest.TestCase):
         self.assertEqual(payload['historico']['ordens'][0]['numero'], 'H-1')
         self.assertIn('class="mplate"', self.client.get('/consultas/placa').data.decode())
 
+    def test_finance_status_opens_settle_dialog_with_history(self):
+        from app.services import create_financial_entries
+        open_entry = create_financial_entries('RECEBER', 'Serviço avulso', 'Serviços', Decimal('80'), date.today().isoformat())[0]
+        db.session.commit()
+        page = self.client.get('/financeiro?view=all').data.decode()
+        self.assertIn(f'data-open="settle-{open_entry.id}"', page)
+        self.assertIn('Liquidar conta a receber', page)
+        self.assertNotIn('class="fin-act"', page)  # sem botão "Receber" solto na linha
+        self.assertIn('Histórico', page)
+
     def test_report_single_day_keeps_default_and_all_statuses(self):
         day = date(2026, 10, 20)
         for number, status in (('R-1', 'FINALIZADA'), ('R-2', 'ENTREGUE'), ('R-3', 'ABERTA')):
