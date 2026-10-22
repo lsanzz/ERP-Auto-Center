@@ -522,6 +522,8 @@
         {% endif %}
       {% endwith %}
 
+      {% set top_level = ['web.dashboard', 'web.work_orders_index', 'web.clients_index', 'fleet.index', 'web.services_index', 'scheduling.index', 'scheduling.floor', 'web.budgets_index', 'operations.inventory', 'web.products_index', 'web.finance_index', 'business.finance_calendar', 'web.fiscal_index', 'web.reports_index', 'management.index', 'web.settings_index'] %}
+      {% if current_user() and request.endpoint not in top_level %}<a class="back-link" href="{{ url_for('web.dashboard') }}" data-back>← Voltar</a>{% endif %}
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -596,8 +598,9 @@
 </div>
 
 <script>
-  // Oculta o loader quando a página termina de carregar
-  window.addEventListener('load', function() {
+  // Oculta o loader quando a página aparece. 'pageshow' também dispara ao voltar pela seta do
+  // navegador (página restaurada do cache), quando 'load' não dispara e o loader ficaria preso.
+  window.addEventListener('pageshow', function() {
     const loader = document.getElementById('global-loader-overlay');
     loader.style.opacity = '0';
     setTimeout(() => loader.style.display = 'none', 300);
@@ -611,6 +614,16 @@
     loader.style.display = 'flex';
     // Pequeno atraso para o display:flex renderizar antes da opacidade
     setTimeout(() => loader.style.opacity = '1', 10);
+  });
+
+  // Botão "Voltar": volta ao que estava antes (mantém filtros); sem histórico do sistema, vai ao painel.
+  document.querySelectorAll('[data-back]').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      if (document.referrer && new URL(document.referrer).origin === location.origin && history.length > 1) {
+        e.preventDefault();
+        history.back();
+      }
+    });
   });
 
   // Mostra o loader ao clicar em links do menu/sistema
@@ -867,7 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <link rel="stylesheet" href="{{ url_for('static', filename='lshub-ui.css') }}?v=4">
   <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}?v=2">
 {% include '_design_system.html' %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=10">
+  <link rel="stylesheet" href="{{ url_for('static', filename='polish.css') }}?v=11">
   <script src="{{ url_for('static', filename='lshub-ui.js') }}?v=4" defer></script>
   <script src="{{ url_for('static', filename='responsive.js') }}?v=2" defer></script>
   {% if assistant_enabled and current_user() and can('work_orders.manage') %}{% include '_assistant.html' %}{% endif %}

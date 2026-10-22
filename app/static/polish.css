@@ -93,3 +93,7 @@ html.show-money .money-toggle .when-shown{display:inline}
 .chart-period{display:flex;gap:4px;padding:3px;background:#f1f5f9;border-radius:10px}
 body .chart-period a.tab{padding:4px 10px;border-radius:7px;font-size:12px;font-weight:600;color:#475569;text-decoration:none}
 body .chart-period a.tab[aria-current=page]{background:#fff;color:#0f172a;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+
+/* Botão "Voltar" das telas internas */
+body a.back-link{display:inline-flex;align-items:center;gap:6px;margin:0 0 14px;padding:6px 12px 6px 8px;border-radius:9px;font-size:14px;font-weight:600;color:#475569;text-decoration:none}
+body a.back-link:hover{background:#f1f5f9;color:#0f172a}
