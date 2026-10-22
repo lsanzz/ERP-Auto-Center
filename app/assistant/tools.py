@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 import secrets
 
-from flask import g, session
+from flask import g
 from sqlalchemy import func
 
 from ..auth import has_permission
@@ -232,13 +232,9 @@ def edit_draft_items(draft: dict, edits: list) -> list[dict]:
 
 
 def _store_draft(kind: str, data: dict, card: dict, **extra) -> dict:
-    drafts = session.get('ai_drafts', {})
-    while len(drafts) >= MAX_DRAFTS:
-        drafts.pop(next(iter(drafts)))
-    draft_id = secrets.token_urlsafe(8)
-    drafts[draft_id] = {'kind': kind, 'data': data, 'card': card, **extra}
-    session['ai_drafts'] = drafts
-    session.modified = True
+    # A rota grava as propostas depois do turno (o turno termina com rollback, só leitura).
+    draft_id = secrets.token_urlsafe(16)
+    g.setdefault('ai_new_drafts', {})[draft_id] = {'kind': kind, 'data': data, 'card': card, **extra}
     return {'draft_id': draft_id, **card}
 
 

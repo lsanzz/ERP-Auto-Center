@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import StaleDataError
 from collections import OrderedDict
 import base64
 import io
@@ -20,6 +21,8 @@ from .cnpj import is_cnpj, is_cpf, lookup_cnpj, lookup_cpf
 from .models import BankAccount, Budget, ChartOfAccount, Client, CompanyPartner, CostCenter, Employee, FinancialEntry, FiscalApiConfig, FiscalDocument, PaymentMethod, Product, Service, User, WorkOrder, WorkOrderItem, XmlInvoiceImport, db
 from .services import (
     BUDGET_STATUSES,
+    reverse_settlement,
+    settled_net_amount,
     WORK_ORDER_STATUSES,
     add_budget_item,
     add_work_order_item,
@@ -101,6 +104,22 @@ def forbidden(_error):
 @web_bp.app_errorhandler(404)
 def not_found(_error):
     return render_template('error.html', code=404, message='Página não encontrada.'), 404
+
+
+@web_bp.app_errorhandler(StaleDataError)
+def concurrent_change(_error):
+    db.session.rollback()
+    if request.path.startswith('/api/'):
+        return {'error': 'Os dados foram alterados por outro usuário. Recarregue e tente novamente.', 'code': 'CONCURRENT_MODIFICATION'}, 409
+    return render_template('error.html', code=409, message='Outra pessoa alterou este registro ao mesmo tempo. Recarregue a página e refaça a alteração.'), 409
+
+
+@web_bp.app_errorhandler(500)
+def internal_error(_error):
+    db.session.rollback()
+    if request.path.startswith('/api/'):
+        return {'error': 'Erro interno. Tente novamente em instantes.', 'code': 'INTERNAL_ERROR'}, 500
+    return render_template('error.html', code=500, message='Algo deu errado do nosso lado. Tente novamente; se continuar, avise o suporte.'), 500
 
 
 @web_bp.app_errorhandler(ValueError)
@@ -2206,50 +2225,41 @@ def clients_delete(client_id: int):
 @login_required
 @admin_required
 def finance_revert(entry_id: int):
+    from .operations.services import record_audit
     entry = db.session.get(FinancialEntry, entry_id)
     if not entry:
         return redirect(url_for('web.finance_index'))
-        
-    if entry.status in ['RECEBIDO', 'PAGO']:
-        # Estorna o saldo da conta bancária — usa o valor líquido que foi creditado/debitado
-        if entry.bank_account_id:
-            account = db.session.get(BankAccount, entry.bank_account_id)
-            if account:
-                # Calcula o valor líquido que foi movimentado na liquidação
-                valor_baixa = parse_decimal(entry.valor_baixa) if entry.valor_baixa is not None else parse_decimal(entry.valor)
-                juros = parse_decimal(entry.juros)
-                desconto = parse_decimal(entry.desconto)
-                taxa = parse_decimal(entry.taxa)
-                acrescimo = parse_decimal(entry.acrescimo)
-                valor_liquido = valor_baixa + juros - desconto - taxa + acrescimo
-                if entry.entry_type == 'RECEBER':
-                    account.saldo_atual = parse_decimal(account.saldo_atual) - valor_liquido
-                else:
-                    account.saldo_atual = parse_decimal(account.saldo_atual) + valor_liquido
-                    
-        # Reverte o lançamento para pendente e limpa campos de liquidação
-        entry.status = 'PENDENTE'
-        entry.payment_receipt_at = None
-        entry.valor_baixa = None
-        entry.juros = None
-        entry.desconto = None
-        entry.taxa = None
-        entry.acrescimo = None
-        entry.observacoes_pagamento = None
+    details = {'status': entry.status, 'valor_liquido': str(settled_net_amount(entry)), 'conta': entry.bank_account_id}
+    if reverse_settlement(entry):
+        record_audit('ESTORNAR', 'FINANCEIRO', entry.id, current_user().id, details, request.remote_addr)
         db.session.commit()
         flash('Lançamento estornado e saldo revertido com sucesso.', 'success')
     else:
         flash('Apenas lançamentos liquidados podem ser estornados.', 'error')
-        
     return redirect(url_for('web.finance_index'))
+
 
 @web_bp.post('/financeiro/<int:entry_id>/remover')
 @login_required
 @admin_required
 def finance_delete(entry_id: int):
+    from .operations.services import record_audit
     entry = db.session.get(FinancialEntry, entry_id)
     if not entry:
         return redirect(url_for('web.finance_index'))
+    if entry.status in {'RECEBIDO', 'PAGO'}:
+        # Dinheiro que já passou pela conta só sai do histórico por estorno, que fica registrado.
+        flash('Este lançamento já foi liquidado. Estorne-o primeiro; depois ele pode ser removido.', 'error')
+        return redirect(url_for('web.finance_index'))
+    record_audit('EXCLUIR', 'FINANCEIRO', entry.id, current_user().id, {
+        'descricao': entry.descricao, 'tipo': entry.entry_type, 'valor': str(entry.valor),
+        'vencimento': entry.vencimento.isoformat() if entry.vencimento else None,
+        'referencia': f'{entry.reference_type or ""}:{entry.reference_id or ""}',
+    }, request.remote_addr)
+    db.session.delete(entry)
+    db.session.commit()
+    flash('Lançamento financeiro removido com sucesso.', 'success')
+    return redirect(url_for('web.finance_index'))
         
     # Se o lançamento estava liquidado, reverte o saldo da conta bancária antes de apagar
     if entry.status in ['RECEBIDO', 'PAGO'] and entry.bank_account_id:

@@ -17,6 +17,7 @@ from .models import (
     PaymentMethod,
     Product,
     Service,
+    SystemSettings,
     WorkOrder,
     WorkOrderChecklist,
     WorkOrderItem,
@@ -51,15 +52,19 @@ def remove_bank_account(account: BankAccount) -> bool:
 
 
 def next_number(model, prefix: str, field: str = 'numero') -> str:
-    # O maior número do prefixo, não o da última linha: dados importados podem ter números mais altos.
     column = getattr(model, field)
-    numbers = [int(suffix) for (value,) in db.session.query(column).filter(column.like(f'{prefix}-%'))
-               if (suffix := value.removeprefix(f'{prefix}-')).isdigit()]
+    if _supports_row_locks():
+        # Serializa a numeração até o commit: duas O.S. criadas no mesmo segundo não pegam o mesmo número.
+        db.session.query(SystemSettings.id).order_by(SystemSettings.id).with_for_update().first()
+    # O maior número do prefixo, não o da última linha: dados importados podem ter números mais altos.
+    suffix = db.func.substr(column, len(prefix) + 2)
+    prefixed = db.session.query(db.func.max(db.cast(suffix, db.Integer))).filter(
+        column.like(f'{prefix}-%')).scalar() or 0
     # Numeração importada do vhsys é só número ("8901"); nesse caso a sequência continua sem prefixo.
-    plain = [int(value) for (value,) in db.session.query(column).filter(~column.like('%-%')) if str(value).isdigit()]
+    plain = db.session.query(db.func.max(db.cast(column, db.Integer))).filter(~column.like('%-%')).scalar()
     if plain:
-        return str(max(plain + numbers) + 1)
-    return f'{prefix}-{max(numbers, default=0) + 1:05d}'
+        return str(max(plain, prefixed) + 1)
+    return f'{prefix}-{prefixed + 1:05d}'
 
 
 def recalculate_budget_totals(budget: Budget) -> Budget:
@@ -391,6 +396,36 @@ def _supports_row_locks() -> bool:
     return db.session.get_bind().dialect.name == 'mysql'
 
 
+def _lock(entry: FinancialEntry) -> None:
+    if entry.id and _supports_row_locks():
+        with db.session.no_autoflush:
+            db.session.refresh(entry, with_for_update=True)
+
+
+def _locked_account(account_id: int | None) -> BankAccount | None:
+    if not account_id:
+        return None
+    if _supports_row_locks():
+        return db.session.query(BankAccount).filter_by(id=account_id).populate_existing().with_for_update().first()
+    return db.session.get(BankAccount, account_id)
+
+
+def reverse_settlement(entry: FinancialEntry) -> bool:
+    """Desfaz uma liquidação: devolve à conta o líquido movimentado e volta o lançamento para PENDENTE."""
+    _lock(entry)
+    if entry.status not in {'RECEBIDO', 'PAGO'}:
+        return False
+    account = _locked_account(entry.bank_account_id)
+    if account:
+        sign = -1 if entry.entry_type == 'RECEBER' else 1
+        account.saldo_atual = parse_decimal(account.saldo_atual) + sign * settled_net_amount(entry)
+    entry.status = 'PENDENTE'
+    entry.payment_receipt_at = None
+    entry.valor_baixa = entry.juros = entry.desconto = entry.taxa = entry.acrescimo = None
+    entry.observacoes_pagamento = None
+    return True
+
+
 def finalize_work_order(order: WorkOrder) -> list[FinancialEntry]:
     """Finaliza a OS com lock exclusivo para evitar dupla finalizacao."""
     if _supports_row_locks():
@@ -434,9 +469,7 @@ def settle_financial_entry(
         valor_baixa + juros - desconto - taxa + acrescimo
     """
     # Serialize settlement attempts before checking status or changing balances.
-    if entry.id and _supports_row_locks():
-        with db.session.no_autoflush:
-            db.session.refresh(entry, with_for_update=True)
+    _lock(entry)
     if entry.status in {'RECEBIDO', 'PAGO'}:
         return entry
     if entry.status == 'CANCELADO':
@@ -479,10 +512,7 @@ def settle_financial_entry(
     if valor_liquido < 0:
         raise ValueError('O valor líquido da liquidação não pode ser negativo.')
     if entry.bank_account_id:
-        if _supports_row_locks():
-            account = db.session.query(BankAccount).filter_by(id=entry.bank_account_id).populate_existing().with_for_update().first()
-        else:
-            account = db.session.get(BankAccount, entry.bank_account_id)
+        account = _locked_account(entry.bank_account_id)
         if account:
             if entry.entry_type == 'RECEBER':
                 account.saldo_atual = parse_decimal(account.saldo_atual) + valor_liquido
@@ -494,6 +524,8 @@ def settle_financial_entry(
 def settle_partial_financial_entry(entry: FinancialEntry, valor_baixa, **settle_fields) -> FinancialEntry:
     """Pagamento parcial ("Baixar conta" desmarcado): o valor pago vira um lançamento liquidado
     e o restante continua em aberto no lançamento original, com o mesmo vencimento."""
+    # Trava antes de conferir o status: dois cliques não podem gerar duas baixas parciais.
+    _lock(entry)
     if entry.status != 'PENDENTE':
         raise ValueError('Só contas em aberto aceitam pagamento parcial.')
     paid = parse_decimal(valor_baixa, strict=True)
@@ -526,24 +558,8 @@ def update_work_order_receivables(order: WorkOrder, status: str, payment_method_
             else:
                 settle_financial_entry(entry, payment_method_id=payment_method_id, payment_receipt_at=payment_receipt_at, bank_account_id=bank_account_id)
         else:
-            if entry.status == 'RECEBIDO' and entry.bank_account_id:
-                if _supports_row_locks():
-                    account = db.session.query(BankAccount).filter_by(id=entry.bank_account_id).with_for_update().first()
-                else:
-                    account = db.session.get(BankAccount, entry.bank_account_id)
-                if account:
-                    # Usa o valor líquido que foi efetivamente creditado
-                    vb = parse_decimal(entry.valor_baixa) if entry.valor_baixa is not None else parse_decimal(entry.valor)
-                    valor_liquido = vb + parse_decimal(entry.juros) - parse_decimal(entry.desconto) - parse_decimal(entry.taxa) + parse_decimal(entry.acrescimo)
-                    account.saldo_atual = parse_decimal(account.saldo_atual) - valor_liquido
-            entry.status = 'PENDENTE'
-            entry.payment_receipt_at = None
-            entry.valor_baixa = None
-            entry.juros = None
-            entry.desconto = None
-            entry.taxa = None
-            entry.acrescimo = None
-            entry.observacoes_pagamento = None
+            if entry.status == 'RECEBIDO':
+                reverse_settlement(entry)
             if payment_method_id:
                 entry.payment_method_id = payment_method_id
             if bank_account_id is not None:

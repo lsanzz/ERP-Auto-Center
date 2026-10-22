@@ -1,17 +1,18 @@
 """Rotas do assistente: conversa, confirmação e cancelamento de propostas."""
 from __future__ import annotations
 
+import json
 import time
 from collections import defaultdict, deque
 
-from flask import Blueprint, current_app, jsonify, request, session, url_for
+from flask import Blueprint, current_app, g, jsonify, request, url_for
 
 from ..auth import current_user, login_required, permission_required
-from ..models import PaymentMethod, WorkOrder, db
+from ..models import AssistantState, PaymentMethod, WorkOrder, db
 from ..operations.services import record_audit
 from ..services import recalculate_work_order_totals, replace_work_order_items
 from . import llm
-from .tools import OPEN_STATUSES, edit_draft_items
+from .tools import MAX_DRAFTS, OPEN_STATUSES, edit_draft_items
 
 assistant_bp = Blueprint('assistant', __name__, url_prefix='/assistente')
 
@@ -60,7 +61,7 @@ def message():
         return jsonify(erro='Muitas mensagens seguidas. Aguarde um minuto.'), 429
     try:
         trace = []
-        reply, history, drafts, timings = llm.run_turn(text, session.get('ai_history'), f'{user.nome} ({user.role})', trace=trace)
+        reply, history, drafts, timings = llm.run_turn(text, json.loads(_state(user.id).history_json or '[]'), f'{user.nome} ({user.role})', trace=trace)
     except llm.AssistantUnavailable as exc:
         return jsonify(erro=str(exc)), 503
     except Exception as exc:  # erros do provedor não podem derrubar a página
@@ -68,7 +69,14 @@ def message():
         return jsonify(erro=_friendly_error(exc)), 502
     finally:
         db.session.rollback()  # ferramentas só leem; garante que nada pendente seja gravado
-    session['ai_history'] = history
+    state = _state(user.id, lock=True)
+    drafts_saved = json.loads(state.drafts_json or '{}')
+    drafts_saved.update(g.pop('ai_new_drafts', {}))
+    while len(drafts_saved) > MAX_DRAFTS:
+        drafts_saved.pop(next(iter(drafts_saved)))
+    state.drafts_json = json.dumps(drafts_saved, default=str)
+    state.history_json = json.dumps(history, default=str)
+    db.session.commit()
     current_app.logger.info('assistant_turn rounds=%s seconds=%s', len(timings), timings)
     return jsonify(texto=reply, cartoes=drafts, tempos=timings, chamadas=trace)
 
@@ -77,16 +85,28 @@ def message():
 @login_required
 @permission_required('work_orders.manage')
 def new_conversation():
-    session.pop('ai_history', None)
-    session.pop('ai_drafts', None)
+    state = _state(current_user().id)
+    state.history_json, state.drafts_json = '[]', '{}'
+    db.session.commit()
     return jsonify(ok=True)
 
 
+def _state(user_id: int, lock: bool = False) -> AssistantState:
+    query = AssistantState.query.filter_by(user_id=user_id)
+    state = (query.with_for_update() if lock and db.session.get_bind().dialect.name == 'mysql' else query).first()
+    if not state:
+        state = AssistantState(user_id=user_id, history_json='[]', drafts_json='{}')
+        db.session.add(state)
+    return state
+
+
 def _pop_draft(draft_id: str) -> dict | None:
-    drafts = session.get('ai_drafts', {})
+    # Uso único e gravado antes de confirmar: reenviar o mesmo pedido não cria outra O.S.
+    state = _state(current_user().id, lock=True)
+    drafts = json.loads(state.drafts_json or '{}')
     draft = drafts.pop(draft_id, None)
-    session['ai_drafts'] = drafts
-    session.modified = True
+    state.drafts_json = json.dumps(drafts)
+    db.session.commit()
     return draft
 
 

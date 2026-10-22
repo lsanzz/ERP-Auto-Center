@@ -6,6 +6,11 @@ import time
 from dotenv import load_dotenv
 load_dotenv()
 
+# date.today()/datetime.now() são usados em todo o sistema: o "hoje" é sempre o da oficina, não o do servidor.
+os.environ.setdefault('TZ', 'America/Sao_Paulo')
+if hasattr(time, 'tzset'):
+    time.tzset()
+
 from flask import Flask, send_from_directory
 from sqlalchemy import inspect, text
 from sqlalchemy.schema import CreateColumn
@@ -246,6 +251,11 @@ def create_app(test_config: dict | None = None) -> Flask:
     configure_upload_limit(app)
     from .security import configure_security
     configure_security(app)
+    proxies = int(os.getenv('TRUSTED_PROXY_COUNT') or 0)
+    if proxies > 0:
+        # Atrás de Cloudflare/proxy o remote_addr seria o do proxy e um usuário bloquearia o login de todos.
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=proxies, x_proto=proxies)
     from .observability import configure_observability
     configure_observability(app)
 

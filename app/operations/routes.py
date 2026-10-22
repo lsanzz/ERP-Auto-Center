@@ -137,6 +137,9 @@ def public_budget_approval(token):
         except ValueError as exc:
             db.session.rollback()
             error = str(exc)
+            if approval.status == 'PENDENTE' and approval.expires_at < datetime.now():
+                approval.status = 'EXPIRADO'  # o rollback desfaria a marcação feita na validação
+                db.session.commit()
     return render_template('operacao/public_approval.html', approval=approval, budget=approval.budget, error=error)
 
 

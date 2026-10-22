@@ -64,6 +64,9 @@ def enforce_endpoint_permissions():
         'work_order_change_status': 'work_orders.progress',
         'work_order_finish': 'work_orders.manage',
         'lookup_placa': 'vehicles.view',
+        # Mesmas capacidades das telas: o perfil FINANCEIRO usa a API financeira, o mecânico não.
+        'finance_collection': 'finance.view',
+        'finance_settle': 'finance.settle',
     }.get(endpoint)
     if permission and not has_permission(permission):
         return as_json({'error': 'acesso negado'}, 403)
@@ -371,11 +374,18 @@ def client_resource(client_id: int):
     return as_json(client.to_dict())
 
 
+def _product_json(product: Product) -> dict:
+    data = product.to_dict()
+    if not (has_permission('inventory.view') or has_permission('finance.view')):
+        data.pop('custo', None)  # margem da oficina não é informação do balcão nem do mecânico
+    return data
+
+
 @api_bp.route('/produtos', methods=['GET', 'POST'])
 @api_login_required
 def products_collection():
     if request.method == 'GET':
-        return as_json([product.to_dict() for product in Product.query.order_by(Product.nome).all()])
+        return as_json([_product_json(product) for product in Product.query.order_by(Product.nome).all()])
     if current_user().role != 'ADMINISTRADOR':
         return as_json({'error': 'acesso negado'}, 403)
     data = payload()
@@ -406,7 +416,7 @@ def product_resource(product_id: int):
     if not product:
         return as_json({'error': 'peça não encontrada'}, 404)
     if request.method == 'GET':
-        return as_json(product.to_dict())
+        return as_json(_product_json(product))
     if current_user().role != 'ADMINISTRADOR':
         return as_json({'error': 'acesso negado'}, 403)
     data = payload()
@@ -722,11 +732,16 @@ def work_order_finish(work_order_id: int):
 
 
 @api_bp.route('/financeiro', methods=['GET', 'POST'])
-@api_roles_required('ADMINISTRADOR')
+@api_login_required
 def finance_collection():
     if request.method == 'GET':
-        entries = FinancialEntry.query.order_by(FinancialEntry.vencimento.desc(), FinancialEntry.id.desc()).all()
-        return as_json({'caixa_diario': dashboard_data('ADMINISTRADOR')['caixa_diario'], 'items': [entry.to_dict() for entry in entries]})
+        page = max(request.args.get('page', 1, type=int) or 1, 1)
+        per_page = min(max(request.args.get('per_page', 100, type=int) or 100, 1), 500)
+        query = FinancialEntry.query.order_by(FinancialEntry.vencimento.desc(), FinancialEntry.id.desc())
+        total = query.count()
+        entries = query.offset((page - 1) * per_page).limit(per_page).all()
+        return as_json({'caixa_diario': dashboard_data('ADMINISTRADOR')['caixa_diario'], 'items': [entry.to_dict() for entry in entries],
+                        'page': page, 'per_page': per_page, 'total': total})
     data = payload()
     entry_type = data.get('entry_type') or 'RECEBER'
     payment_mode = data.get('payment_mode') or ('PARCELADO' if int(data.get('installment_count') or 1) > 1 else 'UNICO')
@@ -756,7 +771,7 @@ def finance_collection():
 
 @api_bp.post('/financeiro/<int:entry_id>/liquidar')
 @api_bp.post('/financeiro/<int:entry_id>/quitar')
-@api_roles_required('ADMINISTRADOR')
+@api_login_required
 def finance_settle(entry_id: int):
     entry = get_or_404(FinancialEntry, entry_id)
     if not entry:

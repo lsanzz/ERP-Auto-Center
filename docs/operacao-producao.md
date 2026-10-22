@@ -40,3 +40,9 @@ Alertas mínimos:
 ## Recuperação
 
 Em caso de falha de migration, não improvise alterações manuais no schema. Interrompa gravações, preserve logs e banco, restaure o backup validado se necessário e execute a versão anterior da aplicação. Alterações financeiras, fiscais ou de estoque devem ser revertidas por lançamentos de estorno auditáveis, nunca por exclusão direta.
+
+## Variáveis desta revisão (22/10/2026)
+
+- `TZ`: o sistema assume `America/Sao_Paulo` quando a variável não está definida, para "hoje" ser o dia da oficina. Só defina outro valor se a oficina estiver em outro fuso.
+- `TRUSTED_PROXY_COUNT`: número de proxies na frente do sistema (ex.: `1` com Cloudflare ou proxy reverso). Sem isso, atrás de proxy todos os usuários aparecem com o mesmo IP e 5 senhas erradas de uma pessoa bloqueiam o login de todos. Deixe vazio quando o acesso for direto.
+- Migration `20261022_19` cria `assistant_states` (conversa e propostas do assistente de IA, antes guardadas no cookie). Rode `flask --app run.py db upgrade` antes de subir esta versão.

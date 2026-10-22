@@ -732,6 +732,15 @@ class InventoryCountItem(db.Model, TimestampMixin, SerializableMixin):
     product = db.relationship('Product')
 
 
+class AssistantState(db.Model, TimestampMixin):
+    """Conversa e propostas do assistente no servidor: o cookie de sessão não comporta nem protege esses dados."""
+    __tablename__ = 'assistant_states'
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    history_json = db.Column(db.Text, nullable=False, default='[]')
+    drafts_json = db.Column(db.Text, nullable=False, default='{}')
+
+
 class AsyncJob(db.Model, TimestampMixin, SerializableMixin):
     __tablename__ = 'async_jobs'
     id = db.Column(db.Integer, primary_key=True)
