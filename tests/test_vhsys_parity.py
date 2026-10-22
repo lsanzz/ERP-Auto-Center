@@ -146,6 +146,18 @@ class VhsysParityTest(unittest.TestCase):
         self.assertEqual(payload['historico']['ordens'][0]['numero'], 'H-1')
         self.assertIn('class="mplate"', self.client.get('/consultas/placa').data.decode())
 
+    def test_report_single_day_keeps_default_and_all_statuses(self):
+        day = date(2026, 10, 20)
+        for number, status in (('R-1', 'FINALIZADA'), ('R-2', 'ENTREGUE'), ('R-3', 'ABERTA')):
+            db.session.add(WorkOrder(client_id=self.customer.id, client_nome='MARIA SILVA', numero=number, status=status, data_entrada=day))
+        db.session.add(WorkOrder(client_id=self.customer.id, client_nome='MARIA SILVA', numero='R-4', status='FINALIZADA', data_entrada=date(2026, 10, 19)))
+        db.session.commit()
+        page = self.client.get('/relatorios?start_date=2026-10-20&end_date=2026-10-20&status=FECHADAS').data.decode()
+        self.assertIn('#R-1', page); self.assertIn('#R-2', page); self.assertNotIn('#R-3', page); self.assertNotIn('#R-4', page)
+        self.assertIn('value="FECHADAS" selected', page)
+        page = self.client.get('/relatorios?start_date=2026-10-20&end_date=2026-10-20&status=TODOS').data.decode()
+        self.assertIn('#R-3', page)
+
     def test_status_and_employee_change_from_list_return_to_list(self):
         from app.models import Employee
         employee = Employee(nome='RENAN', funcao='MECÂNICO', ativo=True); db.session.add(employee)

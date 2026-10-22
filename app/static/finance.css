@@ -1,0 +1,60 @@
+/* Financeiro no mesmo padrão da lista de O.S.: faixa de totais, abas segmentadas, busca única e linhas compactas. */
+.fin{display:grid;gap:18px}
+.fin-header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.fin-header h2{margin:0;font-size:28px;letter-spacing:-.7px}
+
+.fin-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden}
+body a.fin-stat{display:grid;gap:4px;align-content:center;padding:14px 18px;color:#0f172a;text-decoration:none;transition:background-color .15s}
+body a.fin-stat+a.fin-stat{border-left:1px solid #e2e8f0}
+body a.fin-stat:hover{background:#f8fafc}
+.fin-stat span{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#64748b}
+.fin-stat strong{font-size:20px;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.fin-stat small{font-size:12px;color:#64748b}
+.fin-stat small.is-late{color:#b91c1c;font-weight:600}
+
+.fin-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px 18px 8px}
+.fin-segments{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;background:#f1f5f9;border-radius:12px;margin-bottom:14px}
+body .fin-segments a.seg{padding:8px 14px;border-radius:9px;font-size:13px;font-weight:600;color:#475569;text-decoration:none;white-space:nowrap}
+body .fin-segments a.seg:hover{color:#0f172a}
+body .fin-segments a.seg[aria-current=page]{background:#fff;color:#0f172a;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+.fin-search{margin-bottom:6px}
+.fin-search-row{display:flex;gap:10px;max-width:640px;margin-bottom:10px}
+.fin-search-row input{flex:1;min-width:0;margin:0}
+.fin-count{margin:4px 0 0;font-size:12px;color:#64748b}
+
+.fin-table-shell{width:100%;overflow-x:auto}
+.fin-table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0 8px}
+.fin-table th{background:transparent!important;padding:0 12px 6px;font-size:12px;font-weight:600;color:#64748b;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+.fin-table th:nth-child(1){width:11%}.fin-table th:nth-child(2){width:37%}.fin-table th:nth-child(3){width:15%}.fin-table th:nth-child(4){width:13%}.fin-table th:nth-child(5){width:12%}.fin-table th:nth-child(6){width:12%}
+.fin-table td{padding:11px 12px;font-size:13px;background:#fff;border-top:1px solid #edf1f6;border-bottom:1px solid #edf1f6;vertical-align:middle;overflow-wrap:anywhere}
+.fin-table td:first-child{border-left:1px solid #edf1f6;border-radius:10px 0 0 10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fin-table td:last-child{border-right:1px solid #edf1f6;border-radius:0 10px 10px 0}
+.fin-table tbody tr:hover td{background:#f8fafc}
+.fin-table .money{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fin-table .fin-actcol{text-align:right}
+.fin-desc strong{display:block;font-weight:600;color:#0f172a;margin-bottom:3px}
+.fin-desc span,.fin-sub{display:block;font-size:12px;color:#64748b}
+body a.fin-link{color:#1d4ed8;text-decoration:none;font-weight:600}
+body a.fin-link:hover{text-decoration:underline}
+.fin-status{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:#334155}
+.fin-status i{width:8px;height:8px;border-radius:50%;background:#94a3b8;flex:none}
+.fin-status.is-open i{background:#f97316}
+.fin-status.is-late i{background:#ef4444}
+.fin-status.is-late{color:#b91c1c;font-weight:600}
+.fin-status.is-done i{background:#22c55e}
+body button.fin-act{min-height:34px;padding:0 14px;font-size:13px}
+.fin-table .more-menu{display:inline-block;text-align:left}
+.fin-table .more-menu>summary{height:34px}
+
+@media(max-width:760px){
+  .fin-strip{grid-template-columns:1fr}
+  body a.fin-stat+a.fin-stat{border-left:0;border-top:1px solid #e2e8f0}
+  body a.fin-stat{grid-template-columns:1fr auto;align-items:center}
+  .fin-stat small{grid-column:1/-1}
+  .fin-card{padding:14px}
+  .fin-segments{display:flex}
+  body .fin-segments a.seg{flex:1;text-align:center}
+}
+.settle-details{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0 0 12px;font-size:13px}
+.settle-details dt{color:#64748b}
+.settle-details dd{margin:0}

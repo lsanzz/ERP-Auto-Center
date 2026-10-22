@@ -96,14 +96,12 @@
         <input type="date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}">
       </div>
       <div>
-        <label>Status O.S.</label>
+        <label>Situação</label>
         <select name="status">
-          <option value="TODOS" {% if not status_filter or 'TODOS' in status_filter %}selected{% endif %}>Todos os status</option>
-          <option value="ABERTA" {% if 'ABERTA' in status_filter %}selected{% endif %}>Aberta</option>
-          <option value="EM_ANDAMENTO" {% if 'EM_ANDAMENTO' in status_filter %}selected{% endif %}>Em Andamento</option>
-          <option value="AGUARDANDO_PECA" {% if 'AGUARDANDO_PECA' in status_filter %}selected{% endif %}>Aguardando Peça</option>
-          <option value="FINALIZADA" {% if 'FINALIZADA' in status_filter %}selected{% endif %}>Finalizada</option>
-          <option value="ENTREGUE" {% if 'ENTREGUE' in status_filter %}selected{% endif %}>Entregue</option>
+          {% set chosen = status_filter[0] if status_filter|length == 1 else ('FECHADAS' if status_filter == ['FINALIZADA', 'ENTREGUE'] else 'TODOS') %}
+          <option value="FECHADAS" {% if chosen == 'FECHADAS' %}selected{% endif %}>Finalizadas e entregues</option>
+          <option value="TODOS" {% if chosen == 'TODOS' %}selected{% endif %}>Todas</option>
+          {% for value, label in [('ABERTA', 'Aberta'), ('EM_ANDAMENTO', 'Em andamento'), ('AGUARDANDO_PECA', 'Aguardando peça'), ('FINALIZADA', 'Finalizada'), ('ENTREGUE', 'Entregue'), ('CANCELADA', 'Cancelada')] %}<option value="{{ value }}" {% if chosen == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </div>
       <div class="report-filter-actions"><button type="submit" class="button">Pesquisar</button><a href="{{ url_for('web.reports_index') }}" class="button secondary">Limpar</a></div>

@@ -148,8 +148,9 @@ def index():
         return render_template('gestao/index.html', secao=secao, stock=stock, start=start, end=end, purchases=purchases)
     from .finance_overview import financial_overview
     transactions = BankTransaction.query.outerjoin(BankReconciliation).filter(BankReconciliation.id.is_(None)).order_by(BankTransaction.posted_on.desc()).limit(30).all()
+    finance = financial_overview()
     return render_template('gestao/index.html', secao=secao, summary=management_summary(start, end), start=start, end=end,
-        purchases=purchases, transactions=transactions, projected=financial_overview()['projected'],
+        purchases=purchases, transactions=transactions, projected=finance['projected'], finance=finance,
         accounts=BankAccount.query.filter_by(ativo=True).all(), profitability=order_profitability(),
         entries=FinancialEntry.query.filter(FinancialEntry.status != 'CANCELADO').order_by(FinancialEntry.vencimento.desc()).limit(100).all())
 

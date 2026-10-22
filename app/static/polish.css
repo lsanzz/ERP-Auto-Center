@@ -20,8 +20,7 @@ a.hub-kpi:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,23,42,
 .table tbody tr:hover,.hub-table tbody tr:hover{background:#f8fafc}
 body :is(button,.button){transition:transform .12s ease,box-shadow .18s ease,background .18s ease}
 body :is(button,.button):active{transform:scale(.97)}
-.status-badge,.hub-badge{transition:transform .15s ease}
-.status-badge .status-dot{animation:pulse-dot 2.4s ease-in-out infinite}
+.hub-badge{transition:transform .15s ease}
 dialog[open]{animation:dialog-in .2s ease-out}
 
 @keyframes page-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -99,12 +98,10 @@ body .chart-period a.tab[aria-current=page]{background:#fff;color:#0f172a;box-sh
 
 /* Alterar situação/responsável direto na lista de O.S. */
 .status-menu{position:relative;display:inline-block}
-.status-menu>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 6px 2px 2px;transition:background-color .15s}
+.status-menu>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .status-menu>summary::-webkit-details-marker{display:none}
-.status-menu>summary:hover{background:#eef2ff}
-.status-caret{width:6px;height:6px;border-right:1.5px solid #64748b;border-bottom:1.5px solid #64748b;transform:rotate(45deg);margin:-3px 2px 0;transition:transform .2s}
-.status-menu[open] .status-caret{transform:rotate(225deg);margin-top:3px}
-.status-menu-panel{position:absolute;left:0;top:calc(100% + 6px);z-index:45;width:240px;padding:10px;display:grid;gap:10px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 18px 40px rgba(15,23,42,.16);animation:menu-in .16s ease-out}
+.status-caret{width:5px;height:5px;border-right:1.5px solid #94a3b8;border-bottom:1.5px solid #94a3b8;transform:rotate(45deg);margin:-3px 2px 0}
+.status-menu-panel{position:absolute;left:0;top:calc(100% + 6px);z-index:45;width:240px;padding:10px;display:grid;gap:10px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 18px 40px rgba(15,23,42,.16)}
 .status-menu-panel form{display:grid;gap:4px;margin:0}
 .status-menu-title{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#64748b;display:grid;gap:6px}
 .status-menu-title select{text-transform:none;letter-spacing:0;font-weight:500}
@@ -139,8 +136,8 @@ body a.back-link:hover::before{transform:translateX(-2px)}
 @media(prefers-reduced-motion:reduce){body :is(.hub-advanced,.finance-more,.nota-details,.fiscal-fold,.toggle-details)>summary,body a.back-link,body a.back-link::before{transition:none}}
 
 /* Cores por situação da O.S. (lista, menu de situação e página da O.S.) */
-body .status-badge{padding:4px 10px 4px 8px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em;background:var(--st-bg,#f1f5f9);color:var(--st-fg,#334155)}
-body .status-badge .status-dot{width:8px;height:8px;border-radius:50%;background:var(--st-dot,#94a3b8);box-shadow:0 0 0 3px var(--st-ring,rgba(148,163,184,.2))}
+body .status-badge{display:inline-flex;align-items:center;gap:7px;padding:0;background:none;font-size:13px;font-weight:500;color:#334155}
+body .status-badge .status-dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--st-dot,#94a3b8);box-shadow:none;animation:none}
 body .status-aberta{--st-bg:#eff6ff;--st-fg:#1d4ed8;--st-dot:#2563eb;--st-ring:rgba(37,99,235,.18)}
 body .status-em-andamento{--st-bg:#fff7ed;--st-fg:#c2410c;--st-dot:#f97316;--st-ring:rgba(249,115,22,.2)}
 body .status-aguardando-peca{--st-bg:#f5f3ff;--st-fg:#6d28d9;--st-dot:#8b5cf6;--st-ring:rgba(139,92,246,.2)}

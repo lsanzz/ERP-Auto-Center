@@ -70,6 +70,11 @@
     </table></div>
   </section>
 
+  <link rel="stylesheet" href="{{ url_for('static', filename='overview.css') }}?v=2">
+  <section class="mgmt-section hub">
+    <div class="section-title"><div><h2>Caixa do mês</h2></div><span class="section-note">Recebido {{ format_currency(finance.received) }} · Pago {{ format_currency(finance.paid) }} · Resultado {{ format_currency(finance.result) }}</span></div>
+    {% include 'dashboard/_cash.html' %}
+  </section>
   <p class="section-note"><a href="{{ url_for('business.balance') }}">Balancete por regime de caixa, fluxo dia a dia e exportação CSV →</a></p>
   {% endif %}
   <div class="operations-grid" style="grid-template-columns:1fr">

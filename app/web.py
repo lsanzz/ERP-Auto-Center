@@ -2692,8 +2692,8 @@ def reports_index():
     client_id = request.args.get('client_id')
     employee_id = request.args.get('employee_id')
     placa = request.args.get('placa', '').strip()
-    status_filter = request.args.getlist('status')
-    if not status_filter:
+    status_filter = [value for value in request.args.getlist('status') if value]
+    if not status_filter or 'FECHADAS' in status_filter:  # padrão do relatório de faturamento
         status_filter = ['FINALIZADA', 'ENTREGUE']
     show_items = request.args.get('show_items', 'both')
     is_faturada = request.args.get('is_faturada', '')

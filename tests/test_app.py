@@ -208,9 +208,9 @@ class ERPAppTestCase(unittest.TestCase):
         response = self.client.get('/financeiro?view=overdue&kind=RECEBER')
         self.assertEqual(response.status_code, 200)
         self.assertIn('Novo lançamento'.encode(), response.data)
-        self.assertIn('Total a pagar'.encode(), response.data)
-        self.assertIn('Contas a receber'.encode(), response.data)
-        self.assertIn('Contas a pagar'.encode(), response.data)
+        self.assertIn('A pagar'.encode(), response.data)
+        self.assertIn('A receber'.encode(), response.data)
+        self.assertIn('Pagas e recebidas'.encode(), response.data)
 
         response = self.client.post(
             '/financeiro/novo',
@@ -287,10 +287,10 @@ class ERPAppTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'CLIENTE ORIGINAL TESTE', response.data)
-        self.assertIn('Forma de pagamento'.encode(), response.data)
+        self.assertIn('<th>Forma</th>'.encode(), response.data)
         self.assertIn(payment_method_name.encode(), response.data)
-        self.assertIn('Contas a receber'.encode(), response.data)
-        self.assertIn('Contas a pagar'.encode(), response.data)
+        self.assertIn('A receber'.encode(), response.data)
+        self.assertIn('A pagar'.encode(), response.data)
         self.assertNotIn(b'<span>Vencidas</span>', response.data)
         self.assertNotIn(f'Ordem de Serviço {order_number}'.encode(), response.data)
 

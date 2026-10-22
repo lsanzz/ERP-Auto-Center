@@ -1,26 +1,73 @@
 {% extends 'base.html' %}{% from '_privacy.html' import eye %}{% block content %}
 <link rel="stylesheet" href="{{ url_for('static',filename='overview.css') }}?v=2">
-<link rel="stylesheet" href="{{ url_for('static',filename='finance-mobile.css') }}?v=3">
-<style>.finance-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.finance-kpis .hub-kpi{padding:16px 18px}.finance-kpis .hub-kpi strong{font-size:22px}
-.finance-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:4px 0 16px}.finance-filters>label{flex:0 1 170px}.finance-filters>label:first-of-type{flex:1 1 260px}
-.finance-more{flex-basis:100%}.finance-more>summary{cursor:pointer;font-size:13px;font-weight:600;color:#475569;width:max-content}.finance-more-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}.finance-more-grid label{flex:0 1 220px}
-@media(max-width:700px){.finance-kpis{grid-template-columns:1fr;gap:8px}.finance-kpis .hub-kpi{display:flex;justify-content:space-between;align-items:center;padding:12px 14px}.finance-kpis .hub-kpi small{display:none}.finance-kpis .hub-kpi strong{font-size:18px;margin:0}}</style>
-<main class="hub">
+<link rel="stylesheet" href="{{ url_for('static',filename='finance.css') }}?v=2">
+{% set date_label = 'Pagamento' if view == 'received' else 'Vencimento' %}
+<main class="hub fin">
 {% include 'financeiro/_tabs.html' %}
-<div class="hub-header"><div><h2>Financeiro</h2></div><div class="hub-actions"><details class="more-menu"><summary>Mais ações</summary><div class="more-menu-panel">{% if can('inventory.move') %}<a class="item" href="{{ url_for('operations.inventory') }}#lancar">Entrada de nota</a>{% endif %}<a class="item" href="{{ url_for('web.finance_imports') }}">Importações</a><a class="item" href="{{ url_for('web.fiscal_index') }}">Notas fiscais</a></div></details><button type="button" data-open="new-entry">+ Novo lançamento</button></div></div>
-<div class="hub-kpis finance-kpis"><a class="hub-kpi primary" href="{{ url_for('web.dashboard') }}#contas"><span>Saldo nas contas {{ eye('saldo-total', 'o saldo total') }}</span><strong data-private="R$ ••••••" data-key="saldo-total">{{ format_currency(finance.balance) }}</strong><small>Consultar contas bancárias →</small></a><a class="hub-kpi" href="{{ url_for('web.finance_index',kind='RECEBER') }}"><span>Total a receber</span><strong>{{ format_currency(finance.receivable) }}</strong><small>{{ format_currency(finance.overdue_receivable) }} vencidos</small></a><a class="hub-kpi" href="{{ url_for('web.finance_index',kind='PAGAR') }}"><span>Total a pagar</span><strong>{{ format_currency(finance.payable) }}</strong><small>{{ format_currency(finance.overdue_payable) }} vencidos</small></a></div>
-<div class="hub-panel">
-<nav class="hub-tabs finance-status-tabs" aria-label="Situação das contas">
-  <a href="{{ view_url('pending', 'RECEBER') }}" {% if view in ['pending', 'overdue'] and kind == 'RECEBER' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7zM12 3v12m0 0 4-4m-4 4-4-4"/></svg><span>Contas a receber</span></a>
-  <a href="{{ view_url('pending', 'PAGAR') }}" {% if view in ['pending', 'overdue'] and kind == 'PAGAR' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7zM12 21V9m0 0 4 4m-4-4-4 4"/></svg><span>Contas a pagar</span></a>
-  <a href="{{ view_url('received') }}" {% if view == 'received' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg><span>Pagas e recebidas</span></a>
-  <a href="{{ view_url('all') }}" {% if view == 'all' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z"/></svg><span>Todas</span></a>
-</nav>
-<form method="get" class="finance-filters"><input type="hidden" name="view" value="{{ view }}"><label>Buscar<input type="search" name="q" placeholder="Descrição ou categoria…" value="{{ request.args.get('q','') }}"></label><label>{{ 'Pagamento de' if view == 'received' else 'Vencimento de' }}<input type="date" name="start_date" value="{{ request.args.get('start_date','') }}"></label><label>Até<input type="date" name="end_date" value="{{ request.args.get('end_date','') }}"></label><button>Aplicar</button><details class="finance-more"{% if request.args.get('account') %} open{% endif %}><summary class="filter-toggle">Mais filtros{% if request.args.get('account') %}<span class="toggle-count">1</span>{% endif %}</summary><div class="finance-more-grid"><label>Tipo<select name="kind"><option value="" {% if not kind %}selected{% endif %}>Receitas e despesas</option>{% for code,label in [('RECEBER','Receitas'),('PAGAR','Despesas')] %}<option value="{{ code }}" {% if kind == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><label>Conta bancária<select name="account"><option value="">Todas as contas</option>{% for account in finance.accounts %}<option value="{{ account.id }}" {% if request.args.get('account') == account.id|string %}selected{% endif %}>{{ account.nome }}</option>{% endfor %}</select></label></div></details></form>
-<div class="hub-panel-head"><span class="muted">{{ pagination.total }} lançamento(s) · uma linha por parcela</span><a href="{{ url_for('web.finance_index',view=view) }}">Limpar filtros</a></div>
-<div class="hub-table-wrap"><table data-mobile-cards class="hub-table"><thead><tr><th>{{ 'Pagamento' if view == 'received' else 'Vencimento' }}</th><th>Descrição</th><th>Conta / forma</th><th class="money">Valor</th><th>Situação</th><th>Ação</th></tr></thead><tbody>{% for entry in entries %}<tr><td data-label="{{ 'Pagamento' if view == 'received' else 'Vencimento' }}">{{ (entry.payment_receipt_at if view == 'received' else entry.vencimento)|date_br }}</td><td class="description" data-label="Descrição"><strong>{{ entry_description(entry) }}</strong>{% set details = imported_details(entry) %}{% if details %}<details class="finance-import-details"><summary>Detalhes da conta</summary><dl>{% for label, value in details %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></details>{% endif %}{% if entry.categoria or entry.installment_total > 1 %}<small>{{ entry.categoria or '' }}{% if entry.categoria and entry.installment_total > 1 %} · {% endif %}{% if entry.installment_total > 1 %}Parcela {{ entry.installment_number }}/{{ entry.installment_total }}{% endif %}</small>{% endif %}{% if entry.reference_type == 'OS' and entry.reference_id %}<small><a href="{{ url_for('web.work_orders_show',work_order_id=entry.reference_id) }}">Ver ordem de serviço →</a></small>{% elif entry.reference_type == 'XML_NFE' and entry.reference_id %}<small><a href="{{ url_for('web.finance_xml_preview',xml_id=entry.reference_id) }}">Ver nota da compra →</a></small>{% endif %}</td><td data-label="Conta / forma"><strong>{{ entry.payment_method.nome if entry.payment_method else 'Forma não informada' }}</strong><small>{{ entry.bank_account.nome if entry.bank_account else 'Sem conta definida' }}</small></td><td class="money" data-label="Valor"><strong>{{ format_currency(net_amount(entry) if entry.status in ['RECEBIDO','PAGO'] else entry.valor) }}</strong>{% if entry.status in ['RECEBIDO','PAGO'] %}<small>Valor líquido</small>{% endif %}</td><td data-label="Situação"><span class="hub-badge {{ 'late' if entry.status == 'PENDENTE' and entry.vencimento < today else 'done' if entry.status in ['RECEBIDO','PAGO'] else '' }}">{{ 'Vencida' if entry.status == 'PENDENTE' and entry.vencimento < today else 'Em aberto' if entry.status == 'PENDENTE' else 'Recebida' if entry.status == 'RECEBIDO' else 'Paga' if entry.status == 'PAGO' else entry.status }}</span></td><td data-label="Ação">{% if entry.status == 'PENDENTE' %}<button type="button" data-open="settle-{{ entry.id }}">{{ 'Receber' if entry.entry_type == 'RECEBER' else 'Pagar' }}</button>{% elif entry.status in ['RECEBIDO','PAGO'] %}{% if entry.entry_type == 'RECEBER' %}<a class="button secondary" href="{{ url_for('business.receipt',entry_id=entry.id) }}" target="_blank" rel="noopener">Recibo</a>{% endif %}<form method="post" action="{{ url_for('web.finance_revert',entry_id=entry.id) }}" onsubmit="return confirm('Estornar esta conta? O saldo será revertido e a conta voltará a ficar em aberto.')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="secondary">Estornar</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6"><div class="hub-empty">Nenhuma conta encontrada nesta seleção.<br>Altere os filtros ou registre uma nova receita ou despesa.</div></td></tr>{% endfor %}</tbody></table></div>{% include '_pagination.html' %}
+<div class="fin-header">
+  <h2>Financeiro</h2>
+  <div class="hub-actions"><details class="more-menu"><summary>Mais ações</summary><div class="more-menu-panel">{% if can('inventory.move') %}<a class="item" href="{{ url_for('operations.inventory') }}#lancar">Entrada de nota</a>{% endif %}<a class="item" href="{{ url_for('web.finance_imports') }}">Importações</a><a class="item" href="{{ url_for('web.fiscal_index') }}">Notas fiscais</a></div></details><button type="button" data-open="new-entry">+ Novo lançamento</button></div>
 </div>
-<details class="hub-panel toggle-details"><summary>Resumo do mês e fluxo de caixa</summary><div class="hub-summary"><div><small>Recebido neste mês</small><strong>{{ format_currency(finance.received) }}</strong></div><div><small>Pago neste mês</small><strong>{{ format_currency(finance.paid) }}</strong></div><div><small>Resultado de caixa</small><strong>{{ format_currency(finance.result) }}</strong></div></div>{% include 'dashboard/_cash.html' %}</details>
-{% for entry in entries if entry.status == 'PENDENTE' %}{% set settle_description = entry_description(entry) %}{% include 'financeiro/_settle_dialog.html' %}{% endfor %}
+
+<div class="fin-strip">
+  <a class="fin-stat" href="{{ url_for('web.dashboard') }}#contas"><span>Saldo nas contas {{ eye('saldo-total', 'o saldo total') }}</span><strong data-private="R$ ••••••" data-key="saldo-total">{{ format_currency(finance.balance) }}</strong></a>
+  <a class="fin-stat" href="{{ view_url('pending', 'RECEBER') }}"><span>A receber</span><strong>{{ format_currency(finance.receivable) }}</strong>{% if finance.overdue_receivable %}<small class="is-late">{{ format_currency(finance.overdue_receivable) }} vencido</small>{% endif %}</a>
+  <a class="fin-stat" href="{{ view_url('pending', 'PAGAR') }}"><span>A pagar</span><strong>{{ format_currency(finance.payable) }}</strong>{% if finance.overdue_payable %}<small class="is-late">{{ format_currency(finance.overdue_payable) }} vencido</small>{% endif %}</a>
+</div>
+
+<section class="fin-card">
+  <nav class="fin-segments" aria-label="Situação das contas">
+    <a class="seg" href="{{ view_url('pending', 'RECEBER') }}" {% if view in ['pending', 'overdue'] and kind == 'RECEBER' %}aria-current="page"{% endif %}>A receber</a>
+    <a class="seg" href="{{ view_url('pending', 'PAGAR') }}" {% if view in ['pending', 'overdue'] and kind == 'PAGAR' %}aria-current="page"{% endif %}>A pagar</a>
+    <a class="seg" href="{{ view_url('received') }}" {% if view == 'received' %}aria-current="page"{% endif %}>Pagas e recebidas</a>
+    <a class="seg" href="{{ view_url('all') }}" {% if view == 'all' %}aria-current="page"{% endif %}>Todas</a>
+  </nav>
+
+  <form method="get" class="fin-search">
+    <input type="hidden" name="view" value="{{ view }}">{% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
+    <div class="fin-search-row">
+      <input type="search" name="q" value="{{ request.args.get('q','') }}" placeholder="Buscar por descrição, cliente ou categoria" aria-label="Buscar conta">
+      <button type="submit">Buscar</button>
+      {% if request.args.get('q') or request.args.get('start_date') or request.args.get('end_date') or request.args.get('account') %}<a class="button secondary" href="{{ url_for('web.finance_index', view=view, kind=kind or None) }}">Limpar</a>{% endif %}
+    </div>
+    {% set counter = namespace(n=0) %}{% for key in ['start_date','end_date','account'] if request.args.get(key) %}{% set counter.n = counter.n + 1 %}{% endfor %}
+    <details class="hub-advanced"{% if counter.n %} open{% endif %}><summary class="filter-toggle">Mais filtros{% if counter.n %}<span class="toggle-count">{{ counter.n }}</span>{% endif %}</summary>
+      <div class="filter-bar">
+        <label>{{ date_label }} de<input type="date" name="start_date" value="{{ request.args.get('start_date','') }}"></label>
+        <label>Até<input type="date" name="end_date" value="{{ request.args.get('end_date','') }}"></label>
+        <label>Conta bancária<select name="account"><option value="">Todas</option>{% for account in finance.accounts %}<option value="{{ account.id }}" {% if request.args.get('account') == account.id|string %}selected{% endif %}>{{ account.nome }}</option>{% endfor %}</select></label>
+        <button type="submit">Filtrar</button>
+      </div>
+    </details>
+  </form>
+
+  <p class="fin-count">{{ pagination.total }} conta(s){% if pagination.total %} · uma linha por parcela{% endif %}</p>
+  <div class="fin-table-shell"><table data-mobile-cards class="fin-table">
+    <thead><tr><th>{{ date_label }}</th><th>Descrição</th><th>Forma</th><th class="money">Valor</th><th>Situação</th><th class="fin-actcol">Ação</th></tr></thead>
+    <tbody>{% for entry in entries %}
+      {% set late = entry.status == 'PENDENTE' and entry.vencimento < today %}
+      {% set paid = entry.status in ['RECEBIDO','PAGO'] %}
+      <tr>
+        <td data-label="{{ date_label }}">{{ (entry.payment_receipt_at if view == 'received' else entry.vencimento)|date_br }}</td>
+        <td class="fin-desc" data-label="Descrição"><strong>{{ entry_description(entry) }}</strong>
+          <span>{% if view == 'all' %}{{ 'Receita' if entry.entry_type == 'RECEBER' else 'Despesa' }} · {% endif %}{{ entry.categoria or 'Sem categoria' }}{% if entry.installment_total > 1 %} · parcela {{ entry.installment_number }}/{{ entry.installment_total }}{% endif %}{% if entry.reference_type == 'OS' and entry.reference_id %} · <a class="fin-link" href="{{ url_for('web.work_orders_show',work_order_id=entry.reference_id) }}">ver O.S.</a>{% elif entry.reference_type == 'XML_NFE' and entry.reference_id %} · <a class="fin-link" href="{{ url_for('web.finance_xml_preview',xml_id=entry.reference_id) }}">ver nota</a>{% endif %}</span>
+        </td>
+        <td data-label="Forma">{{ entry.payment_method.nome if entry.payment_method else '—' }}{% if entry.bank_account %}<span class="fin-sub">{{ entry.bank_account.nome }}</span>{% endif %}</td>
+        <td class="money" data-label="Valor"><strong>{{ format_currency(net_amount(entry) if paid else entry.valor) }}</strong></td>
+        <td data-label="Situação"><span class="fin-status {{ 'is-late' if late else 'is-done' if paid else 'is-open' }}"><i></i>{{ 'Vencida' if late else 'Em aberto' if entry.status == 'PENDENTE' else 'Recebida' if entry.status == 'RECEBIDO' else 'Paga' if entry.status == 'PAGO' else entry.status|capitalize }}</span></td>
+        <td class="fin-actcol" data-label="Ação">
+          {% if entry.status == 'PENDENTE' %}<button type="button" class="fin-act" data-open="settle-{{ entry.id }}">{{ 'Receber' if entry.entry_type == 'RECEBER' else 'Pagar' }}</button>
+          {% elif paid %}<details class="more-menu"><summary>Ações</summary><div class="more-menu-panel">
+            {% if entry.entry_type == 'RECEBER' %}<a class="item" href="{{ url_for('business.receipt',entry_id=entry.id) }}" target="_blank" rel="noopener">Recibo</a>{% endif %}
+            <form method="post" action="{{ url_for('web.finance_revert',entry_id=entry.id) }}" onsubmit="return confirm('Estornar esta conta? O saldo será revertido e a conta voltará a ficar em aberto.')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="danger">Estornar</button></form>
+          </div></details>{% endif %}
+        </td>
+      </tr>
+    {% else %}<tr><td colspan="6"><div class="hub-empty">Nenhuma conta encontrada.<br>Altere a busca ou registre um novo lançamento.</div></td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% include '_pagination.html' %}
+</section>
+
+{% for entry in entries if entry.status == 'PENDENTE' %}{% set settle_description = entry_description(entry) %}{% set settle_details = imported_details(entry) %}{% include 'financeiro/_settle_dialog.html' %}{% endfor %}
 <dialog class="hub-dialog hub-dialog-wide" id="new-entry" aria-labelledby="new-entry-title"><div class="hub-panel-head"><h3 id="new-entry-title">Novo lançamento</h3><button type="button" class="secondary" data-close aria-label="Fechar">×</button></div>{% set new_entry_type = 'RECEBER' %}{% set in_dialog = True %}{% include 'financeiro/_entry_form.html' %}</dialog>
 </main><script src="{{ url_for('static',filename='finance-overview.js') }}?v=4"></script>{% endblock %}
