@@ -244,7 +244,7 @@ class StructureTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.data.decode(errors='ignore'))
         self.assertIsNotNone(db.session.get(SystemAdmin, owner.id).mfa_secret_encrypted)
         self.assertIn('Empresa Um'.encode(), response.data)
-        self.assertIn('Integração Focus NFe'.encode(), response.data)
+        self.assertIn('Focus NFe'.encode(), response.data)
         self.assertNotIn(b'PRIVATE-MASTER', response.data)
 
     def test_company_onboarding_creates_then_updates_and_preserves_local_data_on_failure(self):

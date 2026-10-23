@@ -17,6 +17,9 @@
     .login input:focus { border-color: var(--ring); outline: 3px solid rgba(59,130,246,.14); }
     .login button { width: 100%; margin-top: 22px; padding: 12px; border: 0; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); font-weight: 700; cursor: pointer; }
     .login button:hover { background: var(--primary-hover); }
+    .login-logo { display:block; height:36px; width:auto; margin:0 0 18px; }
+    .restricted { display:inline-block; margin-bottom:10px; padding:4px 10px; border-radius:999px; background:#fef2f2; color:#b91c1c; font-size:12px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
+    .login button { border-radius:999px; }
     .message { padding: 11px; background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; }
   </style>
   {% include '_brand_head.html' %}
@@ -26,8 +29,10 @@
 <body>
   <form class="login" method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <h1>Administração do sistema</h1>
-    <p>Acesso exclusivo do proprietário.</p>
+    <img class="login-logo" src="{{ url_for('static', filename='lshub.svg') }}" alt="LSHub" width="150" height="40">
+    <span class="restricted">Área restrita</span>
+    <h1>{{ 'Verificação em duas etapas' if step == 'codigo' else 'Painel do sistema' }}</h1>
+    <p>{{ 'Digite o código de 6 dígitos do seu aplicativo autenticador.' if step == 'codigo' else 'Acesso exclusivo do proprietário.' }}</p>
     {% with messages=get_flashed_messages() %}
       {% for message in messages %}<div class="message">{{ message }}</div>{% endfor %}
     {% endwith %}
