@@ -72,8 +72,10 @@ document.querySelectorAll('[data-client-picker]').forEach((wrapper) => {
         : 'Nenhum cliente encontrado.';
       return;
     }
-    box.style.display = 'block';
-    search.setAttribute('aria-expanded', 'true');
+    if (document.activeElement === search) {  // resposta que chega depois de sair do campo não abre a lista
+      box.style.display = 'block';
+      search.setAttribute('aria-expanded', 'true');
+    }
     help.textContent = `${items.length} cliente${items.length === 1 ? '' : 's'} encontrado${items.length === 1 ? '' : 's'}.`;
   }
 

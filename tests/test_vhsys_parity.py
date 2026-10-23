@@ -48,6 +48,19 @@ class VhsysParityTest(unittest.TestCase):
         production = self.client.get(f'/os/{order.id}/pdf?producao=1&download=0')
         self.assertEqual((production.status_code, production.mimetype), (200, 'application/pdf'))
 
+    def test_blank_default_rows_are_ignored_but_priced_rows_need_a_name(self):
+        response = self.new_order(**{'peca_descricao[]': '', 'peca_quantidade[]': '1.00', 'peca_valor_unitario[]': '0,00', 'peca_total[]': '0,00'})
+        self.assertEqual(response.status_code, 200)
+        order = WorkOrder.query.one()
+        self.assertEqual([item.item_type for item in order.items], ['SERVICO'])  # a linha de peça em branco não vira item
+        response = self.client.post('/os/nova', data={'client_id': self.customer.id, 'client_nome': self.customer.nome,
+            'data_entrada': date.today().isoformat(), 'peca_descricao[]': '', 'peca_quantidade[]': '1',
+            'peca_valor_unitario[]': '50,00', 'peca_total[]': '50,00'}, follow_redirects=True)
+        self.assertIn('Informe a descrição do produto'.encode(), response.data)
+        self.assertEqual(WorkOrder.query.count(), 1)
+        page = self.client.get('/os/nova').data.decode()
+        self.assertNotIn('name="servico_descricao[]" autocomplete="off" required', page)
+
     def test_discount_cannot_exceed_items(self):
         response = self.new_order(desconto='150,00')
         self.assertIn('desconto deve ficar entre zero'.encode(), response.data)

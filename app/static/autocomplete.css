@@ -61,3 +61,25 @@ button.custom-suggestion-item:last-child { border-bottom: 0; }
   gap: 8px;
   align-self: start;
 }
+
+/* Padrão único das sugestões (cliente, veículo, serviço, peça): lista branca, nome à esquerda, detalhe em cinza.
+   Seletores com "body" para vencer o estilo global de botões (fundo azul, texto centralizado). */
+body .custom-suggestions-box{top:calc(100% + 6px);padding:6px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;
+  box-shadow:0 18px 40px rgba(15,23,42,.16);max-height:320px;z-index:1000}
+body .custom-suggestions-box .custom-suggestion-item,
+body .custom-suggestions-box button.custom-suggestion-item{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;min-height:44px;height:auto;margin:0;padding:8px 12px;border:0;border-radius:8px;background:#fff!important;
+  box-shadow:none;transform:none;color:#0f172a!important;text-align:left;font-size:13px;font-weight:500;line-height:1.3;cursor:pointer}
+body .custom-suggestions-box .custom-suggestion-item:hover,
+body .custom-suggestions-box .custom-suggestion-item[aria-selected="true"]{background:#eff6ff!important}
+body .custom-suggestions-box .custom-suggestion-copy{display:grid;gap:2px;min-width:0;justify-items:start}
+body .custom-suggestions-box .custom-suggestion-copy strong{font-size:13px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+body .custom-suggestions-box .custom-suggestion-copy small{font-size:12px;color:#64748b!important}
+body .custom-suggestions-box .custom-suggestion-action{font-size:12px;font-weight:600;color:#2563eb!important;flex:none}
+body .custom-suggestions-box .custom-suggestion-item .name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body .custom-suggestions-box .custom-suggestion-item .price{flex:none;font-family:inherit;font-size:12px;font-weight:600;color:#15803d;font-variant-numeric:tabular-nums}
+body .entity-autocomplete-input[aria-expanded="true"]{border-color:#2563eb}
+/* Na O.S. a tabela de itens não pode cortar a lista de sugestões */
+@media(min-width:761px){#work-order-form .table-scroll{overflow:visible}}
+body .custom-suggestions-box{right:auto;min-width:100%;width:max-content;max-width:min(440px,90vw)}
+body .custom-suggestions-box .custom-suggestion-action{display:none}  /* clicar na linha já escolhe */

@@ -2450,8 +2450,15 @@ def _extract_work_order_items_from_form(prefix: str, item_type: str) -> list[dic
         valor_unitario = valores[index] if index < len(valores) else ''
         total = totais[index] if index < len(totais) else ''
 
-        if not any([descricao, str(quantidade).strip(), str(valor_unitario).strip(), str(total).strip()]):
-            continue
+        if not descricao:
+            # Linha em branco (o formulário já abre com uma de cada tipo): ignora; com valor, exige a descrição.
+            try:
+                has_value = any(parse_decimal(value or 0) for value in (valor_unitario, total))
+            except (ArithmeticError, ValueError):
+                has_value = True
+            if not has_value:
+                continue
+            raise ValueError(f'Informe a descrição do {"serviço" if item_type == "SERVICO" else "produto"} que tem valor.')
 
         items.append(
             {

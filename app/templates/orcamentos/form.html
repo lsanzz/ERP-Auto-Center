@@ -8,7 +8,7 @@
       {{ client_picker(required=true, client_id=budget.client_id if budget else '',
                        text=budget.client.nome if budget and budget.client else '') }}
       {% include 'veiculos/_selector.html' %}
-      <script src="{{ url_for('static', filename='client-picker.js') }}" defer></script>
+      <script src="{{ url_for('static', filename='client-picker.js') }}?v=2" defer></script>
       <label>Placa
         <div class="inline-form">
           <input id="placa" type="text" name="placa" value="{{ budget.placa if budget else '' }}" style="text-transform: uppercase;">

@@ -64,7 +64,7 @@
                        text=order.client_nome if order and order.client_nome else (order.client.nome if order and order.client else ''),
                        empty_help='Digite para localizar um cliente ou informe um novo nome.') }}
       {% include 'veiculos/_selector.html' %}
-      <script src="{{ url_for('static', filename='client-picker.js') }}" defer></script>
+      <script src="{{ url_for('static', filename='client-picker.js') }}?v=2" defer></script>
       <label>Funcionário responsável
         <select name="employee_id">
           <option value="">Selecione</option>
@@ -148,7 +148,7 @@
             <tr class="item-row" data-item-type="SERVICO">
               <td>
                 <div class="custom-autocomplete-wrapper">
-                  <input class="catalog-name" type="text" name="servico_descricao[]" value="{{ row.descricao }}" autocomplete="off" required>
+                  <input class="catalog-name" type="text" name="servico_descricao[]" value="{{ row.descricao }}" autocomplete="off" placeholder="Digite o serviço">
                   <div class="custom-suggestions-box"></div>
                 </div>
               </td>
@@ -183,7 +183,7 @@
             <tr class="item-row" data-item-type="PECA">
               <td>
                 <div class="custom-autocomplete-wrapper">
-                  <input class="catalog-name" type="text" name="peca_descricao[]" value="{{ row.descricao }}" autocomplete="off" required>
+                  <input class="catalog-name" type="text" name="peca_descricao[]" value="{{ row.descricao }}" autocomplete="off" placeholder="Digite a peça">
                   <div class="custom-suggestions-box"></div>
                 </div>
               </td>
@@ -303,7 +303,7 @@
   <tr class="item-row" data-item-type="SERVICO">
     <td>
       <div class="custom-autocomplete-wrapper">
-        <input class="catalog-name" type="text" name="servico_descricao[]" autocomplete="off" required>
+        <input class="catalog-name" type="text" name="servico_descricao[]" autocomplete="off" placeholder="Digite o serviço">
         <div class="custom-suggestions-box"></div>
       </div>
     </td>
@@ -318,7 +318,7 @@
   <tr class="item-row" data-item-type="PECA">
     <td>
       <div class="custom-autocomplete-wrapper">
-        <input class="catalog-name" type="text" name="peca_descricao[]" autocomplete="off" required>
+        <input class="catalog-name" type="text" name="peca_descricao[]" autocomplete="off" placeholder="Digite a peça">
         <div class="custom-suggestions-box"></div>
       </div>
     </td>
@@ -432,6 +432,11 @@
 
   // format initial
   initMasks();
+
+  // Enter num campo não envia a O.S. pela metade; só o botão "Salvar O.S." envia.
+  document.getElementById('work-order-form').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && event.target.tagName === 'INPUT' && event.target.type !== 'submit') event.preventDefault();
+  });
 
   // Força letras maiúsculas em tempo real em todos os inputs de texto e textarea
   document.addEventListener('input', (event) => {
@@ -589,35 +594,61 @@
       }
     }
 
+    let active = -1;
+    const options = () => Array.from(box.querySelectorAll('.custom-suggestion-item'));
+    const close = () => { box.style.display = 'none'; active = -1; };
+    function choose(name, price) {
+      input.value = name.toUpperCase();
+      const row = input.closest('.item-row');
+      row.querySelector('.item-unit-price').value = Number(price).toFixed(2).replace('.', ',');
+      row.querySelector('.item-total-price').dataset.manual = '0';  // item novo: o total volta a ser calculado
+      initMasks(row);
+      updateRowTotal(row);
+      close();
+      row.querySelector('.item-qty').focus();  // próximo passo natural: conferir a quantidade
+    }
+
     function render(items) {
       box.innerHTML = '';
+      active = -1;
       if (items.length === 0 || document.activeElement !== input) {
-        box.style.display = 'none';
+        close();
         return;
       }
-      items.forEach(({ nome: name, preco: price }) => {
+      items.slice(0, 8).forEach(({ nome: name, preco: price }) => {
         const item = document.createElement('div');
         item.className = 'custom-suggestion-item';
+        item.setAttribute('role', 'option');
         const nameLabel = document.createElement('span');
+        nameLabel.className = 'name';
         nameLabel.textContent = name.toUpperCase();
         const priceLabel = document.createElement('span');
         priceLabel.className = 'price';
         priceLabel.textContent = currency.format(price);
         item.append(nameLabel, priceLabel);
-        item.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          input.value = name.toUpperCase();
-          const row = input.closest('.item-row');
-          const unitInput = row.querySelector('.item-unit-price');
-          unitInput.value = Number(price).toFixed(2).replace('.', ',');
-          initMasks(row);
-        updateRowTotal(row);
-          box.style.display = 'none';
-        });
+        item.addEventListener('mousedown', (e) => { e.preventDefault(); choose(name, price); });
+        item.dataset.name = name;
+        item.dataset.price = price;
         box.appendChild(item);
       });
       box.style.display = 'block';
     }
+
+    input.addEventListener('keydown', (event) => {
+      const list = options();
+      if (event.key === 'Escape') return close();
+      if (event.key === 'Enter') {
+        event.preventDefault();  // Enter escolhe a sugestão, nunca envia a O.S.
+        const pick = list[active >= 0 ? active : 0];
+        if (box.style.display === 'block' && pick) choose(pick.dataset.name, pick.dataset.price);
+        return;
+      }
+      if (!['ArrowDown', 'ArrowUp'].includes(event.key) || !list.length) return;
+      event.preventDefault();
+      active = event.key === 'ArrowDown' ? (active + 1) % list.length : (active <= 0 ? list.length - 1 : active - 1);
+      list.forEach((option, index) => option.setAttribute('aria-selected', String(index === active)));
+      list[active].scrollIntoView({ block: 'nearest' });
+    });
 
     input.addEventListener('input', () => {
       const query = input.value.trim();
@@ -630,9 +661,7 @@
       timer = setTimeout(() => search(query), 220);
     });
 
-    input.addEventListener('blur', () => {
-      setTimeout(() => { box.style.display = 'none'; }, 200);
-    });
+    input.addEventListener('blur', () => { setTimeout(close, 200); });
 
     input.addEventListener('focus', () => {
       if (input.value.trim()) input.dispatchEvent(new Event('input'));
@@ -641,18 +670,24 @@
 
   document.querySelectorAll('.catalog-name').forEach(setupAutocomplete);
 
+  function addRow(button) {
+    const template = document.getElementById(button.dataset.template);
+    const tbody = document.getElementById(button.dataset.target);
+    tbody.insertAdjacentHTML('beforeend', template.innerHTML);
+    const row = tbody.querySelector('tr:last-child');
+    if (row) {
+      setupAutocomplete(row.querySelector('.catalog-name'));
+      initMasks(row);
+      updateRowTotal(row);
+    }
+    return row;
+  }
   document.querySelectorAll('.add-item-row').forEach((button) => {
-    button.addEventListener('click', () => {
-      const template = document.getElementById(button.dataset.template);
-      const tbody = document.getElementById(button.dataset.target);
-      tbody.insertAdjacentHTML('beforeend', template.innerHTML);
-      const row = tbody.querySelector('tr:last-child');
-      if (row) {
-        setupAutocomplete(row.querySelector('.catalog-name'));
-        initMasks(row);
-        updateRowTotal(row);
-      }
-    });
+    button.addEventListener('click', () => addRow(button)?.querySelector('.catalog-name').focus());
+  });
+  // O.S. nova já abre com uma linha de serviço e uma de peça (linhas em branco são ignoradas ao salvar).
+  document.querySelectorAll('.add-item-row').forEach((button) => {
+    if (!document.getElementById(button.dataset.target).querySelector('tr')) addRow(button);
   });
 
   document.addEventListener('click', (event) => {
